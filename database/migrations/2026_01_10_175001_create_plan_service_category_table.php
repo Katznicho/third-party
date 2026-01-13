@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('plan_service_category', function (Blueprint $table) {
+        if (!Schema::hasTable('plan_service_category')) {
+            Schema::create('plan_service_category', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('plan_id');
             $table->unsignedBigInteger('service_category_id');
@@ -22,13 +23,14 @@ return new class extends Migration
             $table->boolean('is_enabled')->default(true);
             $table->timestamps();
 
-            $table->unique(['plan_id', 'service_category_id']);
-        });
+                $table->unique(['plan_id', 'service_category_id']);
+            });
 
-        Schema::table('plan_service_category', function (Blueprint $table) {
-            $table->foreign('plan_id')->references('id')->on('plans')->onDelete('cascade');
-            $table->foreign('service_category_id')->references('id')->on('service_categories')->onDelete('cascade');
-        });
+            Schema::table('plan_service_category', function (Blueprint $table) {
+                $table->foreign('plan_id')->references('id')->on('plans')->onDelete('cascade');
+                $table->foreign('service_category_id')->references('id')->on('service_categories')->onDelete('cascade');
+            });
+        }
     }
 
     /**

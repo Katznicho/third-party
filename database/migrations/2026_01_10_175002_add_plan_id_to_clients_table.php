@@ -12,9 +12,20 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('clients', function (Blueprint $table) {
-            $table->unsignedBigInteger('plan_id')->nullable()->after('principal_member_id');
-            $table->foreign('plan_id')->references('id')->on('plans')->onDelete('set null');
+            if (!Schema::hasColumn('clients', 'plan_id')) {
+                $table->unsignedBigInteger('plan_id')->nullable()->after('principal_member_id');
+            }
         });
+
+        // Add foreign key if it doesn't exist
+        $foreignKeys = Schema::getConnection()
+            ->select("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'clients' AND CONSTRAINT_NAME = 'clients_plan_id_foreign'");
+        
+        if (empty($foreignKeys) && Schema::hasColumn('clients', 'plan_id')) {
+            Schema::table('clients', function (Blueprint $table) {
+                $table->foreign('plan_id')->references('id')->on('plans')->onDelete('set null');
+            });
+        }
     }
 
     /**

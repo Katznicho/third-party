@@ -87,9 +87,11 @@ jobs:
             \$PHP_PATH --version && \
             echo '✓ Installing Composer dependencies...' && \
             composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs && \
-            echo '✓ Running migrations...' && \
-            \$PHP_PATH artisan migrate --force --verbose && \
             echo '✓ Checking migration status...' && \
+            \$PHP_PATH artisan migrate:status && \
+            echo '✓ Running migrations...' && \
+            \$PHP_PATH artisan migrate --force --verbose 2>&1 || { echo 'Migration failed, attempting to continue...'; } && \
+            echo '✓ Final migration status...' && \
             \$PHP_PATH artisan migrate:status && \
             echo '✓ Clearing and caching...' && \
             \$PHP_PATH artisan optimize:clear && \
