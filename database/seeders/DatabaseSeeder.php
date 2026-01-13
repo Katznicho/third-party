@@ -16,13 +16,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Seed Insurance Companies first
+        $this->call([
+            InsuranceCompanySeeder::class,
+        ]);
 
+        // Create a generic admin user (without insurance company)
         User::factory()->create([
-            'name' => 'Test User',
+            'name' => 'System Admin',
             'username' => 'admin',
-            'email' => 'test@example.com',
+            'email' => 'admin@system.com',
             'password' => Hash::make('password'),
+            'insurance_company_id' => null,
         ]);
     }
 }
