@@ -75,21 +75,25 @@ jobs:
             echo '✓ Setting permissions...' && \
             chmod -R 755 storage bootstrap/cache 2>/dev/null || echo 'Warning: Could not set permissions' && \
             echo '✓ Removing existing storage link...' && \
-            rm -f public/storage && \
+            rm -f public/storage 2>/dev/null || true && \
             echo '✓ Creating storage link...' && \
-            php artisan storage:link"
+            /usr/bin/php artisan storage:link 2>&1 || php artisan storage:link 2>&1 || echo 'Warning: Could not create storage link'"
 
           # Step 2: Install dependencies on server and run migrations
           sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd $DEPLOY_DIR && \
+            echo '✓ Finding PHP path...' && \
+            PHP_PATH=\$(which php || echo 'php') && \
+            echo \"Using PHP: \$PHP_PATH\" && \
+            \$PHP_PATH --version && \
             echo '✓ Installing Composer dependencies...' && \
             composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs && \
             echo '✓ Running migrations...' && \
-            php artisan migrate --force --verbose && \
+            \$PHP_PATH artisan migrate --force --verbose && \
             echo '✓ Checking migration status...' && \
-            php artisan migrate:status && \
+            \$PHP_PATH artisan migrate:status && \
             echo '✓ Clearing and caching...' && \
-            php artisan optimize:clear && \
-            php artisan view:clear && \
-            php artisan config:cache && \
-            php artisan route:cache && \
+            \$PHP_PATH artisan optimize:clear && \
+            \$PHP_PATH artisan view:clear && \
+            \$PHP_PATH artisan config:cache && \
+            \$PHP_PATH artisan route:cache && \
             echo '✓ Deployment completed successfully!'"
