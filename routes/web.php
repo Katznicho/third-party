@@ -17,4 +17,34 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Clients
+    Route::resource('clients', \App\Http\Controllers\ClientController::class);
+    
+    // Policies
+    Route::resource('policies', \App\Http\Controllers\PolicyController::class);
+    
+    // Plans
+    Route::resource('plans', \App\Http\Controllers\PlanController::class);
+    
+    // Service Categories (Products)
+    Route::resource('service-categories', \App\Http\Controllers\ServiceCategoryController::class);
+    
+    // Pre-Authorizations
+    Route::resource('pre-authorizations', \App\Http\Controllers\PreAuthorizationController::class);
+    
+    // Transactions
+    Route::get('/transactions', [\App\Http\Controllers\TransactionController::class, 'index'])->name('transactions.index');
+    Route::get('/transactions/outstanding', [\App\Http\Controllers\TransactionController::class, 'outstanding'])->name('transactions.outstanding');
+    Route::get('/transactions/cleared', [\App\Http\Controllers\TransactionController::class, 'cleared'])->name('transactions.cleared');
+    
+    // Invoices
+    Route::resource('invoices', \App\Http\Controllers\InvoiceController::class);
+    Route::post('/invoices/{invoice}/generate-pdf', [\App\Http\Controllers\InvoiceController::class, 'generatePdf'])->name('invoices.generate-pdf');
+    
+    // Payments
+    Route::resource('payments', \App\Http\Controllers\PaymentController::class);
+    
+    // Payment Responsibilities
+    Route::resource('payment-responsibilities', \App\Http\Controllers\PaymentResponsibilityController::class);
 });

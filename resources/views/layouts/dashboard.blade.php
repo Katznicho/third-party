@@ -3,7 +3,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'Dashboard') - {{ config('app.name', 'Laravel') }}</title>
+    <title>@yield('title', 'Dashboard') - Kashtre</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -11,20 +15,25 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 min-h-screen">
+<body class="bg-slate-50 min-h-screen">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside class="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700">
+        <aside class="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-slate-800 border-r border-slate-700">
             <!-- Logo -->
-            <div class="flex items-center justify-center h-16 px-4 bg-gradient-to-r from-blue-600 to-blue-700">
-                <h1 class="text-xl font-bold text-white">{{ config('app.name', 'Dashboard') }}</h1>
+            <div class="flex flex-col items-center justify-center min-h-20 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700">
+                <img src="{{ asset('images/logo.png') }}" alt="Kashtre Logo" class="h-10 w-auto mb-2 object-contain">
+                <h1 class="text-lg font-bold text-white">Kashtre</h1>
+                @if(auth()->user()->insuranceCompany)
+                    <p class="text-xs text-blue-100 mt-1">{{ auth()->user()->insuranceCompany->name }}</p>
+                    <p class="text-xs text-blue-200 mt-0.5">{{ auth()->user()->insuranceCompany->code }}</p>
+                @endif
             </div>
 
             <!-- Navigation -->
             <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
                 <a 
                     href="{{ route('dashboard') }}" 
-                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('dashboard') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700' }}"
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('dashboard') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
                 >
                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
@@ -32,19 +41,97 @@
                     Dashboard
                 </a>
 
-                <!-- Add more navigation items here in the future -->
-                <!-- Example:
-                <a href="#" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition duration-150">
+                <!-- Clients -->
+                <a 
+                    href="{{ route('clients.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('clients.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    Clients
+                </a>
+
+                <!-- Policies -->
+                <a 
+                    href="{{ route('policies.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('policies.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
-                    Pages
+                    Policies
                 </a>
-                -->
+
+                <!-- Plans -->
+                <a 
+                    href="{{ route('plans.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('plans.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    Plans
+                </a>
+
+                <!-- Service Categories (Products) -->
+                <a 
+                    href="{{ route('service-categories.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('service-categories.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                    Products
+                </a>
+
+                <!-- Transactions -->
+                <a 
+                    href="{{ route('transactions.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('transactions.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    Transactions
+                </a>
+
+                <!-- Invoices -->
+                <a 
+                    href="{{ route('invoices.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('invoices.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"></path>
+                    </svg>
+                    Invoices
+                </a>
+
+                <!-- Payments -->
+                <a 
+                    href="{{ route('payments.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('payments.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    Payments
+                </a>
+
+                <!-- Payment Responsibilities -->
+                <a 
+                    href="{{ route('payment-responsibilities.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('payment-responsibilities.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Payment Responsibilities
+                </a>
             </nav>
 
             <!-- User Section -->
-            <div class="p-4 border-t border-slate-200 dark:border-slate-700">
+            <div class="p-4 border-t border-slate-700">
                 <div class="flex items-center mb-4">
                     <div class="flex-shrink-0">
                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
@@ -52,15 +139,18 @@
                         </div>
                     </div>
                     <div class="ml-3 flex-1">
-                        <p class="text-sm font-medium text-slate-900 dark:text-white">{{ auth()->user()->name }}</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ auth()->user()->username }}</p>
+                        <p class="text-sm font-medium text-white">{{ auth()->user()->name }}</p>
+                        <p class="text-xs text-slate-400">{{ auth()->user()->username }}</p>
+                        @if(auth()->user()->insuranceCompany)
+                            <p class="text-xs text-blue-400 font-medium truncate" title="{{ auth()->user()->insuranceCompany->name }}">{{ auth()->user()->insuranceCompany->name }}</p>
+                        @endif
                     </div>
                 </div>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button 
                         type="submit"
-                        class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition duration-150"
+                        class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-400 bg-red-900/20 rounded-lg hover:bg-red-900/30 transition duration-150"
                     >
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
@@ -73,11 +163,18 @@
 
         <!-- Mobile Sidebar -->
         <div class="lg:hidden fixed inset-0 z-40 bg-black bg-opacity-50 hidden" id="mobile-sidebar-backdrop"></div>
-        <aside class="lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transform -translate-x-full transition-transform duration-300 ease-in-out" id="mobile-sidebar">
+        <aside class="lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 border-r border-slate-700 transform -translate-x-full transition-transform duration-300 ease-in-out" id="mobile-sidebar">
             <!-- Mobile sidebar content (same as desktop) -->
-            <div class="flex items-center justify-between h-16 px-4 bg-gradient-to-r from-blue-600 to-blue-700">
-                <h1 class="text-xl font-bold text-white">{{ config('app.name', 'Dashboard') }}</h1>
-                <button onclick="toggleMobileSidebar()" class="text-white hover:text-slate-200">
+            <div class="flex items-center justify-between min-h-20 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700">
+                <div class="flex-1 flex flex-col items-center">
+                    <img src="{{ asset('images/logo.png') }}" alt="Kashtre Logo" class="h-10 w-auto mb-1 object-contain">
+                    <h1 class="text-lg font-bold text-white">Kashtre</h1>
+                    @if(auth()->user()->insuranceCompany)
+                        <p class="text-xs text-blue-100">{{ auth()->user()->insuranceCompany->name }}</p>
+                        <p class="text-xs text-blue-200">{{ auth()->user()->insuranceCompany->code }}</p>
+                    @endif
+                </div>
+                <button onclick="toggleMobileSidebar()" class="text-white hover:text-slate-200 ml-2 absolute top-2 right-2">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -85,28 +182,79 @@
             </div>
             <!-- Navigation items same as desktop -->
             <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-                <a href="{{ route('dashboard') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition duration-150">
+                <a href="{{ route('dashboard') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                     </svg>
                     Dashboard
                 </a>
+                <a href="{{ route('clients.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    Clients
+                </a>
+                <a href="{{ route('policies.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Policies
+                </a>
+                <a href="{{ route('plans.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    Plans
+                </a>
+                <a href="{{ route('service-categories.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                    Products
+                </a>
+                <a href="{{ route('transactions.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    Transactions
+                </a>
+                <a href="{{ route('invoices.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"></path>
+                    </svg>
+                    Invoices
+                </a>
+                <a href="{{ route('payments.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    Payments
+                </a>
+                <a href="{{ route('payment-responsibilities.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Payment Responsibilities
+                </a>
             </nav>
-            <div class="p-4 border-t border-slate-200 dark:border-slate-700">
-                <div class="flex items-center mb-4">
+            <div class="p-4 border-t border-slate-700">
+                <div class="flex items-start mb-4">
                     <div class="flex-shrink-0">
                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                             <span class="text-white font-semibold text-sm">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
                         </div>
                     </div>
-                    <div class="ml-3 flex-1">
-                        <p class="text-sm font-medium text-slate-900 dark:text-white">{{ auth()->user()->name }}</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ auth()->user()->username }}</p>
+                    <div class="ml-3 flex-1 min-w-0">
+                        <p class="text-sm font-medium text-white truncate">{{ auth()->user()->name }}</p>
+                        <p class="text-xs text-slate-400 truncate">{{ auth()->user()->username }}</p>
+                        @if(auth()->user()->insuranceCompany)
+                            <p class="text-xs text-blue-400 font-medium break-words leading-tight mt-1">{{ auth()->user()->insuranceCompany->name }}</p>
+                        @endif
                     </div>
                 </div>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition duration-150">
+                    <button type="submit" class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-400 bg-red-900/20 rounded-lg hover:bg-red-900/30 transition duration-150">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                         </svg>
@@ -119,17 +267,17 @@
         <!-- Main Content -->
         <div class="flex-1 lg:ml-64 flex flex-col overflow-hidden">
             <!-- Top Bar -->
-            <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 h-16 flex items-center justify-between px-4 lg:px-6">
+            <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 lg:px-6">
                 <div class="flex items-center">
                     <button 
                         onclick="toggleMobileSidebar()"
-                        class="lg:hidden p-2 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        class="lg:hidden p-2 rounded-md text-slate-600 hover:bg-slate-100"
                     >
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                         </svg>
                     </button>
-                    <h2 class="ml-4 lg:ml-0 text-lg font-semibold text-slate-900 dark:text-white">@yield('page-title', 'Dashboard')</h2>
+                    <h2 class="ml-4 lg:ml-0 text-lg font-semibold text-slate-900">@yield('page-title', 'Dashboard')</h2>
                 </div>
                 <div class="flex items-center space-x-4">
                     <!-- Notifications or other header items can go here -->
@@ -137,7 +285,7 @@
             </header>
 
             <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto p-4 lg:p-6">
+            <main class="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-50">
                 @yield('content')
             </main>
         </div>
