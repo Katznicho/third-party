@@ -38,6 +38,29 @@ class InsuranceCompanySeeder extends Seeder
             'insurance_company_id' => $prudential->id,
         ]);
 
+        // Create Mars Sports Uganda
+        $marsSports = InsuranceCompany::create([
+            'name' => 'Mars Sports Uganda',
+            'code' => 'MARS-SPORT',
+            'slug' => 'mars-sports-uganda',
+            'head_office_address' => 'Kampala, Uganda',
+            'postal_address' => 'P.O. Box, Kampala',
+            'phone' => '+256 XXX XXX XXX',
+            'email' => 'info@marssports.ug',
+            'website' => 'www.marssports.ug',
+            'description' => 'Mars Sports Health Insurance',
+            'is_active' => true,
+        ]);
+
+        // Create a login user for Mars Sports
+        User::create([
+            'name' => 'Mars Sports Admin',
+            'username' => 'marssports',
+            'email' => 'admin@marssports.ug',
+            'password' => Hash::make('password'),
+            'insurance_company_id' => $marsSports->id,
+        ]);
+
         // Create additional dummy insurance companies
         $companies = [
             [
@@ -96,6 +119,7 @@ class InsuranceCompanySeeder extends Seeder
             $this->command->info('Insurance companies and users created successfully!');
             $this->command->info('Login credentials:');
             $this->command->info('  Prudential: username: prudential, password: password');
+            $this->command->info('  Mars Sports: username: marssports, password: password');
             $this->command->info('  AAR: username: aarug, password: password');
             $this->command->info('  Liberty: username: libug, password: password');
             $this->command->info('  Jubilee: username: jubug, password: password');

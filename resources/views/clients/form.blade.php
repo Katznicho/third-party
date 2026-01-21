@@ -361,7 +361,7 @@
                 <label for="deductible_amount" class="block text-sm font-medium text-slate-700 mb-1">Deductible Amount (UGX)</label>
                 <input type="number" name="deductible_amount" id="deductible_amount" value="{{ old('deductible_amount', $client->deductible_amount ?? 100000) }}" placeholder="Enter deductible amount" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
-        </div>
+            </div>
 
         <!-- Telemedicine Option -->
         <div class="mb-6">
@@ -379,33 +379,84 @@
             <p class="text-xs text-slate-600 mt-2">You can choose to receive treatment and diagnosis services from the comfort of your home or office. All you need is your cellphone and you can reach doctors who will extend consultations to you and your eligible family members covered on the plan.</p>
             </div>
 
-        <!-- Plan Selection -->
+        <!-- Plan Selection with Benefits Table -->
         <div class="mb-6">
-            <label for="plan_id" class="block text-sm font-medium text-slate-700 mb-2">Select Your Preferred Plan <span class="text-red-500">*</span></label>
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">PLEASE SELECT YOUR PREFERRED BENEFITS BY CHECKING THE RELEVANT BOX</h3>
             @php
                 $plans = \App\Models\Plan::where('insurance_company_id', auth()->user()->insurance_company_id)
                     ->where('is_active', true)
                     ->orderBy('sort_order')
                     ->get();
-                $serviceCategories = \App\Models\ServiceCategory::where('is_active', true)->orderBy('sort_order')->get();
+                
+                // Get standard service categories in the correct order
+                $standardCategories = ['Inpatient', 'Outpatient', 'Funeral Expenses', 'Maternity', 'Optical', 'Dental'];
+                $serviceCategories = \App\Models\ServiceCategory::whereIn('name', $standardCategories)
+                    ->where('is_active', true)
+                    ->orderByRaw("FIELD(name, '" . implode("','", $standardCategories) . "')")
+                    ->get();
             @endphp
-            <select name="plan_id" id="plan_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Select Plan</option>
-                @foreach($plans as $planItem)
-                    <option value="{{ $planItem->id }}" {{ old('plan_id', $client->plan_id ?? '') == $planItem->id ? 'selected' : '' }}>
-                        {{ $planItem->name }} ({{ $planItem->code }})
-                    </option>
-                @endforeach
-            </select>
-            @error('plan_id')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
+            
+            <div class="overflow-x-auto border border-slate-300 rounded-lg">
+                <table class="w-full text-sm bg-white">
+                    <thead class="bg-slate-200">
+                        <tr>
+                            <th class="border border-slate-300 px-4 py-3 text-left font-bold text-slate-900">BENEFIT AMOUNT (UGX)</th>
+                            @foreach($serviceCategories as $category)
+                                <th class="border border-slate-300 px-3 py-3 text-center font-bold text-slate-900 whitespace-nowrap">
+                                    @if($category->name === 'Funeral Expenses')
+                                        Funeral<br>Expenses
+                                    @else
+                                        {{ strtoupper($category->name) }}
+                                    @endif
+                                </th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($plans as $plan)
+                            @php
+                                $planCategories = $plan->serviceCategories->keyBy('name');
+                                $isSelected = old('plan_id', $client->plan_id ?? '') == $plan->id;
+                            @endphp
+                            <tr class="hover:bg-blue-50 transition-colors {{ $isSelected ? 'bg-blue-100' : '' }}">
+                                <td class="border border-slate-300 px-4 py-3 bg-slate-50">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="radio" name="plan_id" value="{{ $plan->id }}" id="plan_{{ $plan->id }}" 
+                                               {{ $isSelected ? 'checked' : '' }} 
+                                               required
+                                               class="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300">
+                                        <span class="font-bold text-slate-900 text-base">{{ $plan->name }}</span>
+                                    </label>
+                                </td>
+                                @foreach($serviceCategories as $category)
+                                    @php
+                                        $pivot = $planCategories->get($category->name);
+                                        $benefitAmount = $pivot ? ($pivot->pivot->benefit_amount ?? 0) : 0;
+                                    @endphp
+                                    <td class="border border-slate-300 px-3 py-3 text-center font-medium">
+                                        @if($benefitAmount > 0)
+                                            {{ number_format($benefitAmount, 0, '.', ',') }}
+                                        @else
+                                            <span class="text-slate-400">-</span>
+                                        @endif
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
-
-        <!-- Benefit Amounts Table (will be populated based on selected plan) -->
-        <div id="benefits-table-container" class="overflow-x-auto">
-            <p class="text-sm text-slate-600 mb-2">Please select a plan to view benefit amounts</p>
-            <!-- Table will be populated via JavaScript when plan is selected -->
+            @error('plan_id')
+                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+            <p class="mt-4 text-xs text-slate-600">
+                <strong>Please note the following:</strong><br>
+                1. Inpatient is a mandatory benefit. All other benefits are optional<br>
+                2. Combining benefits from different plans is not permitted<br>
+                3. The same plan applies to all members on the same policy<br>
+                4. To benefit from maternity cover, you will have to start paying for it in both the policy year prior to and on the policy year that you intend to benefit from it. Maternity benefit is offered to principal members and spouses only<br>
+                5. Optical and Dental benefit benefits have to be selected together
+            </p>
         </div>
     </div>
 
@@ -620,39 +671,25 @@
         });
     });
 
-    // Load plan benefits when plan is selected
-    document.getElementById('plan_id').addEventListener('change', function() {
-        const planId = this.value;
-        const container = document.getElementById('benefits-table-container');
-        
-        if (!planId) {
-            container.innerHTML = '<p class="text-sm text-slate-600">Please select a plan to view benefit amounts</p>';
-            return;
-        }
-        
-        // Fetch plan benefits via AJAX
-        fetch(`/api/v1/plans/${planId}/benefits`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Build benefits table
-                    let html = '<table class="w-full border border-slate-300 text-sm"><thead class="bg-slate-100"><tr>';
-                    html += '<th class="border border-slate-300 px-3 py-2 text-left">Benefit</th>';
-                    html += '<th class="border border-slate-300 px-3 py-2 text-left">Benefit Amount (UGX)</th>';
-                    html += '</tr></thead><tbody>';
-                    
-                    data.benefits.forEach(benefit => {
-                        html += `<tr><td class="border border-slate-300 px-3 py-2">${benefit.name}</td>`;
-                        html += `<td class="border border-slate-300 px-3 py-2">${parseFloat(benefit.amount).toLocaleString()}</td></tr>`;
-                    });
-                    
-                    html += '</tbody></table>';
-                    container.innerHTML = html;
-                }
-            })
-            .catch(error => {
-                console.error('Error loading plan benefits:', error);
-                container.innerHTML = '<p class="text-sm text-red-600">Error loading plan benefits</p>';
+    // Highlight selected plan row
+    document.querySelectorAll('input[name="plan_id"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            // Remove highlight from all rows
+            document.querySelectorAll('tbody tr').forEach(row => {
+                row.classList.remove('bg-blue-100', 'border-blue-500');
             });
+            
+            // Highlight selected row
+        if (this.checked) {
+                const row = this.closest('tr');
+                row.classList.add('bg-blue-100', 'border-blue-500');
+            }
+        });
+        
+        // Highlight initially selected plan
+        if (radio.checked) {
+            const row = radio.closest('tr');
+            row.classList.add('bg-blue-100', 'border-blue-500');
+        }
     });
 </script>
