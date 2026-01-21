@@ -172,4 +172,36 @@ class PlanController extends Controller
         return redirect()->route('plans.index')
             ->with('success', 'Plan deleted successfully.');
     }
+
+    /**
+     * Get plan benefits for API
+     */
+    public function getBenefits($id)
+    {
+        try {
+            $plan = Plan::with('serviceCategories')->findOrFail($id);
+            
+            $benefits = $plan->serviceCategories->map(function ($category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'code' => $category->code,
+                    'amount' => $category->pivot->benefit_amount ?? 0,
+                    'is_enabled' => $category->pivot->is_enabled ?? false,
+                ];
+            })->filter(function ($benefit) {
+                return $benefit['is_enabled'] && $benefit['amount'] > 0;
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'benefits' => $benefits,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Plan not found',
+            ], 404);
+        }
+    }
 }

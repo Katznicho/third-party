@@ -28,12 +28,11 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $credentials = $request->only('username', 'password');
+        // Attempt to find user by username (case-insensitive)
+        $user = User::whereRaw('LOWER(username) = ?', [strtolower($request->username)])->first();
 
-        // Attempt to find user by username
-        $user = User::where('username', $credentials['username'])->first();
-
-        if ($user && Auth::attempt(['email' => $user->email, 'password' => $credentials['password']], $request->boolean('remember'))) {
+        if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+            Auth::login($user, $request->boolean('remember'));
             $request->session()->regenerate();
 
             return redirect()->intended('/dashboard');

@@ -21,6 +21,16 @@ class DatabaseSeeder extends Seeder
             InsuranceCompanySeeder::class,
         ]);
 
+        // Seed Service Categories
+        $this->call([
+            ServiceCategorySeeder::class,
+        ]);
+
+        // Seed Plans (depends on Insurance Companies and Service Categories)
+        $this->call([
+            PlanSeeder::class,
+        ]);
+
         // Create a generic admin user (without insurance company)
         User::factory()->create([
             'name' => 'System Admin',

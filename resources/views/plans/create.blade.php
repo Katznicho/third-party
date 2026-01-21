@@ -69,38 +69,55 @@
         <div class="border-b border-slate-200 pb-4">
             <h2 class="text-lg font-semibold text-slate-900 mb-4">Associated Products</h2>
             <p class="text-sm text-slate-600 mb-4">Select products (service categories) and configure benefit amounts for this plan</p>
+            <p class="text-xs text-blue-600 mb-4 font-medium">💡 Standard Categories: Inpatient, Outpatient, Maternity, Optical, Dental, Funeral Expenses</p>
             
             <div class="space-y-4" id="products-container">
+                @php
+                    $standardCategories = ['Inpatient', 'Outpatient', 'Maternity', 'Optical', 'Dental', 'Funeral Expenses'];
+                @endphp
                 @foreach($serviceCategories as $category)
-                    <div class="border border-slate-200 rounded-lg p-4 product-item">
+                    @php
+                        $isStandard = in_array($category->name, $standardCategories);
+                    @endphp
+                    <div class="border border-slate-200 rounded-lg p-4 product-item {{ $isStandard ? 'bg-blue-50 border-blue-300' : '' }}">
                         <div class="flex items-start justify-between mb-3">
                             <div class="flex items-center">
                                 <input type="checkbox" name="service_categories[{{ $category->id }}][id]" value="{{ $category->id }}" id="category_{{ $category->id }}" class="category-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded" onchange="toggleCategoryFields({{ $category->id }})">
                                 <label for="category_{{ $category->id }}" class="ml-3 block text-sm font-medium text-slate-900">
                                     {{ $category->name }} <span class="text-xs text-slate-500">({{ $category->code }})</span>
+                                    @if($isStandard)
+                                        <span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Standard</span>
+                                    @endif
+                                    @if($category->is_mandatory)
+                                        <span class="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">Mandatory</span>
+                                    @endif
                                 </label>
                             </div>
                         </div>
                         
                         <div id="fields_{{ $category->id }}" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3" style="display: none;">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Benefit Amount (UGX)</label>
-                                <input type="number" name="service_categories[{{ $category->id }}][benefit_amount]" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Benefit Amount (UGX) <span class="text-red-500">*</span></label>
+                                <input type="number" name="service_categories[{{ $category->id }}][benefit_amount]" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter benefit amount in UGX (e.g., 200000000)">
+                                <p class="mt-1 text-xs text-slate-500">Required for Inpatient, Outpatient, Maternity, Optical, Dental, Funeral Expenses</p>
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-2">Co-pay Percentage (%)</label>
-                                <input type="number" name="service_categories[{{ $category->id }}][copay_percentage]" step="0.01" min="0" max="100" value="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0">
+                                <input type="number" name="service_categories[{{ $category->id }}][copay_percentage]" step="0.01" min="0" max="100" value="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter co-pay percentage (0-100)">
+                                <p class="mt-1 text-xs text-slate-500">Percentage the client pays (default: 0)</p>
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-2">Deductible Amount (UGX)</label>
-                                <input type="number" name="service_categories[{{ $category->id }}][deductible_amount]" step="0.01" min="0" value="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00">
+                                <input type="number" name="service_categories[{{ $category->id }}][deductible_amount]" step="0.01" min="0" value="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter deductible amount (e.g., 100000)">
+                                <p class="mt-1 text-xs text-slate-500">Amount client pays before insurance covers (default: 0)</p>
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-2">Waiting Period (Days)</label>
-                                <input type="number" name="service_categories[{{ $category->id }}][waiting_period_days]" min="0" value="{{ $category->waiting_period_days ?? 0 }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0">
+                                <input type="number" name="service_categories[{{ $category->id }}][waiting_period_days]" min="0" value="{{ $category->waiting_period_days ?? 0 }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter waiting period in days">
+                                <p class="mt-1 text-xs text-slate-500">Days before benefit becomes active (Maternity: 365 days)</p>
                             </div>
                             
                             <div class="md:col-span-2 flex items-center">
