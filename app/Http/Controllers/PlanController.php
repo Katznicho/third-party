@@ -61,7 +61,7 @@ class PlanController extends Controller
                     $syncData[$categoryIdValue] = [
                         'benefit_amount' => isset($categoryData['benefit_amount']) && $categoryData['benefit_amount'] !== '' ? (float)$categoryData['benefit_amount'] : null,
                         'copay_percentage' => isset($categoryData['copay_percentage']) && $categoryData['copay_percentage'] !== '' ? (float)$categoryData['copay_percentage'] : 0,
-                        'deductible_amount' => isset($categoryData['deductible_amount']) && $categoryData['deductible_amount'] !== '' ? (float)$categoryData['deductible_amount'] : 0,
+                        'copay_type' => isset($categoryData['copay_type']) && in_array($categoryData['copay_type'], ['fixed', 'percentage']) ? $categoryData['copay_type'] : 'percentage',
                         'waiting_period_days' => isset($categoryData['waiting_period_days']) && $categoryData['waiting_period_days'] !== '' ? (int)$categoryData['waiting_period_days'] : 0,
                         'is_enabled' => isset($categoryData['is_enabled']) ? (bool)$categoryData['is_enabled'] : true,
                     ];
@@ -135,7 +135,7 @@ class PlanController extends Controller
                     $syncData[$categoryIdValue] = [
                         'benefit_amount' => isset($categoryData['benefit_amount']) && $categoryData['benefit_amount'] !== '' ? (float)$categoryData['benefit_amount'] : null,
                         'copay_percentage' => isset($categoryData['copay_percentage']) && $categoryData['copay_percentage'] !== '' ? (float)$categoryData['copay_percentage'] : 0,
-                        'deductible_amount' => isset($categoryData['deductible_amount']) && $categoryData['deductible_amount'] !== '' ? (float)$categoryData['deductible_amount'] : 0,
+                        'copay_type' => isset($categoryData['copay_type']) && in_array($categoryData['copay_type'], ['fixed', 'percentage']) ? $categoryData['copay_type'] : 'percentage',
                         'waiting_period_days' => isset($categoryData['waiting_period_days']) && $categoryData['waiting_period_days'] !== '' ? (int)$categoryData['waiting_period_days'] : 0,
                         'is_enabled' => isset($categoryData['is_enabled']) ? (bool)$categoryData['is_enabled'] : true,
                     ];

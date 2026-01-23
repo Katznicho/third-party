@@ -418,13 +418,14 @@
                                 $planCategories = $plan->serviceCategories->keyBy('name');
                                 $isSelected = old('plan_id', $client->plan_id ?? '') == $plan->id;
                             @endphp
-                            <tr class="hover:bg-blue-50 transition-colors {{ $isSelected ? 'bg-blue-100' : '' }}">
+                            <tr class="hover:bg-blue-50 transition-colors {{ $isSelected ? 'bg-blue-100' : '' }}" data-plan-id="{{ $plan->id }}">
                                 <td class="border border-slate-300 px-4 py-3 bg-slate-50">
                                     <label class="flex items-center cursor-pointer">
                                         <input type="radio" name="plan_id" value="{{ $plan->id }}" id="plan_{{ $plan->id }}" 
                                                {{ $isSelected ? 'checked' : '' }} 
                                                required
-                                               class="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300">
+                                               class="plan-radio mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                                               data-plan="{{ $plan->id }}">
                                         <span class="font-bold text-slate-900 text-base">{{ $plan->name }}</span>
                                     </label>
                                 </td>
@@ -432,10 +433,31 @@
                                     @php
                                         $pivot = $planCategories->get($category->name);
                                         $benefitAmount = $pivot ? ($pivot->pivot->benefit_amount ?? 0) : 0;
+                                        $isInpatient = $category->name === 'Inpatient';
+                                        $isOptical = $category->name === 'Optical';
+                                        $isDental = $category->name === 'Dental';
+                                        $oldSelected = old('selected_benefits.' . $plan->id . '.' . $category->id, false);
                                     @endphp
                                     <td class="border border-slate-300 px-3 py-3 text-center font-medium">
                                         @if($benefitAmount > 0)
-                                            {{ number_format($benefitAmount, 0, '.', ',') }}
+                                            <div class="flex flex-col items-center justify-center space-y-1">
+                                                <label class="flex items-center cursor-pointer">
+                                                    <input type="checkbox" 
+                                                           name="selected_benefits[{{ $plan->id }}][{{ $category->id }}]" 
+                                                           value="{{ $benefitAmount }}"
+                                                           data-plan="{{ $plan->id }}"
+                                                           data-category="{{ $category->id }}"
+                                                           data-category-name="{{ $category->name }}"
+                                                           data-optical="{{ $isOptical ? '1' : '0' }}"
+                                                           data-dental="{{ $isDental ? '1' : '0' }}"
+                                                           class="benefit-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 {{ $isInpatient ? 'inpatient-checkbox' : '' }}"
+                                                           {{ $isInpatient ? 'checked required' : '' }}
+                                                           {{ $oldSelected ? 'checked' : '' }}
+                                                           {{ !$isSelected ? 'disabled' : '' }}>
+                                                    <span class="ml-1 text-xs text-slate-600">Select</span>
+                                                </label>
+                                                <span class="text-xs font-semibold text-slate-900 mt-1">{{ number_format($benefitAmount, 0, '.', ',') }}</span>
+                                            </div>
                                         @else
                                             <span class="text-slate-400">-</span>
                                         @endif
@@ -671,7 +693,59 @@
         });
     });
 
-    // Highlight selected plan row
+    // Enable/disable benefit checkboxes based on plan selection
+    function updateBenefitCheckboxes() {
+        const selectedPlan = document.querySelector('input[name="plan_id"]:checked');
+        const allCheckboxes = document.querySelectorAll('.benefit-checkbox');
+        
+        if (selectedPlan) {
+            const planId = selectedPlan.value;
+            allCheckboxes.forEach(checkbox => {
+                const checkboxPlanId = checkbox.getAttribute('data-plan');
+                if (checkboxPlanId === planId) {
+                    checkbox.disabled = false;
+                    // Inpatient is always required and checked
+                    if (checkbox.classList.contains('inpatient-checkbox')) {
+                        checkbox.checked = true;
+                        checkbox.required = true;
+                    }
+                } else {
+                    checkbox.disabled = true;
+                    checkbox.checked = false;
+                }
+            });
+        } else {
+            allCheckboxes.forEach(checkbox => {
+                checkbox.disabled = true;
+            });
+        }
+    }
+
+    // Handle Optical/Dental requirement (must be selected together)
+    document.querySelectorAll('.benefit-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const isOptical = this.getAttribute('data-optical') === '1';
+            const isDental = this.getAttribute('data-dental') === '1';
+            const planId = this.getAttribute('data-plan');
+            
+            if (isOptical || isDental) {
+                // Find the other (Optical or Dental) checkbox for the same plan
+                const otherCheckbox = document.querySelector(
+                    `.benefit-checkbox[data-plan="${planId}"][data-${isOptical ? 'dental' : 'optical'}="1"]`
+                );
+                
+                if (otherCheckbox && this.checked) {
+                    // If one is checked, check the other
+                    otherCheckbox.checked = true;
+                } else if (otherCheckbox && !this.checked) {
+                    // If one is unchecked, uncheck the other
+                    otherCheckbox.checked = false;
+                }
+            }
+        });
+    });
+
+    // Highlight selected plan row and enable/disable checkboxes
     document.querySelectorAll('input[name="plan_id"]').forEach(radio => {
         radio.addEventListener('change', function() {
             // Remove highlight from all rows
@@ -680,10 +754,16 @@
             });
             
             // Highlight selected row
-        if (this.checked) {
+            if (this.checked) {
                 const row = this.closest('tr');
                 row.classList.add('bg-blue-100', 'border-blue-500');
             }
+            
+            // Update benefit checkboxes
+            updateBenefitCheckboxes();
+            
+            // Update benefit checkboxes
+            updateBenefitCheckboxes();
         });
         
         // Highlight initially selected plan
@@ -692,4 +772,7 @@
             row.classList.add('bg-blue-100', 'border-blue-500');
         }
     });
+    
+    // Initialize checkboxes on page load
+    updateBenefitCheckboxes();
 </script>

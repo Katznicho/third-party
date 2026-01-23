@@ -3,7 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\Policy;
+use App\Models\PolicyBenefit;
+use App\Models\Plan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class ClientController extends Controller
 {
@@ -77,7 +81,8 @@ class ClientController extends Controller
             'deductible_amount' => 'nullable|numeric|min:0',
             'telemedicine_only' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
-            'plan_id' => 'nullable|exists:plans,id',
+            'plan_id' => 'required_if:type,principal|nullable|exists:plans,id', // Plan required for principal members
+            'desired_start_date' => 'nullable|date',
         ]);
 
         // Handle checkboxes
@@ -92,9 +97,119 @@ class ClientController extends Controller
         }
 
         $client = Client::create($validated);
+        $policyNumber = null;
+
+        // If plan is selected and client is principal, create policy and policy benefits
+        if ($validated['plan_id'] && $validated['type'] === 'principal') {
+            $plan = Plan::with('serviceCategories')->findOrFail($validated['plan_id']);
+            
+            // Generate unique policy number
+            $policyNumber = $this->generatePolicyNumber();
+            
+            // Set policy dates
+            $desiredStartDate = $validated['desired_start_date'] ? \Carbon\Carbon::parse($validated['desired_start_date']) : now();
+            $inceptionDate = $desiredStartDate;
+            $expiryDate = $inceptionDate->copy()->addYear();
+            
+            // Map plan name to plan_type enum value (must match enum values)
+            $planTypeMap = [
+                'Prestige' => 'Prestige',
+                'Executive' => 'Executive',
+                'Standard Plus' => 'Standard Plus',
+                'Standard' => 'Standard',
+                'Regular' => 'Regular',
+                'Budget' => 'Budget',
+            ];
+            $planType = $planTypeMap[$plan->name] ?? 'Standard'; // Default to 'Standard' if not found
+            
+            // Create policy
+            $policy = Policy::create([
+                'policy_number' => $policyNumber,
+                'insurance_company_id' => auth()->user()->insurance_company_id,
+                'principal_member_id' => $client->id,
+                'plan_type' => $planType,
+                'inception_date' => $inceptionDate,
+                'expiry_date' => $expiryDate,
+                'desired_start_date' => $desiredStartDate,
+                'total_premium' => 0, // TODO: Calculate premium based on plan
+                'insurance_training_levy' => 0, // TODO: Calculate (0.5% of premium)
+                'stamp_duty' => 35000, // Default stamp duty
+                'total_premium_due' => 0, // TODO: Calculate (premium + levy + stamp duty)
+                'status' => 'active',
+                'is_paid' => false,
+                'has_deductible' => $validated['has_deductible'] ?? false,
+                'telemedicine_only' => $validated['telemedicine_only'] ?? false,
+            ]);
+            
+            // Get selected benefits from request
+            $selectedBenefits = $request->input('selected_benefits.' . $validated['plan_id'], []);
+            
+            // Create policy benefits only for selected service categories
+            foreach ($plan->serviceCategories as $serviceCategory) {
+                $pivot = $serviceCategory->pivot;
+                
+                // Check if this benefit was selected by the user
+                $isSelected = isset($selectedBenefits[$serviceCategory->id]);
+                
+                // Inpatient is mandatory, so always create it if it exists
+                $isInpatient = $serviceCategory->name === 'Inpatient';
+                
+                // Only create benefit if it's selected (or mandatory like Inpatient), enabled, and has an amount
+                if (($isSelected || $isInpatient) && $pivot->is_enabled && $pivot->benefit_amount) {
+                    $benefitData = [
+                        'policy_id' => $policy->id,
+                        'service_category_id' => $serviceCategory->id,
+                        'benefit_amount' => $pivot->benefit_amount,
+                        'used_amount' => 0,
+                        'remaining_amount' => $pivot->benefit_amount,
+                        'copay_percentage' => $pivot->copay_percentage ?? 0,
+                        'deductible_amount' => 0, // Not used anymore, but keep for compatibility
+                        'is_enabled' => true,
+                        'effective_date' => $inceptionDate,
+                        'expiry_date' => $expiryDate,
+                    ];
+                    
+                    // Only set hospital cash fields if it's Hospital Cash
+                    if ($serviceCategory->name === 'Hospital Cash') {
+                        $benefitData['hospital_cash_per_day'] = $pivot->benefit_amount;
+                        $benefitData['hospital_cash_max_days'] = 30;
+                    } elseif ($serviceCategory->name === 'Life Cover') {
+                        $benefitData['life_cover_amount'] = $pivot->benefit_amount;
+                    }
+                    
+                    PolicyBenefit::create($benefitData);
+                }
+            }
+        }
 
         return redirect()->route('clients.index')
-            ->with('success', 'Client created successfully.');
+            ->with('success', 'Client created successfully' . ($validated['plan_id'] && $validated['type'] === 'principal' ? '. Policy ' . $policyNumber . ' has been created.' : '.'));
+    }
+
+    /**
+     * Generate a unique policy number
+     */
+    private function generatePolicyNumber(): string
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+        $companyCode = strtoupper(substr($insuranceCompany->code ?? 'INS', 0, 3));
+        
+        $attempts = 0;
+        $maxAttempts = 100;
+        
+        do {
+            // Format: COMPANY-YYYYMMDD-XXXXXX (e.g., AAR-20260123-ABC123)
+            $datePart = now()->format('Ymd');
+            $randomPart = strtoupper(Str::random(6));
+            $policyNumber = "{$companyCode}-{$datePart}-{$randomPart}";
+            
+            $attempts++;
+            if ($attempts > $maxAttempts) {
+                throw new \Exception('Unable to generate unique policy number after multiple attempts.');
+            }
+        } while (Policy::where('policy_number', $policyNumber)->exists());
+        
+        return $policyNumber;
     }
 
     /**

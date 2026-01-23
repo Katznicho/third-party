@@ -73,8 +73,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Product Name</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Code</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Benefit Amount (UGX)</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Co-pay (%)</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Deductible (UGX)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Co-payment</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Waiting Period</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                         </tr>
@@ -87,9 +86,12 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                                     {{ $category->pivot->benefit_amount ? number_format($category->pivot->benefit_amount, 2) : 'N/A' }}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{{ number_format($category->pivot->copay_percentage ?? 0, 2) }}%</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                                    {{ $category->pivot->deductible_amount ? number_format($category->pivot->deductible_amount, 2) : '0.00' }}
+                                    @if(($category->pivot->copay_type ?? 'percentage') === 'percentage')
+                                        {{ number_format($category->pivot->copay_percentage ?? 0, 2) }}%
+                                    @else
+                                        UGX {{ number_format($category->pivot->copay_percentage ?? 0, 2) }}
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{{ $category->pivot->waiting_period_days ?? 0 }} days</td>
                                 <td class="px-6 py-4 whitespace-nowrap">

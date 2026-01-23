@@ -103,15 +103,18 @@
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Co-pay Percentage (%)</label>
-                                <input type="number" name="service_categories[{{ $category->id }}][copay_percentage]" step="0.01" min="0" max="100" value="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter co-pay percentage (0-100)">
-                                <p class="mt-1 text-xs text-slate-500">Percentage the client pays (default: 0)</p>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Co-payment Type</label>
+                                <select name="service_categories[{{ $category->id }}][copay_type]" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="percentage" selected>Percentage (%)</option>
+                                    <option value="fixed">Fixed Amount (UGX)</option>
+                                </select>
+                                <p class="mt-1 text-xs text-slate-500">Choose whether co-payment is a percentage or fixed amount</p>
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Deductible Amount (UGX)</label>
-                                <input type="number" name="service_categories[{{ $category->id }}][deductible_amount]" step="0.01" min="0" value="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter deductible amount (e.g., 100000)">
-                                <p class="mt-1 text-xs text-slate-500">Amount client pays before insurance covers (default: 0)</p>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Co-payment Amount</label>
+                                <input type="number" name="service_categories[{{ $category->id }}][copay_percentage]" step="0.01" min="0" value="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter co-payment amount">
+                                <p class="mt-1 text-xs text-slate-500">Enter percentage (0-100) or fixed amount in UGX based on type selected</p>
                             </div>
                             
                             <div>
