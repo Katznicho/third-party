@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
-use App\Models\Policy;
-use App\Models\PolicyBenefit;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
@@ -79,25 +77,7 @@ class ClientController extends Controller
             'deductible_amount' => 'nullable|numeric|min:0',
             'telemedicine_only' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
-            'plan_id' => 'required|exists:plans,id',
-            'desired_start_date' => 'nullable|date',
-            'agent_broker_name' => 'nullable|string|max:255',
-            'medical_history' => 'nullable|array',
-            'medications' => 'nullable|array',
-            'pregnancy_expected_date' => 'nullable|date',
-            'dependants' => 'nullable|array',
-            'dependants.*.surname' => 'nullable|string|max:255',
-            'dependants.*.first_name' => 'nullable|string|max:255',
-            'dependants.*.other_names' => 'nullable|string|max:255',
-            'dependants.*.title' => 'nullable|string|max:50',
-            'dependants.*.id_passport_no' => 'nullable|string|max:255',
-            'dependants.*.gender' => 'nullable|in:Male,Female',
-            'dependants.*.date_of_birth' => 'nullable|date',
-            'dependants.*.relation_to_principal' => 'nullable|string|max:255',
-            'dependants.*.marital_status' => 'nullable|in:Single,Married,Divorced,Widowed',
-            'dependants.*.occupation' => 'nullable|string|max:255',
-            'dependants.*.height' => 'nullable|string|max:50',
-            'dependants.*.weight' => 'nullable|string|max:50',
+            'plan_id' => 'nullable|exists:plans,id',
         ]);
 
         // Handle checkboxes
@@ -111,99 +91,10 @@ class ClientController extends Controller
             $validated['relation_to_principal'] = null;
         }
 
-        // Store medical history and medications
-        $validated['medical_history'] = $request->input('medical_history', []);
-        $validated['regular_medications'] = $request->input('medications', []);
-
-        // Create the principal client
         $client = Client::create($validated);
 
-        // Create dependants if provided
-        if ($request->has('dependants') && is_array($request->dependants)) {
-            foreach ($request->dependants as $dependantData) {
-                // Skip empty dependant entries
-                if (empty($dependantData['first_name']) && empty($dependantData['surname'])) {
-                    continue;
-                }
-
-                Client::create([
-                    'type' => 'dependent',
-                    'principal_member_id' => $client->id,
-                    'surname' => $dependantData['surname'] ?? null,
-                    'first_name' => $dependantData['first_name'] ?? null,
-                    'other_names' => $dependantData['other_names'] ?? null,
-                    'title' => $dependantData['title'] ?? null,
-                    'id_passport_no' => $dependantData['id_passport_no'] ?? 'DEP-' . $client->id . '-' . uniqid(),
-                    'gender' => $dependantData['gender'] ?? null,
-                    'date_of_birth' => $dependantData['date_of_birth'] ?? null,
-                    'relation_to_principal' => $dependantData['relation_to_principal'] ?? null,
-                    'marital_status' => $dependantData['marital_status'] ?? null,
-                    'occupation' => $dependantData['occupation'] ?? null,
-                    'height' => $dependantData['height'] ?? null,
-                    'weight' => $dependantData['weight'] ?? null,
-                    'is_active' => true,
-                ]);
-            }
-        }
-
-        // Create Policy if plan is selected
-        if ($validated['plan_id']) {
-            $plan = \App\Models\Plan::with('serviceCategories')->findOrFail($validated['plan_id']);
-            $insuranceCompanyId = auth()->user()->insurance_company_id;
-
-            // Generate policy number
-            $policyNumber = 'POL-' . strtoupper(substr($plan->code, 0, 3)) . '-' . date('Y') . '-' . str_pad(Policy::where('insurance_company_id', $insuranceCompanyId)->count() + 1, 6, '0', STR_PAD_LEFT);
-
-            // Calculate dates
-            $desiredStartDate = $validated['desired_start_date'] ? \Carbon\Carbon::parse($validated['desired_start_date']) : now();
-            $inceptionDate = $desiredStartDate;
-            $expiryDate = $inceptionDate->copy()->addYear();
-
-            // Create Policy
-            $policy = Policy::create([
-                'policy_number' => $policyNumber,
-                'insurance_company_id' => $insuranceCompanyId,
-                'principal_member_id' => $client->id,
-                'plan_type' => $plan->name,
-                'inception_date' => $inceptionDate,
-                'expiry_date' => $expiryDate,
-                'desired_start_date' => $desiredStartDate,
-                'total_premium' => 0, // Will be calculated later
-                'insurance_training_levy' => 0, // 0.5% - will be calculated
-                'stamp_duty' => 35000,
-                'total_premium_due' => 0, // Will be calculated later
-                'agent_broker_name' => $validated['agent_broker_name'] ?? null,
-                'status' => 'active',
-                'is_paid' => false,
-                'has_deductible' => $validated['has_deductible'] ?? false,
-                'telemedicine_only' => $validated['telemedicine_only'] ?? false,
-            ]);
-
-            // Create PolicyBenefits based on the selected plan
-            foreach ($plan->serviceCategories as $serviceCategory) {
-                $pivot = $serviceCategory->pivot;
-                if ($pivot->is_enabled && $pivot->benefit_amount > 0) {
-                    PolicyBenefit::create([
-                        'policy_id' => $policy->id,
-                        'service_category_id' => $serviceCategory->id,
-                        'benefit_amount' => $pivot->benefit_amount,
-                        'used_amount' => 0,
-                        'remaining_amount' => $pivot->benefit_amount,
-                        'hospital_cash_per_day' => $serviceCategory->name === 'Hospital Cash' ? $pivot->benefit_amount : null,
-                        'hospital_cash_max_days' => $serviceCategory->name === 'Hospital Cash' ? 30 : null,
-                        'life_cover_amount' => $serviceCategory->name === 'Life Cover' ? $pivot->benefit_amount : null,
-                        'copay_percentage' => $pivot->copay_percentage ?? 0,
-                        'deductible_amount' => $pivot->deductible_amount ?? 0,
-                        'is_enabled' => true,
-                        'effective_date' => $inceptionDate,
-                        'expiry_date' => $expiryDate,
-                    ]);
-                }
-            }
-        }
-
-        return redirect()->route('clients.show', $client)
-            ->with('success', 'Client application submitted successfully! Policy created.');
+        return redirect()->route('clients.index')
+            ->with('success', 'Client created successfully.');
     }
 
     /**

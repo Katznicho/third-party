@@ -6,7 +6,7 @@
     <title>@yield('title', 'Dashboard') - Kashtre</title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
     <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
 
     <!-- Fonts -->
@@ -21,11 +21,11 @@
         <aside class="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-slate-800 border-r border-slate-700">
             <!-- Logo -->
             <div class="flex flex-col items-center justify-center min-h-20 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700">
-                <img src="{{ asset('images/logo.png') }}" alt="Kashtre Logo" class="h-10 w-auto mb-2 object-contain">
+                <img src="{{ asset('images/logo.svg') }}" alt="Kashtre Logo" class="h-10 w-auto mb-2 object-contain">
                 <h1 class="text-lg font-bold text-white">Kashtre</h1>
                 @if(auth()->user()->insuranceCompany)
                     <p class="text-xs text-blue-100 mt-1">{{ auth()->user()->insuranceCompany->name }}</p>
-                    <p class="text-xs text-blue-200 mt-0.5">{{ auth()->user()->insuranceCompany->code }}</p>
+                    <p class="text-xs font-mono font-semibold text-blue-200 mt-0.5">Code: {{ auth()->user()->insuranceCompany->code ?? 'N/A' }}</p>
                 @endif
             </div>
 
@@ -98,6 +98,65 @@
                 </a>
             </nav>
 
+            <!-- Connected Companies Section -->
+            @if(auth()->user()->insuranceCompany)
+                @php
+                    $connections = auth()->user()->insuranceCompany->connectedCompanies;
+                @endphp
+                @if($connections->count() > 0)
+                    <div class="px-4 py-4 border-t border-slate-700">
+                        <div class="mb-3">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                                </svg>
+                                Connected Companies
+                            </h3>
+                        </div>
+                        <div class="space-y-2 max-h-64 overflow-y-auto">
+                            @foreach($connections as $connection)
+                                @if($connection->connectedBusiness)
+                                    <div class="bg-slate-700/50 rounded-lg p-3 hover:bg-slate-700 transition duration-150 border border-slate-600/50">
+                                        <div class="flex items-start justify-between">
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-sm font-medium text-slate-200 truncate" title="{{ $connection->connectedBusiness->name }}">
+                                                    {{ $connection->connectedBusiness->name }}
+                                                </p>
+                                                <div class="mt-1.5 flex items-center space-x-2">
+                                                    <span class="text-xs text-slate-400">Code:</span>
+                                                    <span class="text-xs font-mono font-semibold text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded">
+                                                        {{ $connection->connectedBusiness->code }}
+                                                    </span>
+                                                </div>
+                                                @if($connection->connectedBusiness->email)
+                                                    <p class="text-xs text-slate-500 mt-1 truncate" title="{{ $connection->connectedBusiness->email }}">
+                                                        {{ $connection->connectedBusiness->email }}
+                                                    </p>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @else
+                    <div class="px-4 py-4 border-t border-slate-700">
+                        <div class="mb-3">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                                </svg>
+                                Connected Companies
+                            </h3>
+                        </div>
+                        <div class="bg-slate-700/30 rounded-lg p-3 border border-slate-600/30">
+                            <p class="text-xs text-slate-400 text-center">No connected companies yet</p>
+                        </div>
+                    </div>
+                @endif
+            @endif
+
             <!-- User Section -->
             <div class="p-4 border-t border-slate-700">
                 <div class="flex items-center mb-4">
@@ -135,7 +194,7 @@
             <!-- Mobile sidebar content (same as desktop) -->
             <div class="flex items-center justify-between min-h-20 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700">
                 <div class="flex-1 flex flex-col items-center">
-                    <img src="{{ asset('images/logo.png') }}" alt="Kashtre Logo" class="h-10 w-auto mb-1 object-contain">
+                    <img src="{{ asset('images/logo.svg') }}" alt="Kashtre Logo" class="h-10 w-auto mb-1 object-contain">
                     <h1 class="text-lg font-bold text-white">Kashtre</h1>
                     @if(auth()->user()->insuranceCompany)
                         <p class="text-xs text-blue-100">{{ auth()->user()->insuranceCompany->name }}</p>

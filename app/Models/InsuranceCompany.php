@@ -40,4 +40,16 @@ class InsuranceCompany extends Model
     {
         return $this->hasMany(Policy::class);
     }
+
+    public function connectedCompanies()
+    {
+        return $this->hasMany(BusinessConnection::class, 'insurance_company_id')
+            ->with('connectedBusiness');
+    }
+
+    public function connectedTo()
+    {
+        return $this->hasMany(BusinessConnection::class, 'connected_business_id')
+            ->with('insuranceCompany');
+    }
 }

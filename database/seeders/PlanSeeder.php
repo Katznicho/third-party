@@ -129,16 +129,28 @@ class PlanSeeder extends Seeder
                     $this->command->warn("Plan {$planData['name']} ({$planData['code']}) already exists for {$insuranceCompany->name}. Skipping...");
                     $plan = $existingPlan;
                 } else {
+                    // Make slug unique per insurance company by including company slug/code
+                    $companySlug = $insuranceCompany->slug ?? \Illuminate\Support\Str::slug($insuranceCompany->name);
+                    $planSlug = \Illuminate\Support\Str::slug($planData['name']) . '-' . $companySlug;
+                    
+                    // Ensure slug is unique (in case of conflicts)
+                    $baseSlug = $planSlug;
+                    $counter = 1;
+                    while (Plan::where('slug', $planSlug)->exists()) {
+                        $planSlug = $baseSlug . '-' . $counter;
+                        $counter++;
+                    }
+                    
                     $plan = Plan::create([
                         'name' => $planData['name'],
-                        'slug' => \Illuminate\Support\Str::slug($planData['name']),
+                        'slug' => $planSlug,
                         'code' => $planData['code'],
                         'description' => "{$planData['name']} health insurance plan",
                         'insurance_company_id' => $insuranceCompany->id,
                         'is_active' => true,
                         'sort_order' => $planData['sort_order'],
                     ]);
-                    $this->command->info("Created plan: {$planData['name']} ({$planData['code']})");
+                    $this->command->info("Created plan: {$planData['name']} ({$planData['code']}) with slug: {$planSlug}");
                 }
 
                 // Attach service categories with benefit amounts

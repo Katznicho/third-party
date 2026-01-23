@@ -35,6 +35,12 @@ Route::prefix('v1')->group(function () {
     // Plan benefits (public for form)
     Route::get('/plans/{id}/benefits', [\App\Http\Controllers\PlanController::class, 'getBenefits'])->name('api.plans.benefits');
     
+    // Password reset token generation (public)
+    Route::post('/password/reset-token', [BusinessController::class, 'generatePasswordResetToken'])->name('api.password.reset-token');
+    
+    // Get insurance company by code (public, for client registration)
+    Route::get('/businesses/by-code/{code}', [BusinessController::class, 'getByCode'])->name('api.businesses.by-code');
+    
     // Protected routes (require API token)
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/businesses/{id}', [BusinessController::class, 'show'])->name('api.businesses.show');

@@ -8,11 +8,12 @@
     <!-- Welcome Section -->
     <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 lg:p-8 text-white">
         <div class="flex items-center mb-4">
-            <img src="{{ asset('images/logo.png') }}" alt="Kashtre Logo" class="h-12 w-auto mr-4 object-contain bg-white/10 rounded-lg p-2">
+            <img src="{{ asset('images/logo.svg') }}" alt="Kashtre Logo" class="h-12 w-auto mr-4 object-contain bg-white/10 rounded-lg p-2">
             <div>
                 <h1 class="text-2xl lg:text-3xl font-bold mb-2">Welcome back, {{ auth()->user()->name }}!</h1>
                 @if(auth()->user()->insuranceCompany)
                     <p class="text-blue-100 mb-1">{{ auth()->user()->insuranceCompany->name }}</p>
+                    <p class="text-xs font-mono font-semibold text-blue-200 mb-2">Company Code: {{ auth()->user()->insuranceCompany->code ?? 'N/A' }}</p>
                 @endif
                 <p class="text-blue-100">Here's what's happening with your insurance account today.</p>
             </div>

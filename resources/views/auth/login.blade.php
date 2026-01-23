@@ -6,7 +6,7 @@
     <title>Login - Kashtre</title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
     <link rel="icon" type="image/svg+xml" href="{{ asset('images/logo.svg') }}">
 
     <!-- Fonts -->
@@ -22,7 +22,7 @@
             <!-- Logo/Header -->
             <div class="text-center mb-8">
                 <div class="mb-4 flex justify-center">
-                    <img src="{{ asset('images/logo.png') }}" alt="Kashtre Logo" class="h-16 w-auto object-contain">
+                    <img src="{{ asset('images/logo.svg') }}" alt="Kashtre Logo" class="h-16 w-auto object-contain">
                 </div>
                 <h1 class="text-3xl font-bold text-slate-900 mb-2">Welcome Back</h1>
                 <p class="text-slate-600">Sign in to your Kashtre account to continue</p>
@@ -122,6 +122,11 @@
                         <label for="remember" class="ml-2 block text-sm text-slate-700">
                             Remember me
                         </label>
+                    </div>
+                    <div>
+                        <a href="{{ route('password.request') }}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                            Forgot password?
+                        </a>
                     </div>
                 </div>
 
