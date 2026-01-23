@@ -514,4 +514,88 @@ class BusinessController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Create a business connection
+     * 
+     * Connects an existing business to an insurance company
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function createConnection(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'insurance_company_id' => 'required|exists:insurance_companies,id',
+                'connected_business_id' => 'required|integer', // Kashtre business ID, doesn't need to exist in third-party
+                'connected_business_name' => 'nullable|string|max:255', // Kashtre business name
+            ], [
+                'insurance_company_id.exists' => 'The insurance company does not exist.',
+                'connected_business_id.required' => 'The connected business ID is required.',
+                'connected_business_id.integer' => 'The connected business ID must be an integer.',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $validated = $validator->validated();
+
+            // Check if connection already exists
+            $existingConnection = DB::table('business_connections')
+                ->where('insurance_company_id', $validated['insurance_company_id'])
+                ->where('connected_business_id', $validated['connected_business_id'])
+                ->first();
+
+            if ($existingConnection) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Connection already exists',
+                    'data' => [
+                        'connection_id' => $existingConnection->id,
+                    ],
+                ]);
+            }
+
+            // Create connection
+            $connectionId = DB::table('business_connections')->insertGetId([
+                'insurance_company_id' => $validated['insurance_company_id'],
+                'connected_business_id' => $validated['connected_business_id'],
+                'connected_business_name' => $validated['connected_business_name'] ?? null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            \Illuminate\Support\Facades\Log::info('Business connection created via API', [
+                'insurance_company_id' => $validated['insurance_company_id'],
+                'connected_business_id' => $validated['connected_business_id'],
+                'connection_id' => $connectionId,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Business connection created successfully',
+                'data' => [
+                    'connection_id' => $connectionId,
+                ],
+            ], 201);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to create business connection', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create business connection',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

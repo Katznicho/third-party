@@ -12,6 +12,7 @@ class BusinessConnection extends Model
     protected $fillable = [
         'insurance_company_id',
         'connected_business_id',
+        'connected_business_name',
         'connection_type',
         'notes',
     ];

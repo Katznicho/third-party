@@ -41,6 +41,9 @@ Route::prefix('v1')->group(function () {
     // Get insurance company by code (public, for client registration)
     Route::get('/businesses/by-code/{code}', [BusinessController::class, 'getByCode'])->name('api.businesses.by-code');
     
+    // Create business connection (public, for client registration)
+    Route::post('/businesses/connections', [BusinessController::class, 'createConnection'])->name('api.businesses.connections.create');
+    
     // Protected routes (require API token)
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/businesses/{id}', [BusinessController::class, 'show'])->name('api.businesses.show');

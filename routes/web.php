@@ -56,4 +56,7 @@ Route::middleware('auth')->group(function () {
     
     // Payment Responsibilities
     Route::resource('payment-responsibilities', \App\Http\Controllers\PaymentResponsibilityController::class);
+    
+    // Connected Companies
+    Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
 });

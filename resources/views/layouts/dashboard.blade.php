@@ -96,6 +96,17 @@
                     </svg>
                     Invoices
                 </a>
+
+                <!-- Connected Companies -->
+                <a 
+                    href="{{ route('connected-companies.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('connected-companies.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                    </svg>
+                    Connected Companies
+                </a>
             </nav>
 
             <!-- Connected Companies Section -->
@@ -244,6 +255,12 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"></path>
                     </svg>
                     Invoices
+                </a>
+                <a href="{{ route('connected-companies.index') }}" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-slate-300 hover:bg-slate-700 transition duration-150">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                    </svg>
+                    Connected Companies
                 </a>
             </nav>
             <div class="p-4 border-t border-slate-700">
