@@ -72,6 +72,17 @@ class PolicyController extends Controller
      */
     public function show(Policy $policy)
     {
+        // Ensure user can only view policies from their insurance company
+        if ($policy->insurance_company_id !== auth()->user()->insurance_company_id) {
+            abort(403, 'Unauthorized access to policy.');
+        }
+
+        $policy->load([
+            'principalMember',
+            'insuranceCompany',
+            'benefits.serviceCategory'
+        ]);
+        
         return view('policies.show', compact('policy'));
     }
 

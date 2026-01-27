@@ -67,13 +67,7 @@
                                 {{ $policy->expiry_date ? $policy->expiry_date->format('M d, Y') : 'N/A' }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{{ route('policies.show', $policy) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
-                                <a href="{{ route('policies.edit', $policy) }}" class="text-slate-600 hover:text-slate-900 mr-3">Edit</a>
-                                <form action="{{ route('policies.destroy', $policy) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this policy?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                </form>
+                                <a href="{{ route('policies.show', $policy) }}" class="text-blue-600 hover:text-blue-900">View</a>
                             </td>
                         </tr>
                     @endforeach
