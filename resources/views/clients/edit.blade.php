@@ -17,7 +17,7 @@
     </div>
 
     <!-- Edit Form - Same structure as create, but with existing data -->
-    @include('clients.form', ['client' => $client, 'action' => route('clients.update', $client), 'method' => 'PUT'])
+    @include('clients.form', ['client' => $client, 'action' => route('clients.update', $client), 'method' => 'PUT', 'medicalQuestions' => $medicalQuestions])
 
 </div>
 @endsection

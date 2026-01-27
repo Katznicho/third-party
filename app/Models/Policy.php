@@ -28,6 +28,10 @@ class Policy extends Model
         'is_paid',
         'payment_date',
         'has_deductible',
+        'copay_amount',
+        'coinsurance_percentage',
+        'deductible_amount',
+        'copay_max_limit',
         'telemedicine_only',
         'notes',
     ];
@@ -45,6 +49,10 @@ class Policy extends Model
             'is_paid' => 'boolean',
             'payment_date' => 'date',
             'has_deductible' => 'boolean',
+            'copay_amount' => 'decimal:2',
+            'coinsurance_percentage' => 'decimal:2',
+            'deductible_amount' => 'decimal:2',
+            'copay_max_limit' => 'decimal:2',
             'telemedicine_only' => 'boolean',
         ];
     }

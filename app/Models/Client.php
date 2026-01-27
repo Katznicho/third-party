@@ -94,6 +94,21 @@ class Client extends Model
         return $this->belongsTo(Plan::class);
     }
 
+    public function medicalQuestionResponses(): HasMany
+    {
+        return $this->hasMany(MedicalQuestionResponse::class);
+    }
+
+    /**
+     * Check if client has any exclusion-triggering responses
+     */
+    public function hasExclusions(): bool
+    {
+        return $this->medicalQuestionResponses()
+            ->where('triggers_exclusion', true)
+            ->exists();
+    }
+
     // Accessors
     public function getFullNameAttribute(): string
     {

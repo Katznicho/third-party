@@ -40,13 +40,20 @@ class PlanController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:plans,code',
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                \Illuminate\Validation\Rule::unique('plans')->where(function ($query) {
+                    return $query->where('insurance_company_id', auth()->user()->insurance_company_id);
+                }),
+            ],
             'description' => 'nullable|string',
             'is_active' => 'nullable|boolean',
             'sort_order' => 'nullable|integer|min:0',
         ]);
 
-        $validated['slug'] = \Illuminate\Support\Str::slug($validated['name']);
+        $validated['slug'] = $this->generateUniqueSlug($validated['name']);
         $validated['insurance_company_id'] = auth()->user()->insurance_company_id;
         $validated['is_active'] = $request->boolean('is_active', true);
 
@@ -115,13 +122,24 @@ class PlanController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:plans,code,' . $plan->id,
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                \Illuminate\Validation\Rule::unique('plans')->where(function ($query) use ($plan) {
+                    return $query->where('insurance_company_id', auth()->user()->insurance_company_id)
+                                 ->where('id', '!=', $plan->id);
+                }),
+            ],
             'description' => 'nullable|string',
             'is_active' => 'nullable|boolean',
             'sort_order' => 'nullable|integer|min:0',
         ]);
 
-        $validated['slug'] = \Illuminate\Support\Str::slug($validated['name']);
+        // Only update slug if name changed
+        if ($plan->name !== $validated['name']) {
+            $validated['slug'] = $this->generateUniqueSlug($validated['name'], $plan->id);
+        }
         $validated['is_active'] = $request->boolean('is_active');
 
         $plan->update($validated);
@@ -203,5 +221,28 @@ class PlanController extends Controller
                 'message' => 'Plan not found',
             ], 404);
         }
+    }
+
+    /**
+     * Generate a unique slug for a plan (unique per insurance company)
+     */
+    private function generateUniqueSlug(string $name, ?int $excludeId = null): string
+    {
+        $baseSlug = \Illuminate\Support\Str::slug($name);
+        $slug = $baseSlug;
+        $counter = 1;
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+
+        while (Plan::where('slug', $slug)
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->when($excludeId, function ($query) use ($excludeId) {
+                return $query->where('id', '!=', $excludeId);
+            })
+            ->exists()) {
+            $slug = $baseSlug . '-' . $counter;
+            $counter++;
+        }
+
+        return $slug;
     }
 }

@@ -34,7 +34,12 @@ class ClientController extends Controller
      */
     public function create()
     {
-        return view('clients.create');
+        $medicalQuestions = \App\Models\MedicalQuestion::where('is_active', true)
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get();
+        
+        return view('clients.create', compact('medicalQuestions'));
     }
 
     /**
@@ -79,10 +84,14 @@ class ClientController extends Controller
             'next_of_kin_physical_address' => 'nullable|string|max:500',
             'has_deductible' => 'nullable|boolean',
             'deductible_amount' => 'nullable|numeric|min:0',
+            'copay_amount' => 'nullable|numeric|min:0',
+            'coinsurance_percentage' => 'nullable|numeric|min:0|max:100',
+            'copay_max_limit' => 'nullable|numeric|min:0',
             'telemedicine_only' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
             'plan_id' => 'required_if:type,principal|nullable|exists:plans,id', // Plan required for principal members
             'desired_start_date' => 'nullable|date',
+            'number_of_dependents' => 'nullable|integer|min:0|max:20',
         ]);
 
         // Handle checkboxes
@@ -122,7 +131,48 @@ class ClientController extends Controller
             ];
             $planType = $planTypeMap[$plan->name] ?? 'Standard'; // Default to 'Standard' if not found
             
-            // Create policy
+            // Get selected benefits from request
+            $selectedBenefits = $request->input('selected_benefits.' . $validated['plan_id'], []);
+            
+            // Get number of dependents
+            $numberOfDependents = $validated['number_of_dependents'] ?? 0;
+            
+            // Calculate premium based on selected benefits BEFORE creating policy
+            $basePremium = 0;
+            
+            // Calculate premium from selected service categories
+            foreach ($plan->serviceCategories as $serviceCategory) {
+                $pivot = $serviceCategory->pivot;
+                
+                // Check if this benefit was selected by the user
+                $isSelected = isset($selectedBenefits[$serviceCategory->id]);
+                
+                // Inpatient is mandatory, so always include it if it exists
+                $isInpatient = $serviceCategory->name === 'Inpatient';
+                
+                // Add benefit amount to premium if selected/enabled and has an amount
+                if (($isSelected || $isInpatient) && $pivot->is_enabled && $pivot->benefit_amount) {
+                    $basePremium += $pivot->benefit_amount;
+                }
+            }
+            
+            // Calculate dependents premium (50% of base premium per dependent)
+            $dependentMultiplier = 0.5; // Can be configured per plan if needed
+            $dependentsPremium = $basePremium * $dependentMultiplier * $numberOfDependents;
+            
+            // Subtotal premium (principal + dependents)
+            $subtotalPremium = $basePremium + $dependentsPremium;
+            
+            // Calculate insurance training levy (0.5% of subtotal premium)
+            $insuranceTrainingLevy = $subtotalPremium * 0.005;
+            
+            // Stamp duty (default 35,000 UGX)
+            $stampDuty = 35000;
+            
+            // Total premium due = subtotal premium + levy + stamp duty
+            $totalPremiumDue = $subtotalPremium + $insuranceTrainingLevy + $stampDuty;
+            
+            // Create policy with calculated premium
             $policy = Policy::create([
                 'policy_number' => $policyNumber,
                 'insurance_company_id' => auth()->user()->insurance_company_id,
@@ -131,18 +181,19 @@ class ClientController extends Controller
                 'inception_date' => $inceptionDate,
                 'expiry_date' => $expiryDate,
                 'desired_start_date' => $desiredStartDate,
-                'total_premium' => 0, // TODO: Calculate premium based on plan
-                'insurance_training_levy' => 0, // TODO: Calculate (0.5% of premium)
-                'stamp_duty' => 35000, // Default stamp duty
-                'total_premium_due' => 0, // TODO: Calculate (premium + levy + stamp duty)
+                'total_premium' => $subtotalPremium, // Includes principal + dependents
+                'insurance_training_levy' => $insuranceTrainingLevy,
+                'stamp_duty' => $stampDuty,
+                'total_premium_due' => $totalPremiumDue,
                 'status' => 'active',
                 'is_paid' => false,
                 'has_deductible' => $validated['has_deductible'] ?? false,
+                'copay_amount' => $validated['copay_amount'] ?? null,
+                'coinsurance_percentage' => $validated['coinsurance_percentage'] ?? null,
+                'deductible_amount' => ($validated['has_deductible'] ?? false) ? ($validated['deductible_amount'] ?? null) : null,
+                'copay_max_limit' => $validated['copay_max_limit'] ?? null,
                 'telemedicine_only' => $validated['telemedicine_only'] ?? false,
             ]);
-            
-            // Get selected benefits from request
-            $selectedBenefits = $request->input('selected_benefits.' . $validated['plan_id'], []);
             
             // Create policy benefits only for selected service categories
             foreach ($plan->serviceCategories as $serviceCategory) {
@@ -182,8 +233,76 @@ class ClientController extends Controller
             }
         }
 
+        // Save medical question responses
+        if ($request->has('medical_questions')) {
+            foreach ($request->medical_questions as $questionId => $responseData) {
+                $question = \App\Models\MedicalQuestion::find($questionId);
+                if (!$question) {
+                    continue;
+                }
+
+                $response = $responseData['response'] ?? null;
+                $additionalInfo = $responseData['additional_info'] ?? null;
+
+                // Handle medication table data if present
+                if ($question->additional_info_type === 'table' && $request->has("medications.{$questionId}")) {
+                    $medications = $request->input("medications.{$questionId}", []);
+                    // Filter out empty rows
+                    $medications = array_filter($medications, function($med) {
+                        return !empty($med['applicant_name']) || !empty($med['medication']) || !empty($med['diagnosis']);
+                    });
+                    $additionalInfo = !empty($medications) ? json_encode(array_values($medications)) : null;
+                } elseif (is_string($additionalInfo)) {
+                    // Try to decode if it's already JSON, otherwise store as is
+                    $decoded = json_decode($additionalInfo, true);
+                    $additionalInfo = $decoded !== null ? $decoded : $additionalInfo;
+                }
+
+                // Check if response triggers exclusion
+                $triggersExclusion = $question->triggersExclusion($response ?? '');
+
+                \App\Models\MedicalQuestionResponse::create([
+                    'client_id' => $client->id,
+                    'medical_question_id' => $questionId,
+                    'response' => $response,
+                    'additional_info' => is_array($additionalInfo) ? $additionalInfo : ($additionalInfo ? json_decode($additionalInfo, true) : null),
+                    'triggers_exclusion' => $triggersExclusion,
+                ]);
+            }
+        }
+
+        // Check if client has exclusions and add warning
+        $hasExclusions = $client->hasExclusions();
+        
+        // Build success message with policy details
+        $successMessage = 'Client created successfully';
+        
+        if ($validated['plan_id'] && $validated['type'] === 'principal' && $policyNumber) {
+            $policy = Policy::where('policy_number', $policyNumber)->first();
+            if ($policy) {
+                $numberOfDependents = $validated['number_of_dependents'] ?? 0;
+                $dependentsText = $numberOfDependents > 0 ? " (including {$numberOfDependents} " . ($numberOfDependents == 1 ? 'dependent' : 'dependents') . ")" : '';
+                $successMessage .= sprintf(
+                    '. Policy %s has been created%s. Total Premium Due: UGX %s (Premium: UGX %s, Training Levy: UGX %s, Stamp Duty: UGX %s)',
+                    $policyNumber,
+                    $dependentsText,
+                    number_format($policy->total_premium_due, 2),
+                    number_format($policy->total_premium, 2),
+                    number_format($policy->insurance_training_levy, 2),
+                    number_format($policy->stamp_duty, 2)
+                );
+            } else {
+                $successMessage .= '. Policy ' . $policyNumber . ' has been created.';
+            }
+        }
+        
+        if ($hasExclusions) {
+            $successMessage .= ' WARNING: This client has responses that trigger exclusion list criteria.';
+        }
+
         return redirect()->route('clients.index')
-            ->with('success', 'Client created successfully' . ($validated['plan_id'] && $validated['type'] === 'principal' ? '. Policy ' . $policyNumber . ' has been created.' : '.'));
+            ->with('success', $successMessage)
+            ->with('has_exclusions', $hasExclusions);
     }
 
     /**
@@ -217,7 +336,14 @@ class ClientController extends Controller
      */
     public function show(Client $client)
     {
-        $client->load(['principalMember', 'dependents', 'policies.insuranceCompany']);
+        $client->load([
+            'principalMember', 
+            'dependents', 
+            'policies.insuranceCompany',
+            'policies.benefits.serviceCategory',
+            'medicalQuestionResponses.question',
+            'plan'
+        ]);
         return view('clients.show', compact('client'));
     }
 
@@ -229,7 +355,16 @@ class ClientController extends Controller
         $principals = Client::where('type', 'principal')
             ->where('id', '!=', $client->id)
             ->get();
-        return view('clients.edit', compact('client', 'principals'));
+        
+        $medicalQuestions = \App\Models\MedicalQuestion::where('is_active', true)
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get();
+        
+        // Load existing responses and policy
+        $client->load(['medicalQuestionResponses', 'policies']);
+        
+        return view('clients.edit', compact('client', 'principals', 'medicalQuestions'));
     }
 
     /**
@@ -274,6 +409,9 @@ class ClientController extends Controller
             'next_of_kin_physical_address' => 'nullable|string|max:500',
             'has_deductible' => 'nullable|boolean',
             'deductible_amount' => 'nullable|numeric|min:0',
+            'copay_amount' => 'nullable|numeric|min:0',
+            'coinsurance_percentage' => 'nullable|numeric|min:0|max:100',
+            'copay_max_limit' => 'nullable|numeric|min:0',
             'telemedicine_only' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
             'plan_id' => 'nullable|exists:plans,id',
@@ -292,8 +430,73 @@ class ClientController extends Controller
 
         $client->update($validated);
 
+        // Update policy if client is principal and has a policy
+        if ($validated['type'] === 'principal' && $client->policies()->exists()) {
+            $policy = $client->policies()->first();
+            $policy->update([
+                'has_deductible' => $validated['has_deductible'] ?? false,
+                'copay_amount' => $validated['copay_amount'] ?? null,
+                'coinsurance_percentage' => $validated['coinsurance_percentage'] ?? null,
+                'deductible_amount' => ($validated['has_deductible'] ?? false) ? ($validated['deductible_amount'] ?? null) : null,
+                'copay_max_limit' => $validated['copay_max_limit'] ?? null,
+                'telemedicine_only' => $validated['telemedicine_only'] ?? false,
+            ]);
+        }
+
+        // Update medical question responses
+        if ($request->has('medical_questions')) {
+            foreach ($request->medical_questions as $questionId => $responseData) {
+                $question = \App\Models\MedicalQuestion::find($questionId);
+                if (!$question) {
+                    continue;
+                }
+
+                $response = $responseData['response'] ?? null;
+                $additionalInfo = $responseData['additional_info'] ?? null;
+
+                // Handle medication table data if present
+                if ($question->additional_info_type === 'table' && $request->has("medications.{$questionId}")) {
+                    $medications = $request->input("medications.{$questionId}", []);
+                    // Filter out empty rows
+                    $medications = array_filter($medications, function($med) {
+                        return !empty($med['applicant_name']) || !empty($med['medication']) || !empty($med['diagnosis']);
+                    });
+                    $additionalInfo = !empty($medications) ? json_encode(array_values($medications)) : null;
+                } elseif (is_string($additionalInfo)) {
+                    // Try to decode if it's already JSON, otherwise store as is
+                    $decoded = json_decode($additionalInfo, true);
+                    $additionalInfo = $decoded !== null ? $decoded : $additionalInfo;
+                }
+
+                // Check if response triggers exclusion
+                $triggersExclusion = $question->triggersExclusion($response ?? '');
+
+                // Update or create response
+                \App\Models\MedicalQuestionResponse::updateOrCreate(
+                    [
+                        'client_id' => $client->id,
+                        'medical_question_id' => $questionId,
+                    ],
+                    [
+                        'response' => $response,
+                        'additional_info' => is_array($additionalInfo) ? $additionalInfo : ($additionalInfo ? json_decode($additionalInfo, true) : null),
+                        'triggers_exclusion' => $triggersExclusion,
+                    ]
+                );
+            }
+        }
+
+        // Check if client has exclusions
+        $hasExclusions = $client->fresh()->hasExclusions();
+        $successMessage = 'Client updated successfully.';
+        
+        if ($hasExclusions) {
+            $successMessage .= ' WARNING: This client has responses that trigger exclusion list criteria.';
+        }
+
         return redirect()->route('clients.index')
-            ->with('success', 'Client updated successfully.');
+            ->with('success', $successMessage)
+            ->with('has_exclusions', $hasExclusions);
     }
 
     /**

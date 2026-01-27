@@ -59,4 +59,12 @@ Route::middleware('auth')->group(function () {
     
     // Connected Companies
     Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
+    
+    // Vendor Code Email
+    Route::get('/vendor-code/send', [\App\Http\Controllers\VendorCodeController::class, 'create'])->name('vendor-code.create');
+    Route::post('/vendor-code/send', [\App\Http\Controllers\VendorCodeController::class, 'send'])->name('vendor-code.send');
+    
+    // Medical Questions
+    Route::resource('medical-questions', \App\Http\Controllers\MedicalQuestionController::class);
+    Route::post('/medical-questions/update-order', [\App\Http\Controllers\MedicalQuestionController::class, 'updateOrder'])->name('medical-questions.update-order');
 });

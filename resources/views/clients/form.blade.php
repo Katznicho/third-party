@@ -343,25 +343,59 @@
     <div class="border border-slate-300 rounded-lg p-6 bg-slate-50">
         <h2 class="text-xl font-bold text-slate-900 mb-4 border-b border-slate-300 pb-2">PREMIUM COMPUTATION</h2>
         
-        <!-- Deductible Option -->
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-slate-700 mb-2">WOULD YOU LIKE A DEDUCTIBLE? PLEASE TICK APPLICABLE CHOICE:</label>
-            <div class="flex gap-6">
-                <label class="flex items-center">
-                    <input type="radio" name="has_deductible" value="1" {{ old('has_deductible', $client->has_deductible ?? false) ? 'checked' : '' }} class="mr-2">
-                    <span>YES</span>
-                </label>
-                <label class="flex items-center">
-                    <input type="radio" name="has_deductible" value="0" {{ !old('has_deductible', $client->has_deductible ?? false) ? 'checked' : '' }} class="mr-2">
-                    <span>NO</span>
-                </label>
+        <!-- Co-payment, Coinsurance, and Deductible Options -->
+        <div class="space-y-6">
+            <!-- Co-payment (Copay) -->
+            <div class="border border-slate-200 rounded-lg p-4 bg-white">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Co-payment (Copay)</label>
+                <p class="text-xs text-slate-600 mb-3">Fixed amount payable at each visit (e.g., 20,000 per visit)</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="copay_amount" class="block text-sm font-medium text-slate-700 mb-1">Copay Amount (UGX)</label>
+                        <input type="number" name="copay_amount" id="copay_amount" value="{{ old('copay_amount', isset($client) && $client->policies->isNotEmpty() ? $client->policies->first()->copay_amount : '') }}" placeholder="Enter copay amount per visit" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="copay_max_limit" class="block text-sm font-medium text-slate-700 mb-1">Copay Maximum Limit (UGX) - Optional</label>
+                        <input type="number" name="copay_max_limit" id="copay_max_limit" value="{{ old('copay_max_limit', isset($client) && $client->policies->isNotEmpty() ? $client->policies->first()->copay_max_limit : '') }}" placeholder="Enter maximum copay limit (cap)" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-slate-500 mt-1">Maximum total copay amount per policy period</p>
+                    </div>
+                </div>
             </div>
-            <p class="text-xs text-slate-600 mt-2">If you opt for a deductible, you have agreed to incur a cumulative ugx 100,000 self-insurance per person on outpatient claims before claiming from the outpatient benefit limit.</p>
-            <div id="deductible-amount-field" class="mt-4" style="display: {{ old('has_deductible', $client->has_deductible ?? false) ? 'block' : 'none' }};">
-                <label for="deductible_amount" class="block text-sm font-medium text-slate-700 mb-1">Deductible Amount (UGX)</label>
-                <input type="number" name="deductible_amount" id="deductible_amount" value="{{ old('deductible_amount', $client->deductible_amount ?? 100000) }}" placeholder="Enter deductible amount" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+            <!-- Coinsurance -->
+            <div class="border border-slate-200 rounded-lg p-4 bg-white">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Coinsurance</label>
+                <p class="text-xs text-slate-600 mb-3">Fixed percentage paid on all invoices of a particular visit (e.g., 10% means client pays 10% of each invoice)</p>
+                <div>
+                    <label for="coinsurance_percentage" class="block text-sm font-medium text-slate-700 mb-1">Coinsurance Percentage (%)</label>
+                    <input type="number" name="coinsurance_percentage" id="coinsurance_percentage" value="{{ old('coinsurance_percentage', isset($client) && $client->policies->isNotEmpty() ? $client->policies->first()->coinsurance_percentage : '') }}" placeholder="Enter coinsurance percentage" step="0.01" min="0" max="100" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
             </div>
+
+            <!-- Deductible Option -->
+            <div class="border border-slate-200 rounded-lg p-4 bg-white">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Deductible</label>
+                <p class="text-xs text-slate-600 mb-3">Amount a client has to pay before the insurance starts paying (e.g., 100,000 per year)</p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">WOULD YOU LIKE A DEDUCTIBLE? PLEASE TICK APPLICABLE CHOICE:</label>
+                    <div class="flex gap-6">
+                        <label class="flex items-center">
+                            <input type="radio" name="has_deductible" value="1" {{ old('has_deductible', isset($client) && $client->policies->isNotEmpty() ? $client->policies->first()->has_deductible : false) ? 'checked' : '' }} class="mr-2">
+                            <span>YES</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="has_deductible" value="0" {{ !old('has_deductible', isset($client) && $client->policies->isNotEmpty() ? $client->policies->first()->has_deductible : false) ? 'checked' : '' }} class="mr-2">
+                            <span>NO</span>
+                        </label>
+                    </div>
+                </div>
+                <div id="deductible-amount-field" class="mt-4" style="display: {{ old('has_deductible', isset($client) && $client->policies->isNotEmpty() ? $client->policies->first()->has_deductible : false) ? 'block' : 'none' }};">
+                    <label for="deductible_amount" class="block text-sm font-medium text-slate-700 mb-1">Deductible Amount (UGX)</label>
+                    <input type="number" name="deductible_amount" id="deductible_amount" value="{{ old('deductible_amount', isset($client) && $client->policies->isNotEmpty() ? $client->policies->first()->deductible_amount : 100000) }}" placeholder="Enter deductible amount" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-slate-500 mt-1">Amount that must be paid before insurance coverage begins</p>
+                </div>
             </div>
+        </div>
 
         <!-- Telemedicine Option -->
         <div class="mb-6">
@@ -480,6 +514,59 @@
                 5. Optical and Dental benefit benefits have to be selected together
             </p>
         </div>
+
+        <!-- Premium Calculation Display -->
+        <div id="premium-calculation" class="mt-6 border-2 border-blue-500 rounded-lg p-6 bg-blue-50" style="display: none;">
+            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-5m-6 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Premium Calculation
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="number_of_dependents" class="block text-sm font-medium text-slate-700 mb-2">Number of Dependents</label>
+                    <input type="number" name="number_of_dependents" id="number_of_dependents" value="{{ old('number_of_dependents', 0) }}" min="0" max="20" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="calculatePremium()">
+                    <p class="text-xs text-slate-500 mt-1">Include spouse and children</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg p-4 border border-slate-200">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-slate-700">Base Premium (Principal Member):</span>
+                        <span class="text-sm font-bold text-slate-900" id="base-premium">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-slate-700">Dependents Premium (<span id="dependents-count">0</span> dependents):</span>
+                        <span class="text-sm font-bold text-slate-900" id="dependents-premium">UGX 0.00</span>
+                    </div>
+                    <div class="border-t border-slate-300 pt-3 flex justify-between items-center">
+                        <span class="text-base font-semibold text-slate-900">Subtotal Premium:</span>
+                        <span class="text-base font-bold text-blue-600" id="subtotal-premium">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-slate-700">Insurance Training Levy (0.5%):</span>
+                        <span class="text-sm font-bold text-slate-900" id="training-levy">UGX 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-slate-700">Stamp Duty:</span>
+                        <span class="text-sm font-bold text-slate-900" id="stamp-duty">UGX 35,000.00</span>
+                    </div>
+                    <div class="border-t-2 border-blue-500 pt-3 flex justify-between items-center bg-blue-50 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                        <span class="text-lg font-bold text-slate-900">Total Premium Due:</span>
+                        <span class="text-xl font-bold text-blue-600" id="total-premium-due">UGX 0.00</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p class="text-xs text-yellow-800">
+                    <strong>Note:</strong> This is an estimated premium calculation. Final amounts may vary based on additional factors.
+                </p>
+            </div>
+        </div>
     </div>
 
     <!-- CONFIDENTIAL MEDICAL HISTORY Section -->
@@ -488,77 +575,93 @@
         <p class="text-sm text-slate-600 mb-4">State whether you as the principal member or any of your listed dependants have ever been treated or are currently receiving medical treatment, or expect to receive medical treatment for any of the following illnesses including but not limited to:</p>
         
         <div class="space-y-4">
-            @php
-                $medicalHistoryQuestions = [
-                    'Respiratory ailments e.g. tuberculosis, persistent cough, allergies, cigarette smoking related disorders, shortness of breath, asthma',
-                    'Have you or any of your dependants ever sought counseling or treatment in connection with HIV or AIDS infections or tested positive for HIV or AIDS?',
-                    'Ear, nose and throat disorders e.g. hearing/speech impairment, ear infections, sinus problems, nasal/throat surgery, tonsils, adenoids, previous nasal injuries, upper airway infections, epistaxis',
-                    'Do you or any of your dependants have any hereditary disorders, birth defects or congenital conditions?',
-                    'Cardiovascular (heart and blood vessels) disorders e.g. high blood pressure, hypertension, varicose veins, palpitations, deep vein thrombosis, low blood pressure',
-                    'Have you or any of your dependants ever sought counseling or treatment in connection with sexual transmitted infection e.g. gonorrhoea, syphilis, herpes simplex, Chlamydia',
-                    'Have you ever had any endoscopic study of the oesophagus, stomach or Colon and/or treatment and diagnosis of gastro-intestinal disorders e.g. recurrent indigestion, heartburn, ulcers, hernia, piles and fissures?',
-                    'Musculo-skeletal disorders e.g. arthritis, Back problems, gout, and osteoporosis. All joint problems and fractures',
-                    'Neurological disorders e.g. epilepsy, Stroke. Brain or spinal cord disorders, Headache, migraine, Paralysis, meningitis',
-                    'Do you or any of your dependants have incomplete dental treatment plan, dental implants, orthodontic treatment, dentures, braces and wisdom teeth problems or do you or any of your dependants currently receive, or expect to receive dental treatment in the next 12 months?',
-                    'Psychological disorders e.g. alcohol or drug dependency, anxiety disorder, insomnia, depression, stress, attention deficit disorder, post-traumatic stress, attempted suicide, bipolar disorder',
-                    'State whether you or any of your dependants have received medical advice or treatment for any tropical disease e.g. leprosy, sleeping sickness, elephantiasis, bilharzia, yellow fever',
-                    'Gynecological and obstetrical disorders e.g. Fibroids, ectopic pregnancy, caesarian section, Menstrual irregularities. Abnormal pap smear, receiving hormone treatment. Uterine bleeding, Laparoscopic surgery, Dilatation and curettage, miscarriages, pregnancy related problems.',
-                    'Pregnant, if positive, provide expected date of delivery (dd/mm/yy)',
-                    'Respiratory disorders e.g. asthma, rhinitis, chronic bronchitis, cigarette smoking related disorders, tuberculosis, persistent cough, allergies, chronic obstruction pulmonary disease, shortness of breath.',
-                    'Endocrine disorders e.g. diabetes, high cholesterol, thyroid abnormalities',
-                    'Skin disorders e.g. eczema, melanoma, skin cancer, burns, scars, keloids',
-                    'Genital-urinary system e.g. Pelvic inflammatory disease prostate problem, abnormalities of the penis, scrotum. Reproductive system, blood in the urine, kidney stones, kidney failure, bladder problems, Dialysis.',
-                    'Investigations and/or specialized treatment: In and out of hospital',
-                    'Cancer, growths or tumors whether benign or malignant',
-                    'Eye related disorders e.g. blindness, glaucoma, eye surgery, cataracts, lens implants, refractive and laser surgery',
-                    'Are you or any of your dependants on regular medication? If your response is "YES", please indicate the details as required below:',
-                ];
-            @endphp
+            @if(isset($medicalQuestions) && $medicalQuestions->count() > 0)
+                @foreach($medicalQuestions as $question)
+                    @php
+                        $existingResponse = isset($client) && $client->medicalQuestionResponses ? $client->medicalQuestionResponses->firstWhere('medical_question_id', $question->id) : null;
+                        $responseValue = $existingResponse ? $existingResponse->response : null;
+                        $showAdditionalInfo = $existingResponse && ($responseValue === 'yes' || !empty($responseValue));
+                    @endphp
+                    <div class="border border-slate-200 rounded-lg p-4 bg-white {{ $question->has_exclusion_list ? 'border-l-4 border-l-red-500' : '' }}">
+                        <div class="flex items-start justify-between mb-3">
+                            <p class="text-sm font-medium text-slate-700 flex-1">{{ $loop->iteration }}. {{ $question->question_text }}</p>
+                            @if($question->has_exclusion_list)
+                                <span class="ml-2 px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded">Exclusion List</span>
+                            @endif
+                        </div>
+                        
+                        @if($question->question_type === 'yes_no')
+                            <div class="flex gap-6">
+                                <label class="flex items-center">
+                                    <input type="radio" name="medical_questions[{{ $question->id }}][response]" value="yes" {{ $responseValue === 'yes' ? 'checked' : '' }} class="mr-2 question-response" data-question-id="{{ $question->id }}">
+                                    <span>YES</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="medical_questions[{{ $question->id }}][response]" value="no" {{ $responseValue !== 'yes' ? 'checked' : '' }} class="mr-2 question-response" data-question-id="{{ $question->id }}">
+                                    <span>NO</span>
+                                </label>
+                            </div>
+                        @elseif($question->question_type === 'text')
+                            <textarea name="medical_questions[{{ $question->id }}][response]" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 question-response" data-question-id="{{ $question->id }}" placeholder="Enter your response">{{ $responseValue }}</textarea>
+                        @elseif($question->question_type === 'date')
+                            <input type="date" name="medical_questions[{{ $question->id }}][response]" value="{{ $responseValue }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 question-response" data-question-id="{{ $question->id }}">
+                        @elseif($question->question_type === 'number')
+                            <input type="number" name="medical_questions[{{ $question->id }}][response]" value="{{ $responseValue }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 question-response" data-question-id="{{ $question->id }}" placeholder="Enter number">
+                        @endif
 
-            @foreach($medicalHistoryQuestions as $index => $question)
-                <div class="border border-slate-200 rounded-lg p-4 bg-white">
-                    <p class="text-sm font-medium text-slate-700 mb-3">{{ $index + 1 }}. {{ $question }}</p>
-                    <div class="flex gap-6">
-                        <label class="flex items-center">
-                            <input type="radio" name="medical_history[{{ $index }}]" value="yes" class="mr-2">
-                            <span>YES</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="medical_history[{{ $index }}]" value="no" checked class="mr-2">
-                            <span>NO</span>
-                        </label>
+                        @if($question->requires_additional_info)
+                            @php
+                                $additionalInfo = $existingResponse && $existingResponse->additional_info ? $existingResponse->additional_info : null;
+                            @endphp
+                            <div class="mt-3 additional-info-field" id="additional-info-{{ $question->id }}" style="display: {{ $showAdditionalInfo ? 'block' : 'none' }};">
+                                @if($question->additional_info_type === 'date')
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">{{ $question->additional_info_label ?? 'Date' }}</label>
+                                    <input type="date" name="medical_questions[{{ $question->id }}][additional_info]" value="{{ is_array($additionalInfo) ? ($additionalInfo['date'] ?? '') : $additionalInfo }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                @elseif($question->additional_info_type === 'table')
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">{{ $question->additional_info_label ?? 'Details' }}</label>
+                                    <table class="w-full border border-slate-300">
+                                        <thead class="bg-slate-100">
+                                            <tr>
+                                                <th class="border border-slate-300 px-3 py-2 text-left text-sm">Applicant Name</th>
+                                                <th class="border border-slate-300 px-3 py-2 text-left text-sm">Prescribed Medication</th>
+                                                <th class="border border-slate-300 px-3 py-2 text-left text-sm">Diagnosis</th>
+                                                <th class="border border-slate-300 px-3 py-2 text-left text-sm">Date Started/To Be Started</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="medication-tbody-{{ $question->id }}">
+                                            @if(is_array($additionalInfo) && count($additionalInfo) > 0)
+                                                @foreach($additionalInfo as $index => $med)
+                                                    <tr>
+                                                        <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[{{ $question->id }}][{{ $index }}][applicant_name]" value="{{ $med['applicant_name'] ?? '' }}" placeholder="Enter applicant name" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
+                                                        <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[{{ $question->id }}][{{ $index }}][medication]" value="{{ $med['medication'] ?? '' }}" placeholder="Enter medication" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
+                                                        <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[{{ $question->id }}][{{ $index }}][diagnosis]" value="{{ $med['diagnosis'] ?? '' }}" placeholder="Enter diagnosis" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
+                                                        <td class="border border-slate-300 px-3 py-2"><input type="date" name="medications[{{ $question->id }}][{{ $index }}][date_started]" value="{{ $med['date_started'] ?? '' }}" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
+                                                    </tr>
+                                                @endforeach
+                                            @else
+                                                <tr>
+                                                    <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[{{ $question->id }}][0][applicant_name]" placeholder="Enter applicant name" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
+                                                    <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[{{ $question->id }}][0][medication]" placeholder="Enter medication" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
+                                                    <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[{{ $question->id }}][0][diagnosis]" placeholder="Enter diagnosis" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
+                                                    <td class="border border-slate-300 px-3 py-2"><input type="date" name="medications[{{ $question->id }}][0][date_started]" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
+                                                </tr>
+                                            @endif
+                                        </tbody>
+                                    </table>
+                                    <button type="button" onclick="addMedicationRow({{ $question->id }})" class="mt-2 text-sm text-blue-600 hover:text-blue-800">+ Add Row</button>
+                                @else
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">{{ $question->additional_info_label ?? 'Additional Information' }}</label>
+                                    <textarea name="medical_questions[{{ $question->id }}][additional_info]" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter additional information">{{ is_array($additionalInfo) ? json_encode($additionalInfo) : $additionalInfo }}</textarea>
+                                @endif
+                            </div>
+                        @endif
                     </div>
-                    @if($index == 13) <!-- Pregnancy question -->
-                        <div class="mt-3" id="pregnancy-details" style="display: none;">
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Expected Date of Delivery</label>
-                            <input type="date" name="pregnancy_expected_date" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                    @endif
-                    @if($index == 21) <!-- Regular medication question -->
-                        <div class="mt-4" id="medication-details" style="display: none;">
-                            <table class="w-full border border-slate-300">
-                                <thead class="bg-slate-100">
-                                    <tr>
-                                        <th class="border border-slate-300 px-3 py-2 text-left text-sm">Applicant Name</th>
-                                        <th class="border border-slate-300 px-3 py-2 text-left text-sm">Prescribed Medication</th>
-                                        <th class="border border-slate-300 px-3 py-2 text-left text-sm">Diagnosis</th>
-                                        <th class="border border-slate-300 px-3 py-2 text-left text-sm">Date Started/To Be Started</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="medication-tbody">
-                                    <tr>
-                                        <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[0][applicant_name]" placeholder="Enter applicant name" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
-                                        <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[0][medication]" placeholder="Enter medication" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
-                                        <td class="border border-slate-300 px-3 py-2"><input type="text" name="medications[0][diagnosis]" placeholder="Enter diagnosis" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
-                                        <td class="border border-slate-300 px-3 py-2"><input type="date" name="medications[0][date_started]" class="w-full px-2 py-1 border border-slate-300 rounded"></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <button type="button" onclick="addMedicationRow()" class="mt-2 text-sm text-blue-600 hover:text-blue-800">+ Add Medication</button>
-                        </div>
-                    @endif
+                @endforeach
+            @else
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p class="text-sm text-yellow-800">No medical questions have been configured. Please contact your administrator.</p>
                 </div>
-            @endforeach
+            @endif
         </div>
     </div>
 
@@ -649,17 +752,21 @@
         });
     }
 
-    // Add medication row
-    function addMedicationRow() {
-        const tbody = document.getElementById('medication-tbody');
+    // Add medication row for dynamic questions
+    let medicationRowCounters = {};
+    function addMedicationRow(questionId) {
+        if (!medicationRowCounters[questionId]) {
+            medicationRowCounters[questionId] = 1;
+        }
+        const tbody = document.getElementById('medication-tbody-' + questionId);
         const row = tbody.querySelector('tr').cloneNode(true);
         const inputs = row.querySelectorAll('input');
         inputs.forEach(input => {
-            input.name = input.name.replace(/\[0\]/, `[${medicationCount}]`);
+            input.name = input.name.replace(/\[0\]/, `[${medicationRowCounters[questionId]}]`);
             input.value = '';
         });
         tbody.appendChild(row);
-        medicationCount++;
+        medicationRowCounters[questionId]++;
     }
 
     // Show/hide deductible amount field
@@ -677,19 +784,53 @@
         });
     });
 
-    // Show/hide pregnancy details
-    document.querySelectorAll('input[name="medical_history[13]"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const field = document.getElementById('pregnancy-details');
-            field.style.display = this.value === 'yes' ? 'block' : 'none';
+    // Handle dynamic medical questions - show/hide additional info fields
+    document.querySelectorAll('.question-response').forEach(input => {
+        input.addEventListener('change', function() {
+            const questionId = this.getAttribute('data-question-id');
+            const additionalInfoField = document.getElementById('additional-info-' + questionId);
+            
+            if (additionalInfoField) {
+                // Check if this question requires additional info and response is 'yes'
+                const isYes = this.value === 'yes' || this.value !== '';
+                additionalInfoField.style.display = isYes ? 'block' : 'none';
+            }
         });
     });
 
-    // Show/hide medication details
-    document.querySelectorAll('input[name="medical_history[21]"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const field = document.getElementById('medication-details');
-            field.style.display = this.value === 'yes' ? 'block' : 'none';
+    // Before form submission, convert medication tables to JSON
+    document.querySelector('form')?.addEventListener('submit', function(e) {
+        // Find all medication tables and convert to JSON
+        document.querySelectorAll('[id^="medication-tbody-"]').forEach(tbody => {
+            const questionId = tbody.id.replace('medication-tbody-', '');
+            const rows = tbody.querySelectorAll('tr');
+            const medications = [];
+            
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                if (inputs.length >= 4) {
+                    medications.push({
+                        applicant_name: inputs[0].value,
+                        medication: inputs[1].value,
+                        diagnosis: inputs[2].value,
+                        date_started: inputs[3].value
+                    });
+                }
+            });
+            
+            // Store as JSON in hidden field or update the additional_info field
+            const additionalInfoField = document.querySelector(`input[name="medical_questions[${questionId}][additional_info]"], textarea[name="medical_questions[${questionId}][additional_info]"]`);
+            if (additionalInfoField && medications.length > 0) {
+                // Create hidden input to store JSON
+                let hiddenInput = document.querySelector(`input[name="medical_questions[${questionId}][additional_info_json]"]`);
+                if (!hiddenInput) {
+                    hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = `medical_questions[${questionId}][additional_info]`;
+                    additionalInfoField.parentNode.appendChild(hiddenInput);
+                }
+                hiddenInput.value = JSON.stringify(medications);
+            }
         });
     });
 
@@ -775,4 +916,84 @@
     
     // Initialize checkboxes on page load
     updateBenefitCheckboxes();
+    
+    // Premium calculation function
+    function calculatePremium() {
+        const selectedPlan = document.querySelector('input[name="plan_id"]:checked');
+        const premiumCalcDiv = document.getElementById('premium-calculation');
+        
+        if (!selectedPlan) {
+            premiumCalcDiv.style.display = 'none';
+            return;
+        }
+        
+        premiumCalcDiv.style.display = 'block';
+        
+        const planId = selectedPlan.value;
+        const numberOfDependents = parseInt(document.getElementById('number_of_dependents').value) || 0;
+        
+        // Get all checked benefit checkboxes for the selected plan
+        const checkedBenefits = document.querySelectorAll(
+            `.benefit-checkbox[data-plan="${planId}"]:checked`
+        );
+        
+        // Calculate base premium from selected benefits
+        let basePremium = 0;
+        checkedBenefits.forEach(checkbox => {
+            const benefitAmount = parseFloat(checkbox.value) || 0;
+            basePremium += benefitAmount;
+        });
+        
+        // Calculate dependents premium (typically 50% of base premium per dependent, adjust as needed)
+        // You can modify this multiplier based on your business rules
+        const dependentMultiplier = 0.5; // 50% of base premium per dependent
+        const dependentsPremium = basePremium * dependentMultiplier * numberOfDependents;
+        
+        // Calculate subtotal
+        const subtotalPremium = basePremium + dependentsPremium;
+        
+        // Calculate insurance training levy (0.5% of subtotal)
+        const trainingLevy = subtotalPremium * 0.005;
+        
+        // Stamp duty (fixed)
+        const stampDuty = 35000;
+        
+        // Calculate total premium due
+        const totalPremiumDue = subtotalPremium + trainingLevy + stampDuty;
+        
+        // Update display
+        document.getElementById('base-premium').textContent = formatCurrency(basePremium);
+        document.getElementById('dependents-count').textContent = numberOfDependents;
+        document.getElementById('dependents-premium').textContent = formatCurrency(dependentsPremium);
+        document.getElementById('subtotal-premium').textContent = formatCurrency(subtotalPremium);
+        document.getElementById('training-levy').textContent = formatCurrency(trainingLevy);
+        document.getElementById('stamp-duty').textContent = formatCurrency(stampDuty);
+        document.getElementById('total-premium-due').textContent = formatCurrency(totalPremiumDue);
+    }
+    
+    // Format currency
+    function formatCurrency(amount) {
+        return 'UGX ' + parseFloat(amount).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+    
+    // Add event listeners for premium calculation
+    document.querySelectorAll('input[name="plan_id"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            calculatePremium();
+        });
+    });
+    
+    document.querySelectorAll('.benefit-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            calculatePremium();
+        });
+    });
+    
+    // Calculate on page load if plan is already selected
+    if (document.querySelector('input[name="plan_id"]:checked')) {
+        calculatePremium();
+    }
 </script>

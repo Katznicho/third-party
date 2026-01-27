@@ -19,7 +19,11 @@
     <!-- Create Form - Uses shared form partial -->
     @php
         $client = new \App\Models\Client();
+        $medicalQuestions = \App\Models\MedicalQuestion::where('is_active', true)
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get();
     @endphp
-    @include('clients.form', ['client' => $client, 'action' => route('clients.store'), 'method' => 'POST'])
+    @include('clients.form', ['client' => $client, 'action' => route('clients.store'), 'method' => 'POST', 'medicalQuestions' => $medicalQuestions])
 </div>
 @endsection
