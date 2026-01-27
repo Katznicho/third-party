@@ -29,7 +29,7 @@ class BusinessController extends Controller
             $validator = Validator::make($request->all(), [
                 // Business/Insurance Company fields
                 'name' => 'required|string|max:255',
-                'code' => ['nullable', 'string', 'size:8', 'regex:/^[0-9]{8}$/', 'unique:insurance_companies,code'],
+                'code' => ['nullable', 'string', 'size:8', 'regex:/^[A-Z0-9]{8}$/', 'unique:insurance_companies,code'],
                 'email' => 'required|email|max:255',
                 'phone' => 'nullable|string|max:255',
                 'address' => 'nullable|string',
@@ -47,8 +47,8 @@ class BusinessController extends Controller
                 // Connection field (optional)
                 'connect_to_insurance_company_id' => 'nullable|exists:insurance_companies,id',
             ], [
-                'code.size' => 'The company code must be exactly 8 digits.',
-                'code.regex' => 'The company code must contain only numbers (8 digits).',
+                'code.size' => 'The company code must be exactly 8 characters.',
+                'code.regex' => 'The company code must contain only uppercase letters and numbers (8 characters).',
                 'code.unique' => 'This company code is already in use.',
                 'connect_to_insurance_company_id.exists' => 'The insurance company to connect to does not exist.',
             ]);
@@ -63,14 +63,19 @@ class BusinessController extends Controller
 
             $validated = $validator->validated();
 
-            // Generate 8-digit numeric code if not provided
+            // Generate 8-character alphanumeric code if not provided
             if (empty($validated['code'])) {
                 do {
-                    // Generate random 8-digit code
-                    $code = str_pad(rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
+                    // Generate random 8-character alphanumeric code (uppercase letters and numbers)
+                    $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                    $code = '';
+                    for ($i = 0; $i < 8; $i++) {
+                        $code .= $characters[rand(0, strlen($characters) - 1)];
+                    }
                 } while (InsuranceCompany::where('code', $code)->exists());
             } else {
-                $code = $validated['code'];
+                // Ensure code is uppercase
+                $code = strtoupper($validated['code']);
             }
             
             $slug = Str::slug($validated['name']);
@@ -458,17 +463,20 @@ class BusinessController extends Controller
     /**
      * Get insurance company by code
      *
-     * @param string $code 8-digit insurance company code
+     * @param string $code 8-character alphanumeric insurance company code
      * @return \Illuminate\Http\JsonResponse
      */
     public function getByCode(string $code)
     {
         try {
-            // Validate code format
-            if (!preg_match('/^[0-9]{8}$/', $code)) {
+            // Normalize code to uppercase
+            $code = strtoupper($code);
+            
+            // Validate code format (8-character alphanumeric)
+            if (!preg_match('/^[A-Z0-9]{8}$/', $code)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid code format. Code must be exactly 8 digits.',
+                    'message' => 'Invalid code format. Code must be exactly 8 alphanumeric characters (uppercase letters and numbers).',
                 ], 422);
             }
 
