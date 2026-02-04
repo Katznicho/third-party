@@ -296,9 +296,36 @@
 
     // Toggle monetary impact fields
     document.getElementById('has_monetary_impact').addEventListener('change', function() {
-        document.getElementById('monetary-impact-fields').style.display = this.checked ? 'block' : 'none';
-        if (!this.checked) {
-            document.getElementById('monetary_impact_type').value = 'none';
+        const fieldsDiv = document.getElementById('monetary-impact-fields');
+        const typeSelect = document.getElementById('monetary_impact_type');
+        
+        if (this.checked) {
+            fieldsDiv.style.display = 'block';
+            // If type is 'none', automatically set to 'premium_adjustment' as default
+            if (typeSelect.value === 'none') {
+                typeSelect.value = 'premium_adjustment';
+            }
+        } else {
+            fieldsDiv.style.display = 'none';
+            typeSelect.value = 'none';
+            // Clear other fields when unchecked
+            document.getElementById('monetary_impact_amount').value = '';
+            document.getElementById('monetary_impact_is_percentage').checked = false;
+            document.getElementById('monetary_impact_applies_to_response').value = 'yes';
+            document.getElementById('monetary_impact_description').value = '';
+        }
+    });
+    
+    // Also ensure type is not 'none' when checkbox is checked on form submit
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const hasMonetaryImpact = document.getElementById('has_monetary_impact').checked;
+        const monetaryImpactType = document.getElementById('monetary_impact_type').value;
+        
+        if (hasMonetaryImpact && monetaryImpactType === 'none') {
+            e.preventDefault();
+            alert('Please select a valid Impact Type when "Has Monetary Impact" is enabled.');
+            document.getElementById('monetary_impact_type').focus();
+            return false;
         }
     });
 </script>

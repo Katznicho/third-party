@@ -38,6 +38,8 @@ class MedicalQuestionController extends Controller
      */
     public function store(Request $request)
     {
+        $hasMonetaryImpact = $request->boolean('has_monetary_impact');
+        
         $validated = $request->validate([
             'question_text' => 'required|string|max:1000',
             'question_type' => 'required|in:yes_no,text,date,number',
@@ -50,11 +52,14 @@ class MedicalQuestionController extends Controller
             'is_active' => 'nullable',
             // Monetary Impact
             'has_monetary_impact' => 'nullable|boolean',
-            'monetary_impact_type' => 'nullable|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment,none',
+            'monetary_impact_type' => $hasMonetaryImpact ? 'required|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment' : 'nullable|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment,none',
             'monetary_impact_amount' => 'nullable|numeric|min:0',
             'monetary_impact_is_percentage' => 'nullable|boolean',
             'monetary_impact_applies_to_response' => 'nullable|string|max:255',
             'monetary_impact_description' => 'nullable|string',
+        ], [
+            'monetary_impact_type.required' => 'Please select a valid Impact Type when "Has Monetary Impact" is enabled.',
+            'monetary_impact_type.in' => 'The selected Impact Type is invalid. Please choose Premium Adjustment, Deductible Adjustment, or Coverage Limit Adjustment.',
         ]);
 
         // Handle boolean checkboxes
@@ -64,10 +69,24 @@ class MedicalQuestionController extends Controller
         $validated['has_monetary_impact'] = $request->boolean('has_monetary_impact');
         $validated['monetary_impact_is_percentage'] = $request->boolean('monetary_impact_is_percentage');
         
-        // Set default monetary impact type if not provided
-        if (!isset($validated['monetary_impact_type']) || $validated['monetary_impact_type'] === 'none') {
+        // Handle monetary impact logic correctly
+        if (!$validated['has_monetary_impact']) {
+            // If monetary impact is disabled, set type to 'none'
             $validated['monetary_impact_type'] = 'none';
-            $validated['has_monetary_impact'] = false;
+            $validated['monetary_impact_amount'] = null;
+            $validated['monetary_impact_is_percentage'] = false;
+            $validated['monetary_impact_applies_to_response'] = null;
+            $validated['monetary_impact_description'] = null;
+        } else {
+            // If monetary impact is enabled, ensure a valid type is set (not 'none')
+            if (!isset($validated['monetary_impact_type']) || $validated['monetary_impact_type'] === 'none') {
+                // If type is 'none' but has_monetary_impact is true, default to premium_adjustment
+                $validated['monetary_impact_type'] = 'premium_adjustment';
+            }
+            // Ensure applies_to_response has a default value if not set
+            if (empty($validated['monetary_impact_applies_to_response'])) {
+                $validated['monetary_impact_applies_to_response'] = 'yes';
+            }
         }
 
         // Convert comma-separated keywords to array
@@ -127,6 +146,8 @@ class MedicalQuestionController extends Controller
      */
     public function update(Request $request, MedicalQuestion $medicalQuestion)
     {
+        $hasMonetaryImpact = $request->boolean('has_monetary_impact');
+        
         $validated = $request->validate([
             'question_text' => 'required|string|max:1000',
             'question_type' => 'required|in:yes_no,text,date,number',
@@ -139,11 +160,14 @@ class MedicalQuestionController extends Controller
             'is_active' => 'nullable',
             // Monetary Impact
             'has_monetary_impact' => 'nullable|boolean',
-            'monetary_impact_type' => 'nullable|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment,none',
+            'monetary_impact_type' => $hasMonetaryImpact ? 'required|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment' : 'nullable|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment,none',
             'monetary_impact_amount' => 'nullable|numeric|min:0',
             'monetary_impact_is_percentage' => 'nullable|boolean',
             'monetary_impact_applies_to_response' => 'nullable|string|max:255',
             'monetary_impact_description' => 'nullable|string',
+        ], [
+            'monetary_impact_type.required' => 'Please select a valid Impact Type when "Has Monetary Impact" is enabled.',
+            'monetary_impact_type.in' => 'The selected Impact Type is invalid. Please choose Premium Adjustment, Deductible Adjustment, or Coverage Limit Adjustment.',
         ]);
 
         // Handle boolean checkboxes
@@ -153,10 +177,24 @@ class MedicalQuestionController extends Controller
         $validated['has_monetary_impact'] = $request->boolean('has_monetary_impact');
         $validated['monetary_impact_is_percentage'] = $request->boolean('monetary_impact_is_percentage');
         
-        // Set default monetary impact type if not provided
-        if (!isset($validated['monetary_impact_type']) || $validated['monetary_impact_type'] === 'none') {
+        // Handle monetary impact logic correctly
+        if (!$validated['has_monetary_impact']) {
+            // If monetary impact is disabled, set type to 'none'
             $validated['monetary_impact_type'] = 'none';
-            $validated['has_monetary_impact'] = false;
+            $validated['monetary_impact_amount'] = null;
+            $validated['monetary_impact_is_percentage'] = false;
+            $validated['monetary_impact_applies_to_response'] = null;
+            $validated['monetary_impact_description'] = null;
+        } else {
+            // If monetary impact is enabled, ensure a valid type is set (not 'none')
+            if (!isset($validated['monetary_impact_type']) || $validated['monetary_impact_type'] === 'none') {
+                // If type is 'none' but has_monetary_impact is true, default to premium_adjustment
+                $validated['monetary_impact_type'] = 'premium_adjustment';
+            }
+            // Ensure applies_to_response has a default value if not set
+            if (empty($validated['monetary_impact_applies_to_response'])) {
+                $validated['monetary_impact_applies_to_response'] = 'yes';
+            }
         }
 
         // Convert comma-separated keywords to array
