@@ -91,7 +91,13 @@ jobs:
             echo '✓ Checking migration status...' && \
             \$PHP_PATH artisan migrate:status && \
             echo '✓ Running migrations...' && \
-            \$PHP_PATH artisan migrate --force --verbose 2>&1 || { echo 'Migration failed, attempting to continue...'; } && \
+            if \$PHP_PATH artisan migrate --force --verbose 2>&1; then \
+              echo '✓ Migrations completed successfully'; \
+            else \
+              echo '✗ Migration failed!'; \
+              \$PHP_PATH artisan migrate:status; \
+              exit 1; \
+            fi && \
             echo '✓ Final migration status...' && \
             \$PHP_PATH artisan migrate:status && \
             echo '✓ Clearing and caching...' && \
