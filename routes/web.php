@@ -48,7 +48,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/transactions/cleared', [\App\Http\Controllers\TransactionController::class, 'cleared'])->name('transactions.cleared');
     
     // Invoices
-    Route::resource('invoices', \App\Http\Controllers\InvoiceController::class);
+    Route::get('/invoices', [\App\Http\Controllers\InvoiceController::class, 'index'])->name('invoices.index');
+    Route::get('/invoices/{invoiceId}', [\App\Http\Controllers\InvoiceController::class, 'show'])->name('invoices.show');
+    Route::post('/invoices/{invoiceId}/mark-paid', [\App\Http\Controllers\InvoiceController::class, 'markAsPaid'])->name('invoices.mark-paid');
     Route::post('/invoices/{invoice}/generate-pdf', [\App\Http\Controllers\InvoiceController::class, 'generatePdf'])->name('invoices.generate-pdf');
     
     // Payments

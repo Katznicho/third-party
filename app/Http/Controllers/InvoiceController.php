@@ -3,10 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Services\KashtreApiService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceController extends Controller
 {
+    protected $kashtreApi;
+
+    public function __construct(KashtreApiService $kashtreApi)
+    {
+        $this->kashtreApi = $kashtreApi;
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -14,12 +23,46 @@ class InvoiceController extends Controller
     {
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         
-        $invoices = Invoice::with(['policy', 'client'])
-            ->whereHas('policy', function($query) use ($insuranceCompanyId) {
-                $query->where('insurance_company_id', $insuranceCompanyId);
-            })
-            ->latest()
-            ->paginate(15);
+        if (!$insuranceCompanyId) {
+            return redirect()->route('dashboard')
+                ->with('error', 'No insurance company associated with your account.');
+        }
+
+        // Fetch invoices from Kashtre API
+        $result = $this->kashtreApi->getInvoicesForInsuranceCompany($insuranceCompanyId);
+        
+        // Log for debugging
+        Log::info('InvoiceController@index - API Response', [
+            'insurance_company_id' => $insuranceCompanyId,
+            'success' => $result['success'] ?? false,
+            'data_count' => is_array($result['data'] ?? null) ? count($result['data']) : 0,
+            'message' => $result['message'] ?? null,
+            'result_keys' => array_keys($result ?? []),
+        ]);
+        
+        // Check if the API call was successful
+        if (isset($result['success']) && !$result['success']) {
+            return view('invoices.index', [
+                'invoices' => collect([]),
+                'error' => $result['message'] ?? 'Failed to fetch invoices from Kashtre. Please check the logs for more details.'
+            ]);
+        }
+        
+        // Extract invoices from the response
+        // The API returns: { "success": true, "data": [...] }
+        $invoicesData = $result['data'] ?? [];
+        
+        // Ensure it's an array
+        if (!is_array($invoicesData)) {
+            Log::warning('InvoiceController@index - Invalid data format', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'data_type' => gettype($invoicesData),
+                'data' => $invoicesData,
+            ]);
+            $invoicesData = [];
+        }
+        
+        $invoices = collect($invoicesData);
             
         return view('invoices.index', compact('invoices'));
     }
@@ -43,9 +86,46 @@ class InvoiceController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Invoice $invoice)
+    public function show($invoiceId)
     {
-        return view('invoices.show', compact('invoice'));
+        // Fetch invoice details from Kashtre API
+        $result = $this->kashtreApi->getInvoiceDetails($invoiceId);
+        
+        if (!$result['success'] || !$result['data']) {
+            return redirect()->route('invoices.index')
+                ->with('error', $result['message'] ?? 'Failed to fetch invoice details.');
+        }
+
+        $invoiceData = $result['data'];
+        
+        return view('invoices.show', compact('invoiceData', 'invoiceId'));
+    }
+
+    /**
+     * Mark invoice as paid/cleared
+     */
+    public function markAsPaid(Request $request, $invoiceId)
+    {
+        $validated = $request->validate([
+            'payment_reference' => 'nullable|string|max:255',
+            'payment_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+        
+        if (!$insuranceCompanyId) {
+            return back()->with('error', 'No insurance company associated with your account.');
+        }
+
+        $result = $this->kashtreApi->markInvoiceAsPaid($invoiceId, $insuranceCompanyId, $validated);
+
+        if ($result['success']) {
+            return redirect()->route('invoices.show', $invoiceId)
+                ->with('success', 'Payment cleared successfully.');
+        }
+
+        return back()->with('error', $result['message'] ?? 'Failed to clear payment.');
     }
 
     /**
