@@ -89,9 +89,19 @@ jobs:
             composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs && \
             echo '✓ Checking migration status...' && \
             \$PHP_PATH artisan migrate:status && \
+            echo '✓ Fixing duplicate medical_question_responses migration if needed...' && \
+            \$PHP_PATH -r \"require 'vendor/autoload.php'; \\\$app = require_once 'bootstrap/app.php'; \\\$app->make('Illuminate\\\\Contracts\\\\Console\\\\Kernel')->bootstrap(); if (\\\\DB::table('migrations')->where('migration', '2026_01_27_084550_create_medical_question_responses_table')->doesntExist() && Schema::hasTable('medical_question_responses')) { \\\$batch = \\\\DB::table('migrations')->max('batch') ?? 0; \\\\DB::table('migrations')->insert(['migration' => '2026_01_27_084550_create_medical_question_responses_table', 'batch' => \\\$batch + 1]); echo 'Marked duplicate migration as run\n'; }\" 2>&1 || echo 'Could not fix duplicate migration (may not be needed)' && \
             echo '✓ Running migrations...' && \
-            if \$PHP_PATH artisan migrate --force --verbose 2>&1; then \
+            MIGRATION_OUTPUT=\$(\$PHP_PATH artisan migrate --force --verbose 2>&1) && \
+            MIGRATION_EXIT=\$? && \
+            echo \"\$MIGRATION_OUTPUT\" && \
+            if [ \$MIGRATION_EXIT -eq 0 ]; then \
               echo '✓ Migrations completed successfully'; \
+            elif echo \"\$MIGRATION_OUTPUT\" | grep -q \"already exists\"; then \
+              echo '⚠ Migration failed due to existing table - attempting to mark as run...' && \
+              \$PHP_PATH artisan migrate:status && \
+              echo '⚠ Please manually fix duplicate migrations on server' && \
+              exit 1; \
             else \
               echo '✗ Migration failed!'; \
               \$PHP_PATH artisan migrate:status; \
