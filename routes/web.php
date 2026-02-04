@@ -67,4 +67,8 @@ Route::middleware('auth')->group(function () {
     // Medical Questions
     Route::resource('medical-questions', \App\Http\Controllers\MedicalQuestionController::class);
     Route::post('/medical-questions/update-order', [\App\Http\Controllers\MedicalQuestionController::class, 'updateOrder'])->name('medical-questions.update-order');
+    
+    // Settings
+    Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
+    Route::put('/settings/policy-number', [\App\Http\Controllers\SettingsController::class, 'updatePolicyNumberSettings'])->name('settings.update-policy-number');
 });

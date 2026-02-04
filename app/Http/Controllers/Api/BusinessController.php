@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\InsuranceCompany;
 use App\Models\User;
+use App\Models\BusinessConnection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -602,6 +603,99 @@ class BusinessController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create business connection',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get connected vendors (insurance companies) for a kashtre business
+     *
+     * @param int $businessId The kashtre business ID
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getConnectedVendors($businessId)
+    {
+        try {
+            // Find all connections where connected_business_id matches the kashtre business ID
+            $connections = BusinessConnection::where('connected_business_id', $businessId)
+                ->with('insuranceCompany')
+                ->get();
+
+            $vendors = $connections->map(function ($connection) {
+                $company = $connection->insuranceCompany;
+                if (!$company) {
+                    return null;
+                }
+                return [
+                    'id' => $company->id,
+                    'name' => $company->name,
+                    'code' => $company->code,
+                    'email' => $company->email,
+                    'phone' => $company->phone,
+                    'is_active' => $company->is_active,
+                    'connected_at' => $connection->created_at->toDateTimeString(),
+                ];
+            })->filter();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Connected vendors retrieved successfully',
+                'data' => $vendors->values(),
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve connected vendors',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify if a policy number exists for a given insurance company
+     */
+    public function verifyPolicyNumber($insuranceCompanyId, $policyNumber)
+    {
+        try {
+            $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
+                ->where('policy_number', $policyNumber)
+                ->where('status', 'active')
+                ->with(['principalMember', 'insuranceCompany'])
+                ->first();
+
+            if (!$policy) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Policy number not found or inactive',
+                    'exists' => false,
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Policy number verified',
+                'exists' => true,
+                'data' => [
+                    'policy_number' => $policy->policy_number,
+                    'insurance_company_id' => $policy->insurance_company_id,
+                    'insurance_company_name' => $policy->insuranceCompany->name ?? null,
+                    'principal_member_id' => $policy->principal_member_id,
+                    'principal_member_name' => $policy->principalMember ? ($policy->principalMember->first_name . ' ' . $policy->principalMember->surname) : null,
+                    'status' => $policy->status,
+                    'expiry_date' => $policy->expiry_date?->toDateString(),
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to verify policy number', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'policy_number' => $policyNumber,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to verify policy number',
                 'error' => $e->getMessage(),
             ], 500);
         }

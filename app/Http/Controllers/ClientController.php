@@ -34,7 +34,13 @@ class ClientController extends Controller
      */
     public function create()
     {
-        $medicalQuestions = \App\Models\MedicalQuestion::where('is_active', true)
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->route('dashboard')->with('error', 'You must be associated with an insurance company to create clients.');
+        }
+
+        $medicalQuestions = \App\Models\MedicalQuestion::where('insurance_company_id', $user->insurance_company_id)
+            ->where('is_active', true)
             ->orderBy('order')
             ->orderBy('id')
             ->get();
@@ -107,6 +113,10 @@ class ClientController extends Controller
 
         $client = Client::create($validated);
         $policyNumber = null;
+        
+        // Initialize monetary adjustment variables
+        $premiumAdjustment = 0;
+        $deductibleAdjustment = 0;
 
         // If plan is selected and client is principal, create policy and policy benefits
         if ($validated['plan_id'] && $validated['type'] === 'principal') {
@@ -150,27 +160,107 @@ class ClientController extends Controller
                 // Inpatient is mandatory, so always include it if it exists
                 $isInpatient = $serviceCategory->name === 'Inpatient';
                 
-                // Add benefit amount to premium if selected/enabled and has an amount
-                if (($isSelected || $isInpatient) && $pivot->is_enabled && $pivot->benefit_amount) {
-                    $basePremium += $pivot->benefit_amount;
+                // Add base amount (what client pays) to premium if selected/enabled and has an amount
+                if (($isSelected || $isInpatient) && $pivot->is_enabled && $pivot->base_amount) {
+                    $basePremium += $pivot->base_amount;
                 }
             }
             
-            // Calculate dependents premium (50% of base premium per dependent)
-            $dependentMultiplier = 0.5; // Can be configured per plan if needed
+            // Calculate premium based on plan's calculation method
+            $calculationMethod = $plan->premium_calculation_method ?? 'benefit_based';
+            
+            if ($calculationMethod === 'fixed') {
+                // Use base premium only
+                $basePremium = $plan->base_premium ?? 0;
+            } elseif ($calculationMethod === 'hybrid') {
+                // Base premium + benefit amounts
+                $basePremium = ($plan->base_premium ?? 0) + $basePremium;
+            }
+            // else 'benefit_based' - already calculated above
+            
+            // Calculate dependents premium using plan's multiplier
+            $dependentMultiplier = $plan->dependent_coverage_multiplier ?? 0.50;
             $dependentsPremium = $basePremium * $dependentMultiplier * $numberOfDependents;
             
             // Subtotal premium (principal + dependents)
             $subtotalPremium = $basePremium + $dependentsPremium;
             
-            // Calculate insurance training levy (0.5% of subtotal premium)
-            $insuranceTrainingLevy = $subtotalPremium * 0.005;
+            // Calculate insurance training levy using plan's percentage
+            $trainingLevyPercentage = ($plan->insurance_training_levy_percentage ?? 0.50) / 100;
+            $insuranceTrainingLevy = $subtotalPremium * $trainingLevyPercentage;
             
-            // Stamp duty (default 35,000 UGX)
-            $stampDuty = 35000;
+            // Stamp duty from plan settings
+            $stampDuty = $plan->stamp_duty_amount ?? 35000;
+            
+            // Calculate monetary impact from medical questions
+            $coverageLimitAdjustments = [];
+            
+            if ($request->has('medical_questions')) {
+                foreach ($request->medical_questions as $questionId => $responseData) {
+                    $question = \App\Models\MedicalQuestion::find($questionId);
+                    if (!$question || !$question->has_monetary_impact || $question->monetary_impact_type === 'none') {
+                        continue;
+                    }
+                    
+                    $response = strtolower(trim($responseData['response'] ?? ''));
+                    $appliesTo = strtolower(trim($question->monetary_impact_applies_to_response ?? 'yes'));
+                    
+                    // Check if response matches the trigger
+                    $shouldApply = false;
+                    if ($question->question_type === 'yes_no') {
+                        $shouldApply = ($response === $appliesTo);
+                    } else {
+                        // For text/date/number, check if response matches or contains the trigger
+                        $shouldApply = ($response === $appliesTo || str_contains($response, $appliesTo));
+                    }
+                    
+                    if ($shouldApply && $question->monetary_impact_amount) {
+                        $impactAmount = $question->monetary_impact_amount;
+                        
+                        if ($question->monetary_impact_type === 'premium_adjustment') {
+                            if ($question->monetary_impact_is_percentage) {
+                                // Percentage of base premium
+                                $premiumAdjustment += ($basePremium * $impactAmount / 100);
+                            } else {
+                                // Fixed amount
+                                $premiumAdjustment += $impactAmount;
+                            }
+                        } elseif ($question->monetary_impact_type === 'deductible_adjustment') {
+                            if ($question->monetary_impact_is_percentage) {
+                                // Percentage adjustment (would need base deductible, but we'll use fixed for now)
+                                $deductibleAdjustment += $impactAmount;
+                            } else {
+                                // Fixed amount
+                                $deductibleAdjustment += $impactAmount;
+                            }
+                        } elseif ($question->monetary_impact_type === 'coverage_limit_adjustment') {
+                            // Store for later use (could adjust annual/lifetime limits)
+                            $coverageLimitAdjustments[] = [
+                                'amount' => $impactAmount,
+                                'is_percentage' => $question->monetary_impact_is_percentage,
+                            ];
+                        }
+                    }
+                }
+            }
+            
+            // Apply premium adjustment
+            $subtotalPremium += $premiumAdjustment;
+            
+            // Recalculate training levy after premium adjustment
+            $insuranceTrainingLevy = $subtotalPremium * $trainingLevyPercentage;
             
             // Total premium due = subtotal premium + levy + stamp duty
             $totalPremiumDue = $subtotalPremium + $insuranceTrainingLevy + $stampDuty;
+            
+            // Apply deductible adjustment if applicable
+            $finalDeductibleAmount = null;
+            if (($validated['has_deductible'] ?? false) && isset($validated['deductible_amount'])) {
+                $finalDeductibleAmount = $validated['deductible_amount'] + $deductibleAdjustment;
+            } elseif ($deductibleAdjustment > 0) {
+                // If no deductible was set but adjustment exists, set it
+                $finalDeductibleAmount = $deductibleAdjustment;
+            }
             
             // Create policy with calculated premium
             $policy = Policy::create([
@@ -181,7 +271,7 @@ class ClientController extends Controller
                 'inception_date' => $inceptionDate,
                 'expiry_date' => $expiryDate,
                 'desired_start_date' => $desiredStartDate,
-                'total_premium' => $subtotalPremium, // Includes principal + dependents
+                'total_premium' => $subtotalPremium, // Includes principal + dependents + medical question adjustments
                 'insurance_training_levy' => $insuranceTrainingLevy,
                 'stamp_duty' => $stampDuty,
                 'total_premium_due' => $totalPremiumDue,
@@ -190,7 +280,7 @@ class ClientController extends Controller
                 'has_deductible' => $validated['has_deductible'] ?? false,
                 'copay_amount' => $validated['copay_amount'] ?? null,
                 'coinsurance_percentage' => $validated['coinsurance_percentage'] ?? null,
-                'deductible_amount' => ($validated['has_deductible'] ?? false) ? ($validated['deductible_amount'] ?? null) : null,
+                'deductible_amount' => $finalDeductibleAmount,
                 'copay_max_limit' => $validated['copay_max_limit'] ?? null,
                 'telemedicine_only' => $validated['telemedicine_only'] ?? false,
             ]);
@@ -291,6 +381,25 @@ class ClientController extends Controller
                     number_format($policy->insurance_training_levy, 2),
                     number_format($policy->stamp_duty, 2)
                 );
+                
+                // Add monetary adjustment information
+                if ($premiumAdjustment != 0) {
+                    $adjustmentType = $premiumAdjustment > 0 ? 'increased' : 'decreased';
+                    $successMessage .= sprintf(
+                        '. Premium %s by UGX %s due to medical questionnaire responses',
+                        $adjustmentType,
+                        number_format(abs($premiumAdjustment), 2)
+                    );
+                }
+                
+                if ($deductibleAdjustment != 0) {
+                    $adjustmentType = $deductibleAdjustment > 0 ? 'increased' : 'decreased';
+                    $successMessage .= sprintf(
+                        '. Deductible %s by UGX %s due to medical questionnaire responses',
+                        $adjustmentType,
+                        number_format(abs($deductibleAdjustment), 2)
+                    );
+                }
             } else {
                 $successMessage .= '. Policy ' . $policyNumber . ' has been created.';
             }
@@ -306,29 +415,80 @@ class ClientController extends Controller
     }
 
     /**
-     * Generate a unique policy number
+     * Generate a unique policy number based on insurance company settings
      */
     private function generatePolicyNumber(): string
     {
         $insuranceCompany = auth()->user()->insuranceCompany;
-        $companyCode = strtoupper(substr($insuranceCompany->code ?? 'INS', 0, 3));
         
+        // Get settings with defaults
+        $format = $insuranceCompany->policy_number_format ?? '{COMPANY}-{YEAR}{MONTH}{DAY}-{RANDOM}';
+        $randomLength = $insuranceCompany->policy_number_random_length ?? 6;
+        $randomType = $insuranceCompany->policy_number_random_type ?? 'alphanumeric';
+        $companyCodeLength = $insuranceCompany->policy_number_company_code_length ?? 3;
+        
+        // Generate company code prefix
+        $companyCode = strtoupper(substr($insuranceCompany->code ?? 'INS', 0, $companyCodeLength));
+        
+        // Generate random part based on type
+        $randomPart = $this->generateRandomPart($randomLength, $randomType);
+        
+        // Replace placeholders in format
+        $policyNumber = $format;
+        $policyNumber = str_replace('{COMPANY}', $companyCode, $policyNumber);
+        $policyNumber = str_replace('{YEAR}', now()->format('Y'), $policyNumber);
+        $policyNumber = str_replace('{MONTH}', now()->format('m'), $policyNumber);
+        $policyNumber = str_replace('{DAY}', now()->format('d'), $policyNumber);
+        $policyNumber = str_replace('{YEAR2}', now()->format('y'), $policyNumber); // 2-digit year
+        $policyNumber = str_replace('{RANDOM}', $randomPart, $policyNumber);
+        
+        // Ensure uniqueness
         $attempts = 0;
         $maxAttempts = 100;
+        $originalPolicyNumber = $policyNumber;
         
-        do {
-            // Format: COMPANY-YYYYMMDD-XXXXXX (e.g., AAR-20260123-ABC123)
-            $datePart = now()->format('Ymd');
-            $randomPart = strtoupper(Str::random(6));
-            $policyNumber = "{$companyCode}-{$datePart}-{$randomPart}";
+        while (Policy::where('policy_number', $policyNumber)->exists()) {
+            $randomPart = $this->generateRandomPart($randomLength, $randomType);
+            $policyNumber = str_replace('{RANDOM}', $randomPart, $originalPolicyNumber);
+            $policyNumber = str_replace('{COMPANY}', $companyCode, $policyNumber);
+            $policyNumber = str_replace('{YEAR}', now()->format('Y'), $policyNumber);
+            $policyNumber = str_replace('{MONTH}', now()->format('m'), $policyNumber);
+            $policyNumber = str_replace('{DAY}', now()->format('d'), $policyNumber);
+            $policyNumber = str_replace('{YEAR2}', now()->format('y'), $policyNumber);
             
             $attempts++;
             if ($attempts > $maxAttempts) {
                 throw new \Exception('Unable to generate unique policy number after multiple attempts.');
             }
-        } while (Policy::where('policy_number', $policyNumber)->exists());
+        }
         
         return $policyNumber;
+    }
+    
+    /**
+     * Generate random part based on type
+     */
+    private function generateRandomPart(int $length, string $type): string
+    {
+        switch ($type) {
+            case 'numeric':
+                $characters = '0123456789';
+                break;
+            case 'alphabetic':
+                $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                break;
+            case 'alphanumeric':
+            default:
+                $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                break;
+        }
+        
+        $random = '';
+        for ($i = 0; $i < $length; $i++) {
+            $random .= $characters[rand(0, strlen($characters) - 1)];
+        }
+        
+        return $random;
     }
 
     /**
@@ -356,7 +516,13 @@ class ClientController extends Controller
             ->where('id', '!=', $client->id)
             ->get();
         
-        $medicalQuestions = \App\Models\MedicalQuestion::where('is_active', true)
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->route('dashboard')->with('error', 'You must be associated with an insurance company to edit clients.');
+        }
+
+        $medicalQuestions = \App\Models\MedicalQuestion::where('insurance_company_id', $user->insurance_company_id)
+            ->where('is_active', true)
             ->orderBy('order')
             ->orderBy('id')
             ->get();

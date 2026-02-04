@@ -16,6 +16,7 @@ return new class extends Migration
         if (!Schema::hasTable('medical_questions')) {
             Schema::create('medical_questions', function (Blueprint $table) {
                 $table->id();
+                $table->unsignedBigInteger('insurance_company_id')->nullable();
                 $table->text('question_text');
                 $table->enum('question_type', ['yes_no', 'text', 'date', 'number'])->default('yes_no');
                 $table->boolean('has_exclusion_list')->default(false);
@@ -26,7 +27,22 @@ return new class extends Migration
                 $table->integer('order')->default(0);
                 $table->boolean('is_active')->default(true);
                 $table->timestamps();
+                
+                // Add foreign key if insurance_companies table exists
+                if (Schema::hasTable('insurance_companies')) {
+                    $table->foreign('insurance_company_id')->references('id')->on('insurance_companies')->onDelete('cascade');
+                }
             });
+        } else {
+            // Table exists, check if insurance_company_id column exists
+            if (!Schema::hasColumn('medical_questions', 'insurance_company_id')) {
+                Schema::table('medical_questions', function (Blueprint $table) {
+                    $table->unsignedBigInteger('insurance_company_id')->nullable()->after('id');
+                    if (Schema::hasTable('insurance_companies')) {
+                        $table->foreign('insurance_company_id')->references('id')->on('insurance_companies')->onDelete('cascade');
+                    }
+                });
+            }
         }
 
         // Check if medical_question_responses table exists

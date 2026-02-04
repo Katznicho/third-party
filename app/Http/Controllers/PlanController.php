@@ -51,11 +51,47 @@ class PlanController extends Controller
             'description' => 'nullable|string',
             'is_active' => 'nullable|boolean',
             'sort_order' => 'nullable|integer|min:0',
+            // Age Limits
+            'min_enrollment_age' => 'nullable|integer|min:0|max:120',
+            'max_enrollment_age' => 'nullable|integer|min:0|max:120|gte:min_enrollment_age',
+            // Effective Dates
+            'effective_start_date' => 'nullable|date',
+            'effective_end_date' => 'nullable|date|after_or_equal:effective_start_date',
+            // Dependent Coverage
+            'dependent_coverage_multiplier' => 'nullable|numeric|min:0|max:2',
+            // Coverage Limits
+            'annual_max_coverage' => 'nullable|numeric|min:0',
+            'lifetime_max_coverage' => 'nullable|numeric|min:0',
+            'per_incident_max_coverage' => 'nullable|numeric|min:0',
+            // Plan Image
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            // Terms & Conditions
+            'terms_and_conditions' => 'nullable|string',
+            'terms_link' => 'nullable|url|max:500',
+            // Premium Calculation
+            'base_premium' => 'nullable|numeric|min:0',
+            'premium_calculation_method' => 'nullable|in:benefit_based,fixed,hybrid',
+            'insurance_training_levy_percentage' => 'nullable|numeric|min:0|max:100',
+            'stamp_duty_amount' => 'nullable|numeric|min:0',
         ]);
 
         $validated['slug'] = $this->generateUniqueSlug($validated['name']);
         $validated['insurance_company_id'] = auth()->user()->insurance_company_id;
         $validated['is_active'] = $request->boolean('is_active', true);
+        
+        // Set default values if not provided
+        $validated['dependent_coverage_multiplier'] = $validated['dependent_coverage_multiplier'] ?? 0.50;
+        $validated['premium_calculation_method'] = $validated['premium_calculation_method'] ?? 'benefit_based';
+        $validated['insurance_training_levy_percentage'] = $validated['insurance_training_levy_percentage'] ?? 0.50;
+        $validated['stamp_duty_amount'] = $validated['stamp_duty_amount'] ?? 35000;
+        
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '_' . $image->getClientOriginalName();
+            $imagePath = $image->storeAs('plans', $imageName, 'public');
+            $validated['image_path'] = $imagePath;
+        }
 
         $plan = Plan::create($validated);
 
@@ -67,8 +103,7 @@ class PlanController extends Controller
                     $categoryIdValue = $categoryData['id'];
                     $syncData[$categoryIdValue] = [
                         'benefit_amount' => isset($categoryData['benefit_amount']) && $categoryData['benefit_amount'] !== '' ? (float)$categoryData['benefit_amount'] : null,
-                        'copay_percentage' => isset($categoryData['copay_percentage']) && $categoryData['copay_percentage'] !== '' ? (float)$categoryData['copay_percentage'] : 0,
-                        'copay_type' => isset($categoryData['copay_type']) && in_array($categoryData['copay_type'], ['fixed', 'percentage']) ? $categoryData['copay_type'] : 'percentage',
+                        'base_amount' => isset($categoryData['base_amount']) && $categoryData['base_amount'] !== '' ? (float)$categoryData['base_amount'] : null,
                         'waiting_period_days' => isset($categoryData['waiting_period_days']) && $categoryData['waiting_period_days'] !== '' ? (int)$categoryData['waiting_period_days'] : 0,
                         'is_enabled' => isset($categoryData['is_enabled']) ? (bool)$categoryData['is_enabled'] : true,
                     ];
@@ -128,12 +163,34 @@ class PlanController extends Controller
                 'max:50',
                 \Illuminate\Validation\Rule::unique('plans')->where(function ($query) use ($plan) {
                     return $query->where('insurance_company_id', auth()->user()->insurance_company_id)
-                                 ->where('id', '!=', $plan->id);
+                                  ->where('id', '!=', $plan->id);
                 }),
             ],
             'description' => 'nullable|string',
             'is_active' => 'nullable|boolean',
             'sort_order' => 'nullable|integer|min:0',
+            // Age Limits
+            'min_enrollment_age' => 'nullable|integer|min:0|max:120',
+            'max_enrollment_age' => 'nullable|integer|min:0|max:120|gte:min_enrollment_age',
+            // Effective Dates
+            'effective_start_date' => 'nullable|date',
+            'effective_end_date' => 'nullable|date|after_or_equal:effective_start_date',
+            // Dependent Coverage
+            'dependent_coverage_multiplier' => 'nullable|numeric|min:0|max:2',
+            // Coverage Limits
+            'annual_max_coverage' => 'nullable|numeric|min:0',
+            'lifetime_max_coverage' => 'nullable|numeric|min:0',
+            'per_incident_max_coverage' => 'nullable|numeric|min:0',
+            // Plan Image
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            // Terms & Conditions
+            'terms_and_conditions' => 'nullable|string',
+            'terms_link' => 'nullable|url|max:500',
+            // Premium Calculation
+            'base_premium' => 'nullable|numeric|min:0',
+            'premium_calculation_method' => 'nullable|in:benefit_based,fixed,hybrid',
+            'insurance_training_levy_percentage' => 'nullable|numeric|min:0|max:100',
+            'stamp_duty_amount' => 'nullable|numeric|min:0',
         ]);
 
         // Only update slug if name changed
@@ -141,6 +198,25 @@ class PlanController extends Controller
             $validated['slug'] = $this->generateUniqueSlug($validated['name'], $plan->id);
         }
         $validated['is_active'] = $request->boolean('is_active');
+        
+        // Set default values if not provided
+        $validated['dependent_coverage_multiplier'] = $validated['dependent_coverage_multiplier'] ?? $plan->dependent_coverage_multiplier ?? 0.50;
+        $validated['premium_calculation_method'] = $validated['premium_calculation_method'] ?? $plan->premium_calculation_method ?? 'benefit_based';
+        $validated['insurance_training_levy_percentage'] = $validated['insurance_training_levy_percentage'] ?? $plan->insurance_training_levy_percentage ?? 0.50;
+        $validated['stamp_duty_amount'] = $validated['stamp_duty_amount'] ?? $plan->stamp_duty_amount ?? 35000;
+        
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($plan->image_path && \Storage::disk('public')->exists($plan->image_path)) {
+                \Storage::disk('public')->delete($plan->image_path);
+            }
+            
+            $image = $request->file('image');
+            $imageName = time() . '_' . $image->getClientOriginalName();
+            $imagePath = $image->storeAs('plans', $imageName, 'public');
+            $validated['image_path'] = $imagePath;
+        }
 
         $plan->update($validated);
 
@@ -152,8 +228,7 @@ class PlanController extends Controller
                     $categoryIdValue = $categoryData['id'];
                     $syncData[$categoryIdValue] = [
                         'benefit_amount' => isset($categoryData['benefit_amount']) && $categoryData['benefit_amount'] !== '' ? (float)$categoryData['benefit_amount'] : null,
-                        'copay_percentage' => isset($categoryData['copay_percentage']) && $categoryData['copay_percentage'] !== '' ? (float)$categoryData['copay_percentage'] : 0,
-                        'copay_type' => isset($categoryData['copay_type']) && in_array($categoryData['copay_type'], ['fixed', 'percentage']) ? $categoryData['copay_type'] : 'percentage',
+                        'base_amount' => isset($categoryData['base_amount']) && $categoryData['base_amount'] !== '' ? (float)$categoryData['base_amount'] : null,
                         'waiting_period_days' => isset($categoryData['waiting_period_days']) && $categoryData['waiting_period_days'] !== '' ? (int)$categoryData['waiting_period_days'] : 0,
                         'is_enabled' => isset($categoryData['is_enabled']) ? (bool)$categoryData['is_enabled'] : true,
                     ];

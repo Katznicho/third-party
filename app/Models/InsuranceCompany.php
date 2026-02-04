@@ -22,12 +22,18 @@ class InsuranceCompany extends Model
         'description',
         'logo_path',
         'is_active',
+        'policy_number_format',
+        'policy_number_random_length',
+        'policy_number_random_type',
+        'policy_number_company_code_length',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'policy_number_random_length' => 'integer',
+            'policy_number_company_code_length' => 'integer',
         ];
     }
 

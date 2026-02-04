@@ -44,6 +44,12 @@ Route::prefix('v1')->group(function () {
     // Create business connection (public, for client registration)
     Route::post('/businesses/connections', [BusinessController::class, 'createConnection'])->name('api.businesses.connections.create');
     
+    // Get connected vendors for a business (public, for kashtre entities)
+    Route::get('/businesses/{businessId}/connected-vendors', [BusinessController::class, 'getConnectedVendors'])->name('api.businesses.connected-vendors');
+    
+    // Verify policy number exists (public, for client registration)
+    Route::get('/policies/verify/{insuranceCompanyId}/{policyNumber}', [BusinessController::class, 'verifyPolicyNumber'])->name('api.policies.verify');
+    
     // Protected routes (require API token)
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/businesses/{id}', [BusinessController::class, 'show'])->name('api.businesses.show');

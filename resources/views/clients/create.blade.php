@@ -19,7 +19,8 @@
     <!-- Create Form - Uses shared form partial -->
     @php
         $client = new \App\Models\Client();
-        $medicalQuestions = \App\Models\MedicalQuestion::where('is_active', true)
+        $medicalQuestions = \App\Models\MedicalQuestion::where('insurance_company_id', auth()->user()->insurance_company_id)
+            ->where('is_active', true)
             ->orderBy('order')
             ->orderBy('id')
             ->get();

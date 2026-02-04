@@ -1,5 +1,9 @@
 @extends('layouts.dashboard')
 
+@php
+    use Illuminate\Support\Facades\Storage;
+@endphp
+
 @section('title', 'Plan Details')
 @section('page-title', 'Plan Details')
 
@@ -52,14 +56,152 @@
                 </p>
             </div>
             
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Sort Order</label>
+                <p class="text-sm font-medium text-slate-900">{{ $plan->sort_order ?? 0 }}</p>
+            </div>
+            
             @if($plan->description)
             <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-slate-500 mb-1">Description</label>
                 <p class="text-sm text-slate-900">{{ $plan->description }}</p>
             </div>
             @endif
+
+            @if($plan->image_path)
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-slate-500 mb-1">Plan Image</label>
+                <img src="{{ Storage::url($plan->image_path) }}" alt="{{ $plan->name }}" class="h-32 w-32 object-cover rounded-lg border border-slate-300">
+            </div>
+            @endif
         </div>
     </div>
+
+    <!-- Enrollment & Availability -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-semibold text-slate-900 mb-4">Enrollment & Availability</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Minimum Enrollment Age</label>
+                <p class="text-sm font-medium text-slate-900">{{ $plan->min_enrollment_age ? $plan->min_enrollment_age . ' years' : 'No limit' }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Maximum Enrollment Age</label>
+                <p class="text-sm font-medium text-slate-900">{{ $plan->max_enrollment_age ? $plan->max_enrollment_age . ' years' : 'No limit' }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Plan Start Date</label>
+                <p class="text-sm font-medium text-slate-900">{{ $plan->effective_start_date ? $plan->effective_start_date->format('F d, Y') : 'Immediate' }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Plan End Date</label>
+                <p class="text-sm font-medium text-slate-900">{{ $plan->effective_end_date ? $plan->effective_end_date->format('F d, Y') : 'No end date' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coverage Settings -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-semibold text-slate-900 mb-4">Coverage Settings</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Dependent Coverage Multiplier</label>
+                <p class="text-sm font-medium text-slate-900">{{ number_format(($plan->dependent_coverage_multiplier ?? 0.50) * 100, 0) }}%</p>
+                <p class="text-xs text-slate-500 mt-1">Dependents pay {{ number_format(($plan->dependent_coverage_multiplier ?? 0.50) * 100, 0) }}% of principal premium</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Annual Maximum Coverage</label>
+                <p class="text-sm font-medium text-slate-900">{{ $plan->annual_max_coverage ? 'UGX ' . number_format($plan->annual_max_coverage, 2) : 'Unlimited' }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Lifetime Maximum Coverage</label>
+                <p class="text-sm font-medium text-slate-900">{{ $plan->lifetime_max_coverage ? 'UGX ' . number_format($plan->lifetime_max_coverage, 2) : 'Unlimited' }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Per Incident Maximum Coverage</label>
+                <p class="text-sm font-medium text-slate-900">{{ $plan->per_incident_max_coverage ? 'UGX ' . number_format($plan->per_incident_max_coverage, 2) : 'Unlimited' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Premium Calculation Settings -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-semibold text-slate-900 mb-4">Premium Calculation Settings</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Premium Calculation Method</label>
+                <p class="text-sm font-medium text-slate-900">
+                    @if(($plan->premium_calculation_method ?? 'benefit_based') === 'benefit_based')
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Benefit Based</span>
+                    @elseif($plan->premium_calculation_method === 'fixed')
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Fixed</span>
+                    @elseif($plan->premium_calculation_method === 'hybrid')
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Hybrid</span>
+                    @endif
+                </p>
+                <p class="text-xs text-slate-500 mt-1">
+                    @if(($plan->premium_calculation_method ?? 'benefit_based') === 'benefit_based')
+                        Premium calculated from sum of selected benefits
+                    @elseif($plan->premium_calculation_method === 'fixed')
+                        Premium uses fixed base amount
+                    @elseif($plan->premium_calculation_method === 'hybrid')
+                        Premium = Base + Sum of selected benefits
+                    @endif
+                </p>
+            </div>
+            
+            @if($plan->base_premium)
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Base Premium</label>
+                <p class="text-sm font-medium text-slate-900">UGX {{ number_format($plan->base_premium, 2) }}</p>
+            </div>
+            @endif
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Insurance Training Levy</label>
+                <p class="text-sm font-medium text-slate-900">{{ number_format($plan->insurance_training_levy_percentage ?? 0.50, 2) }}%</p>
+                <p class="text-xs text-slate-500 mt-1">Applied to subtotal premium</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Stamp Duty</label>
+                <p class="text-sm font-medium text-slate-900">UGX {{ number_format($plan->stamp_duty_amount ?? 35000, 2) }}</p>
+                <p class="text-xs text-slate-500 mt-1">Fixed amount added to total premium</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms & Conditions -->
+    @if($plan->terms_and_conditions || $plan->terms_link)
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-semibold text-slate-900 mb-4">Terms & Conditions</h2>
+        
+        <div class="space-y-4">
+            @if($plan->terms_link)
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Terms Link</label>
+                <a href="{{ $plan->terms_link }}" target="_blank" class="text-sm text-blue-600 hover:text-blue-900 underline">{{ $plan->terms_link }}</a>
+            </div>
+            @endif
+            
+            @if($plan->terms_and_conditions)
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Terms & Conditions</label>
+                <div class="text-sm text-slate-900 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border border-slate-200">{{ $plan->terms_and_conditions }}</div>
+            </div>
+            @endif
+        </div>
+    </div>
+    @endif
 
     <!-- Associated Products -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -73,7 +215,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Product Name</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Code</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Benefit Amount (UGX)</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Co-payment</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Base Amount (UGX)</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Waiting Period</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                         </tr>
@@ -87,11 +229,7 @@
                                     {{ $category->pivot->benefit_amount ? number_format($category->pivot->benefit_amount, 2) : 'N/A' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                                    @if(($category->pivot->copay_type ?? 'percentage') === 'percentage')
-                                        {{ number_format($category->pivot->copay_percentage ?? 0, 2) }}%
-                                    @else
-                                        UGX {{ number_format($category->pivot->copay_percentage ?? 0, 2) }}
-                                    @endif
+                                    {{ $category->pivot->base_amount ? number_format($category->pivot->base_amount, 2) : 'N/A' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{{ $category->pivot->waiting_period_days ?? 0 }} days</td>
                                 <td class="px-6 py-4 whitespace-nowrap">

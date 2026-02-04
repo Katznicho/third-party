@@ -20,12 +20,45 @@ class Plan extends Model
         'insurance_company_id',
         'is_active',
         'sort_order',
+        // Age Limits
+        'min_enrollment_age',
+        'max_enrollment_age',
+        // Effective Dates
+        'effective_start_date',
+        'effective_end_date',
+        // Dependent Coverage
+        'dependent_coverage_multiplier',
+        // Coverage Limits
+        'annual_max_coverage',
+        'lifetime_max_coverage',
+        'per_incident_max_coverage',
+        // Plan Image
+        'image_path',
+        // Terms & Conditions
+        'terms_and_conditions',
+        'terms_link',
+        // Premium Calculation
+        'base_premium',
+        'premium_calculation_method',
+        'insurance_training_levy_percentage',
+        'stamp_duty_amount',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'min_enrollment_age' => 'integer',
+            'max_enrollment_age' => 'integer',
+            'effective_start_date' => 'date',
+            'effective_end_date' => 'date',
+            'dependent_coverage_multiplier' => 'decimal:2',
+            'annual_max_coverage' => 'decimal:2',
+            'lifetime_max_coverage' => 'decimal:2',
+            'per_incident_max_coverage' => 'decimal:2',
+            'base_premium' => 'decimal:2',
+            'insurance_training_levy_percentage' => 'decimal:2',
+            'stamp_duty_amount' => 'decimal:2',
         ];
     }
 
@@ -37,7 +70,7 @@ class Plan extends Model
     public function serviceCategories(): BelongsToMany
     {
         return $this->belongsToMany(ServiceCategory::class, 'plan_service_category')
-            ->withPivot(['benefit_amount', 'copay_percentage', 'copay_type', 'waiting_period_days', 'is_enabled'])
+            ->withPivot(['benefit_amount', 'base_amount', 'waiting_period_days', 'is_enabled'])
             ->withTimestamps();
     }
 

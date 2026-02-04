@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class MedicalQuestion extends Model
 {
     protected $fillable = [
+        'insurance_company_id',
         'question_text',
         'question_type',
         'has_exclusion_list',
@@ -17,6 +18,13 @@ class MedicalQuestion extends Model
         'additional_info_label',
         'order',
         'is_active',
+        // Monetary Impact
+        'has_monetary_impact',
+        'monetary_impact_type',
+        'monetary_impact_amount',
+        'monetary_impact_is_percentage',
+        'monetary_impact_applies_to_response',
+        'monetary_impact_description',
     ];
 
     protected $casts = [
@@ -25,11 +33,19 @@ class MedicalQuestion extends Model
         'requires_additional_info' => 'boolean',
         'is_active' => 'boolean',
         'order' => 'integer',
+        'has_monetary_impact' => 'boolean',
+        'monetary_impact_is_percentage' => 'boolean',
+        'monetary_impact_amount' => 'decimal:2',
     ];
 
     public function responses(): HasMany
     {
         return $this->hasMany(MedicalQuestionResponse::class);
+    }
+
+    public function insuranceCompany(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(InsuranceCompany::class);
     }
 
     /**

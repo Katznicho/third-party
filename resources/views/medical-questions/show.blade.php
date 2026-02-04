@@ -31,6 +31,10 @@
             <!-- Question Details -->
             <div class="grid grid-cols-2 gap-6">
                 <div>
+                    <h3 class="text-sm font-medium text-slate-500 mb-2">Insurance Company</h3>
+                    <p class="text-base text-slate-900">{{ $medicalQuestion->insuranceCompany->name ?? 'N/A' }}</p>
+                </div>
+                <div>
                     <h3 class="text-sm font-medium text-slate-500 mb-2">Question Type</h3>
                     <p class="text-base text-slate-900">
                         <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
@@ -101,6 +105,111 @@
                     </div>
                 </div>
             @endif
+
+            <!-- Monetary Impact -->
+            <div class="border-t border-slate-200 pt-6">
+                <h3 class="text-sm font-medium text-slate-500 mb-4">Monetary Impact on Policy Calculation</h3>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    @if($medicalQuestion->has_monetary_impact && $medicalQuestion->monetary_impact_type !== 'none')
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-xs font-medium text-slate-500 mb-1">Has Monetary Impact</h4>
+                                <p class="text-sm text-slate-900">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Yes</span>
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-xs font-medium text-slate-500 mb-1">Impact Type</h4>
+                                <p class="text-sm text-slate-900">
+                                    @if($medicalQuestion->monetary_impact_type === 'premium_adjustment')
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Premium Adjustment</span>
+                                    @elseif($medicalQuestion->monetary_impact_type === 'deductible_adjustment')
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Deductible Adjustment</span>
+                                    @elseif($medicalQuestion->monetary_impact_type === 'coverage_limit_adjustment')
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Coverage Limit Adjustment</span>
+                                    @else
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-600">No Impact</span>
+                                    @endif
+                                </p>
+                            </div>
+                            
+                            @if($medicalQuestion->monetary_impact_amount)
+                            <div>
+                                <h4 class="text-xs font-medium text-slate-500 mb-1">Impact Amount</h4>
+                                <p class="text-sm text-slate-900 font-semibold">
+                                    @if($medicalQuestion->monetary_impact_is_percentage)
+                                        {{ number_format($medicalQuestion->monetary_impact_amount, 2) }}%
+                                    @else
+                                        UGX {{ number_format($medicalQuestion->monetary_impact_amount, 2) }}
+                                    @endif
+                                </p>
+                                <p class="text-xs text-slate-500 mt-1">
+                                    {{ $medicalQuestion->monetary_impact_is_percentage ? 'Percentage-based adjustment' : 'Fixed amount adjustment' }}
+                                </p>
+                            </div>
+                            @endif
+                            
+                            @if($medicalQuestion->monetary_impact_applies_to_response)
+                            <div>
+                                <h4 class="text-xs font-medium text-slate-500 mb-1">Applies To Response</h4>
+                                <p class="text-sm text-slate-900">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                        "{{ $medicalQuestion->monetary_impact_applies_to_response }}"
+                                    </span>
+                                </p>
+                                <p class="text-xs text-slate-500 mt-1">This impact is triggered when the response matches this value</p>
+                            </div>
+                            @endif
+                            
+                            @if($medicalQuestion->monetary_impact_description)
+                            <div class="md:col-span-2">
+                                <h4 class="text-xs font-medium text-slate-500 mb-1">Impact Description</h4>
+                                <p class="text-sm text-slate-900 bg-white p-3 rounded border border-slate-200">
+                                    {{ $medicalQuestion->monetary_impact_description }}
+                                </p>
+                            </div>
+                            @endif
+                        </div>
+                        
+                        <div class="mt-4 p-3 bg-white rounded border border-blue-300">
+                            <p class="text-xs font-medium text-blue-900">
+                                <strong>How it works:</strong> When a client responds "{{ $medicalQuestion->monetary_impact_applies_to_response }}" to this question, 
+                                @if($medicalQuestion->monetary_impact_type === 'premium_adjustment')
+                                    their premium will be 
+                                    @if($medicalQuestion->monetary_impact_is_percentage)
+                                        adjusted by {{ number_format($medicalQuestion->monetary_impact_amount, 2) }}%
+                                    @else
+                                        adjusted by UGX {{ number_format($medicalQuestion->monetary_impact_amount, 2) }}
+                                    @endif
+                                @elseif($medicalQuestion->monetary_impact_type === 'deductible_adjustment')
+                                    their deductible will be 
+                                    @if($medicalQuestion->monetary_impact_is_percentage)
+                                        adjusted by {{ number_format($medicalQuestion->monetary_impact_amount, 2) }}%
+                                    @else
+                                        adjusted by UGX {{ number_format($medicalQuestion->monetary_impact_amount, 2) }}
+                                    @endif
+                                @elseif($medicalQuestion->monetary_impact_type === 'coverage_limit_adjustment')
+                                    their coverage limits will be 
+                                    @if($medicalQuestion->monetary_impact_is_percentage)
+                                        adjusted by {{ number_format($medicalQuestion->monetary_impact_amount, 2) }}%
+                                    @else
+                                        adjusted by UGX {{ number_format($medicalQuestion->monetary_impact_amount, 2) }}
+                                    @endif
+                                @endif
+                                during policy calculation.
+                            </p>
+                        </div>
+                    @else
+                        <div class="text-center py-4">
+                            <p class="text-sm text-slate-600">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-600">No Monetary Impact</span>
+                            </p>
+                            <p class="text-xs text-slate-500 mt-2">This question does not affect policy premium, deductible, or coverage limits.</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
 
             <!-- Response Statistics -->
             <div class="border-t border-slate-200 pt-6">

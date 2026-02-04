@@ -428,13 +428,39 @@
                     ->where('is_active', true)
                     ->orderByRaw("FIELD(name, '" . implode("','", $standardCategories) . "')")
                     ->get();
+                
+                // Prepare plan data for JavaScript (ensure numeric values are floats)
+                $plansData = $plans->map(function($plan) {
+                    return [
+                        'id' => (int)$plan->id,
+                        'dependent_coverage_multiplier' => (float)($plan->dependent_coverage_multiplier ?? 0.50),
+                        'insurance_training_levy_percentage' => (float)($plan->insurance_training_levy_percentage ?? 0.50),
+                        'stamp_duty_amount' => (float)($plan->stamp_duty_amount ?? 35000),
+                        'premium_calculation_method' => $plan->premium_calculation_method ?? 'benefit_based',
+                        'base_premium' => (float)($plan->base_premium ?? 0),
+                    ];
+                })->keyBy('id');
+                
+                // Prepare medical questions data for JavaScript
+                $medicalQuestionsData = isset($medicalQuestions) ? $medicalQuestions->map(function($question) {
+                    return [
+                        'id' => $question->id,
+                        'question_type' => $question->question_type,
+                        'has_monetary_impact' => $question->has_monetary_impact ?? false,
+                        'monetary_impact_type' => $question->monetary_impact_type ?? 'none',
+                        'monetary_impact_amount' => $question->monetary_impact_amount ?? 0,
+                        'monetary_impact_is_percentage' => $question->monetary_impact_is_percentage ?? false,
+                        'monetary_impact_applies_to_response' => strtolower(trim($question->monetary_impact_applies_to_response ?? 'yes')),
+                        'monetary_impact_description' => $question->monetary_impact_description ?? '',
+                    ];
+                })->keyBy('id') : [];
             @endphp
             
             <div class="overflow-x-auto border border-slate-300 rounded-lg">
                 <table class="w-full text-sm bg-white">
                     <thead class="bg-slate-200">
                         <tr>
-                            <th class="border border-slate-300 px-4 py-3 text-left font-bold text-slate-900">BENEFIT AMOUNT (UGX)</th>
+                            <th class="border border-slate-300 px-4 py-3 text-left font-bold text-slate-900">PLAN NAME</th>
                             @foreach($serviceCategories as $category)
                                 <th class="border border-slate-300 px-3 py-3 text-center font-bold text-slate-900 whitespace-nowrap">
                                     @if($category->name === 'Funeral Expenses')
@@ -467,30 +493,37 @@
                                     @php
                                         $pivot = $planCategories->get($category->name);
                                         $benefitAmount = $pivot ? ($pivot->pivot->benefit_amount ?? 0) : 0;
+                                        $baseAmount = $pivot ? ($pivot->pivot->base_amount ?? 0) : 0;
                                         $isInpatient = $category->name === 'Inpatient';
                                         $isOptical = $category->name === 'Optical';
                                         $isDental = $category->name === 'Dental';
                                         $oldSelected = old('selected_benefits.' . $plan->id . '.' . $category->id, false);
                                     @endphp
                                     <td class="border border-slate-300 px-3 py-3 text-center font-medium">
-                                        @if($benefitAmount > 0)
+                                        @if($baseAmount > 0 || $benefitAmount > 0)
                                             <div class="flex flex-col items-center justify-center space-y-1">
                                                 <label class="flex items-center cursor-pointer">
                                                     <input type="checkbox" 
                                                            name="selected_benefits[{{ $plan->id }}][{{ $category->id }}]" 
-                                                           value="{{ $benefitAmount }}"
+                                                           value="{{ $baseAmount }}"
                                                            data-plan="{{ $plan->id }}"
                                                            data-category="{{ $category->id }}"
                                                            data-category-name="{{ $category->name }}"
                                                            data-optical="{{ $isOptical ? '1' : '0' }}"
                                                            data-dental="{{ $isDental ? '1' : '0' }}"
+                                                           data-benefit-amount="{{ $benefitAmount }}"
                                                            class="benefit-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 {{ $isInpatient ? 'inpatient-checkbox' : '' }}"
                                                            {{ $isInpatient ? 'checked required' : '' }}
                                                            {{ $oldSelected ? 'checked' : '' }}
                                                            {{ !$isSelected ? 'disabled' : '' }}>
                                                     <span class="ml-1 text-xs text-slate-600">Select</span>
                                                 </label>
-                                                <span class="text-xs font-semibold text-slate-900 mt-1">{{ number_format($benefitAmount, 0, '.', ',') }}</span>
+                                                @if($baseAmount > 0)
+                                                    <span class="text-xs font-semibold text-slate-900 mt-1" title="Base Amount (Client Pays)">{{ number_format($baseAmount, 0, '.', ',') }}</span>
+                                                @endif
+                                                @if($benefitAmount > 0 && $benefitAmount != $baseAmount)
+                                                    <span class="text-xs text-slate-500" title="Benefit Amount (Insurance Covers)">Cover: {{ number_format($benefitAmount, 0, '.', ',') }}</span>
+                                                @endif
                                             </div>
                                         @else
                                             <span class="text-slate-400">-</span>
@@ -504,7 +537,7 @@
             </div>
             @error('plan_id')
                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-            @enderror
+                @enderror
             <p class="mt-4 text-xs text-slate-600">
                 <strong>Please note the following:</strong><br>
                 1. Inpatient is a mandatory benefit. All other benefits are optional<br>
@@ -546,13 +579,25 @@
                         <span class="text-base font-semibold text-slate-900">Subtotal Premium:</span>
                         <span class="text-base font-bold text-blue-600" id="subtotal-premium">UGX 0.00</span>
                     </div>
+                    <div id="premium-adjustments-container" style="display: none;">
+                        <div class="border-t border-slate-300 pt-3 mt-3">
+                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Medical Question Adjustments:</h4>
+                            <div id="premium-adjustments-list" class="space-y-1"></div>
+                        </div>
+                    </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium text-slate-700">Insurance Training Levy (0.5%):</span>
+                        <span class="text-sm font-medium text-slate-700">Insurance Training Levy:</span>
                         <span class="text-sm font-bold text-slate-900" id="training-levy">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-sm font-medium text-slate-700">Stamp Duty:</span>
                         <span class="text-sm font-bold text-slate-900" id="stamp-duty">UGX 35,000.00</span>
+                    </div>
+                    <div id="deductible-adjustments-container" style="display: none;">
+                        <div class="border-t border-slate-300 pt-3 mt-3">
+                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Deductible Adjustments:</h4>
+                            <div id="deductible-adjustments-list" class="space-y-1"></div>
+                        </div>
                     </div>
                     <div class="border-t-2 border-blue-500 pt-3 flex justify-between items-center bg-blue-50 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
                         <span class="text-lg font-bold text-slate-900">Total Premium Due:</span>
@@ -560,7 +605,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p class="text-xs text-yellow-800">
                     <strong>Note:</strong> This is an estimated premium calculation. Final amounts may vary based on additional factors.
@@ -700,6 +745,12 @@
 </form>
 
 <script>
+    // Pass plan data to JavaScript
+    window.plansData = @json($plansData);
+    
+    // Pass medical questions data to JavaScript
+    window.medicalQuestionsData = @json($medicalQuestionsData);
+    
     let dependantCount = 1;
     let medicationCount = 1;
 
@@ -795,7 +846,19 @@
                 const isYes = this.value === 'yes' || this.value !== '';
                 additionalInfoField.style.display = isYes ? 'block' : 'none';
             }
+            
+            // Recalculate premium when medical question response changes
+            calculatePremium();
         });
+    });
+    
+    // Also listen for text/date/number medical question inputs
+    document.querySelectorAll('input[name^="medical_questions"], textarea[name^="medical_questions"]').forEach(input => {
+        if (!input.classList.contains('question-response')) {
+            input.addEventListener('input', function() {
+                calculatePremium();
+            });
+        }
     });
 
     // Before form submission, convert medication tables to JSON
@@ -929,37 +992,145 @@
         
         premiumCalcDiv.style.display = 'block';
         
-        const planId = selectedPlan.value;
+        const planId = parseInt(selectedPlan.value);
         const numberOfDependents = parseInt(document.getElementById('number_of_dependents').value) || 0;
+        
+        // Get plan data
+        const planData = window.plansData && window.plansData[planId] ? window.plansData[planId] : {
+            dependent_coverage_multiplier: 0.50,
+            insurance_training_levy_percentage: 0.50,
+            stamp_duty_amount: 35000,
+            premium_calculation_method: 'benefit_based',
+            base_premium: 0,
+        };
+        
+        // Ensure all plan data values are numbers
+        const dependentMultiplier = parseFloat(planData.dependent_coverage_multiplier) || 0.50;
+        const trainingLevyPercentage = parseFloat(planData.insurance_training_levy_percentage) || 0.50;
+        const stampDuty = parseFloat(planData.stamp_duty_amount) || 35000;
+        const planBasePremium = parseFloat(planData.base_premium) || 0;
         
         // Get all checked benefit checkboxes for the selected plan
         const checkedBenefits = document.querySelectorAll(
             `.benefit-checkbox[data-plan="${planId}"]:checked`
         );
         
-        // Calculate base premium from selected benefits
+        // Calculate base premium from selected benefits (using base_amount - what client pays)
         let basePremium = 0;
         checkedBenefits.forEach(checkbox => {
-            const benefitAmount = parseFloat(checkbox.value) || 0;
-            basePremium += benefitAmount;
+            const baseAmount = parseFloat(checkbox.value) || 0; // This is now base_amount, not benefit_amount
+            if (!isNaN(baseAmount)) {
+                basePremium += baseAmount;
+            }
         });
         
-        // Calculate dependents premium (typically 50% of base premium per dependent, adjust as needed)
-        // You can modify this multiplier based on your business rules
-        const dependentMultiplier = 0.5; // 50% of base premium per dependent
-        const dependentsPremium = basePremium * dependentMultiplier * numberOfDependents;
+        // Apply plan's calculation method
+        if (planData.premium_calculation_method === 'fixed') {
+            basePremium = planBasePremium;
+        } else if (planData.premium_calculation_method === 'hybrid') {
+            basePremium = (planBasePremium || 0) + (basePremium || 0);
+        }
+        // else 'benefit_based' - already calculated above
         
-        // Calculate subtotal
-        const subtotalPremium = basePremium + dependentsPremium;
+        // Ensure basePremium is a number
+        basePremium = parseFloat(basePremium) || 0;
+        if (isNaN(basePremium)) basePremium = 0;
         
-        // Calculate insurance training levy (0.5% of subtotal)
-        const trainingLevy = subtotalPremium * 0.005;
+        // Calculate dependents premium using plan's multiplier
+        const dependentsPremium = parseFloat(basePremium) * parseFloat(dependentMultiplier) * parseFloat(numberOfDependents);
+        if (isNaN(dependentsPremium)) dependentsPremium = 0;
         
-        // Stamp duty (fixed)
-        const stampDuty = 35000;
+        // Calculate subtotal (before medical question adjustments)
+        let subtotalPremium = parseFloat(basePremium) + parseFloat(dependentsPremium);
+        if (isNaN(subtotalPremium)) subtotalPremium = 0;
         
-        // Calculate total premium due
-        const totalPremiumDue = subtotalPremium + trainingLevy + stampDuty;
+        // Calculate monetary impact from medical questions
+        let premiumAdjustment = 0;
+        let deductibleAdjustment = 0;
+        const premiumAdjustmentsList = [];
+        const deductibleAdjustmentsList = [];
+        
+        if (window.medicalQuestionsData) {
+            Object.keys(window.medicalQuestionsData).forEach(questionId => {
+                const question = window.medicalQuestionsData[questionId];
+                if (!question.has_monetary_impact || question.monetary_impact_type === 'none') {
+                    return;
+                }
+                
+                // Get response for this question
+                // Try checked radio button first, then other inputs
+                let responseInput = document.querySelector(`input[name="medical_questions[${questionId}][response]"]:checked`);
+                if (!responseInput) {
+                    responseInput = document.querySelector(`input[name="medical_questions[${questionId}][response]"]`);
+                }
+                if (!responseInput) {
+                    responseInput = document.querySelector(`textarea[name="medical_questions[${questionId}][response]"]`);
+                }
+                
+                if (!responseInput || !responseInput.value) {
+                    return;
+                }
+                
+                const response = (responseInput.value || '').toLowerCase().trim();
+                const appliesTo = question.monetary_impact_applies_to_response || 'yes';
+                
+                // Check if response matches the trigger
+                let shouldApply = false;
+                if (question.question_type === 'yes_no') {
+                    shouldApply = (response === appliesTo);
+                } else {
+                    // For text/date/number, check if response matches or contains the trigger
+                    shouldApply = (response === appliesTo || response.includes(appliesTo));
+                }
+                
+                if (shouldApply && question.monetary_impact_amount) {
+                    let impactAmount = parseFloat(question.monetary_impact_amount) || 0;
+                    if (isNaN(impactAmount)) impactAmount = 0;
+                    
+                    if (question.monetary_impact_type === 'premium_adjustment') {
+                        if (question.monetary_impact_is_percentage) {
+                            // Percentage of base premium
+                            impactAmount = parseFloat(basePremium) * (parseFloat(impactAmount) / 100);
+                            if (isNaN(impactAmount)) impactAmount = 0;
+                        }
+                        premiumAdjustment = parseFloat(premiumAdjustment) + parseFloat(impactAmount);
+                        if (isNaN(premiumAdjustment)) premiumAdjustment = 0;
+                        premiumAdjustmentsList.push({
+                            amount: impactAmount,
+                            description: question.monetary_impact_description || `Question ${questionId} adjustment`,
+                            isPositive: impactAmount > 0
+                        });
+                    } else if (question.monetary_impact_type === 'deductible_adjustment') {
+                        // For deductible adjustment, if percentage, we need a base deductible to calculate from
+                        // For now, treat percentage as fixed amount (could be improved with base deductible)
+                        // Note: Percentage-based deductible adjustments would need a base deductible value
+                        deductibleAdjustment = parseFloat(deductibleAdjustment) + parseFloat(impactAmount);
+                        if (isNaN(deductibleAdjustment)) deductibleAdjustment = 0;
+                        deductibleAdjustmentsList.push({
+                            amount: impactAmount,
+                            description: question.monetary_impact_description || `Question ${questionId} adjustment`,
+                            isPositive: impactAmount > 0
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Apply premium adjustment
+        premiumAdjustment = parseFloat(premiumAdjustment) || 0;
+        if (isNaN(premiumAdjustment)) premiumAdjustment = 0;
+        subtotalPremium = parseFloat(subtotalPremium) + parseFloat(premiumAdjustment);
+        if (isNaN(subtotalPremium)) subtotalPremium = 0;
+        
+        // Calculate insurance training levy using plan's percentage
+        // trainingLevyPercentage is stored as a percentage (e.g., 0.50 = 0.5%), so divide by 100
+        const trainingLevyPercent = parseFloat(trainingLevyPercentage) / 100;
+        let trainingLevy = parseFloat(subtotalPremium) * parseFloat(trainingLevyPercent);
+        if (isNaN(trainingLevy)) trainingLevy = 0;
+        
+        // Calculate total premium due (ensure all values are numbers)
+        let totalPremiumDue = parseFloat(subtotalPremium) + parseFloat(trainingLevy) + parseFloat(stampDuty);
+        if (isNaN(totalPremiumDue)) totalPremiumDue = 0;
         
         // Update display
         document.getElementById('base-premium').textContent = formatCurrency(basePremium);
@@ -969,6 +1140,42 @@
         document.getElementById('training-levy').textContent = formatCurrency(trainingLevy);
         document.getElementById('stamp-duty').textContent = formatCurrency(stampDuty);
         document.getElementById('total-premium-due').textContent = formatCurrency(totalPremiumDue);
+        
+        // Display premium adjustments
+        const premiumAdjustmentsContainer = document.getElementById('premium-adjustments-container');
+        const premiumAdjustmentsListEl = document.getElementById('premium-adjustments-list');
+        if (premiumAdjustmentsList.length > 0) {
+            premiumAdjustmentsContainer.style.display = 'block';
+            premiumAdjustmentsListEl.innerHTML = premiumAdjustmentsList.map(adj => {
+                const sign = adj.isPositive ? '+' : '';
+                const color = adj.isPositive ? 'text-red-600' : 'text-green-600';
+                return `<div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-600">${adj.description}:</span>
+                    <span class="font-semibold ${color}">${sign}${formatCurrency(adj.amount)}</span>
+                </div>`;
+            }).join('');
+        } else {
+            premiumAdjustmentsContainer.style.display = 'none';
+            premiumAdjustmentsListEl.innerHTML = '';
+        }
+        
+        // Display deductible adjustments
+        const deductibleAdjustmentsContainer = document.getElementById('deductible-adjustments-container');
+        const deductibleAdjustmentsListEl = document.getElementById('deductible-adjustments-list');
+        if (deductibleAdjustmentsList.length > 0) {
+            deductibleAdjustmentsContainer.style.display = 'block';
+            deductibleAdjustmentsListEl.innerHTML = deductibleAdjustmentsList.map(adj => {
+                const sign = adj.isPositive ? '+' : '';
+                const color = adj.isPositive ? 'text-red-600' : 'text-green-600';
+                return `<div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-600">${adj.description}:</span>
+                    <span class="font-semibold ${color}">${sign}${formatCurrency(adj.amount)}</span>
+                </div>`;
+            }).join('');
+        } else {
+            deductibleAdjustmentsContainer.style.display = 'none';
+            deductibleAdjustmentsListEl.innerHTML = '';
+        }
     }
     
     // Format currency

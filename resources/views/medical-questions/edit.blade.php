@@ -152,6 +152,110 @@
                 @enderror
             </div>
 
+            <!-- Monetary Impact -->
+            <div class="border border-slate-200 rounded-lg p-4 bg-blue-50">
+                <div class="flex items-center mb-4">
+                    <input 
+                        type="checkbox" 
+                        name="has_monetary_impact" 
+                        id="has_monetary_impact" 
+                        value="1"
+                        {{ old('has_monetary_impact', $medicalQuestion->has_monetary_impact) ? 'checked' : '' }}
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                    >
+                    <label for="has_monetary_impact" class="ml-2 block text-sm font-medium text-slate-700">
+                        Has Monetary Impact on Policy Calculation
+                    </label>
+                </div>
+                <p class="text-xs text-slate-600 mb-3">When enabled, this question's response will affect premium, deductible, or coverage limits in policy calculations.</p>
+                
+                <div id="monetary-impact-fields" style="display: {{ old('has_monetary_impact', $medicalQuestion->has_monetary_impact) ? 'block' : 'none' }};">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Impact Type -->
+                        <div>
+                            <label for="monetary_impact_type" class="block text-sm font-medium text-slate-700 mb-2">
+                                Impact Type <span class="text-red-500">*</span>
+                            </label>
+                            <select 
+                                name="monetary_impact_type" 
+                                id="monetary_impact_type"
+                                class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                                <option value="none" {{ old('monetary_impact_type', $medicalQuestion->monetary_impact_type ?? 'none') == 'none' ? 'selected' : '' }}>No Impact</option>
+                                <option value="premium_adjustment" {{ old('monetary_impact_type', $medicalQuestion->monetary_impact_type) == 'premium_adjustment' ? 'selected' : '' }}>Premium Adjustment</option>
+                                <option value="deductible_adjustment" {{ old('monetary_impact_type', $medicalQuestion->monetary_impact_type) == 'deductible_adjustment' ? 'selected' : '' }}>Deductible Adjustment</option>
+                                <option value="coverage_limit_adjustment" {{ old('monetary_impact_type', $medicalQuestion->monetary_impact_type) == 'coverage_limit_adjustment' ? 'selected' : '' }}>Coverage Limit Adjustment</option>
+                            </select>
+                            <p class="mt-1 text-xs text-slate-500">How this question affects policy calculations</p>
+                        </div>
+
+                        <!-- Impact Amount -->
+                        <div>
+                            <label for="monetary_impact_amount" class="block text-sm font-medium text-slate-700 mb-2">
+                                Impact Amount
+                            </label>
+                            <input 
+                                type="number" 
+                                name="monetary_impact_amount" 
+                                id="monetary_impact_amount"
+                                step="0.01"
+                                min="0"
+                                value="{{ old('monetary_impact_amount', $medicalQuestion->monetary_impact_amount) }}"
+                                placeholder="e.g., 100000 or 10"
+                                class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                            <p class="mt-1 text-xs text-slate-500">Amount to adjust (UGX if fixed, or percentage if percentage)</p>
+                        </div>
+
+                        <!-- Is Percentage -->
+                        <div class="flex items-center">
+                            <input 
+                                type="checkbox" 
+                                name="monetary_impact_is_percentage" 
+                                id="monetary_impact_is_percentage" 
+                                value="1"
+                                {{ old('monetary_impact_is_percentage', $medicalQuestion->monetary_impact_is_percentage) ? 'checked' : '' }}
+                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                            >
+                            <label for="monetary_impact_is_percentage" class="ml-2 block text-sm font-medium text-slate-700">
+                                Amount is Percentage (%)
+                            </label>
+                        </div>
+
+                        <!-- Applies To Response -->
+                        <div>
+                            <label for="monetary_impact_applies_to_response" class="block text-sm font-medium text-slate-700 mb-2">
+                                Applies To Response
+                            </label>
+                            <input 
+                                type="text" 
+                                name="monetary_impact_applies_to_response" 
+                                id="monetary_impact_applies_to_response"
+                                value="{{ old('monetary_impact_applies_to_response', $medicalQuestion->monetary_impact_applies_to_response ?? 'yes') }}"
+                                placeholder="e.g., yes, no, or specific value"
+                                class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >
+                            <p class="mt-1 text-xs text-slate-500">Which response triggers this impact (e.g., "yes", "no", or specific text/number)</p>
+                        </div>
+
+                        <!-- Impact Description -->
+                        <div class="md:col-span-2">
+                            <label for="monetary_impact_description" class="block text-sm font-medium text-slate-700 mb-2">
+                                Impact Description
+                            </label>
+                            <textarea 
+                                name="monetary_impact_description" 
+                                id="monetary_impact_description"
+                                rows="2"
+                                placeholder="Describe how this question affects policy calculations..."
+                                class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            >{{ old('monetary_impact_description', $medicalQuestion->monetary_impact_description) }}</textarea>
+                            <p class="mt-1 text-xs text-slate-500">Optional description of the monetary impact</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Active Status -->
             <div class="flex items-center">
                 <input 
@@ -189,6 +293,14 @@
     // Toggle additional info fields
     document.getElementById('requires_additional_info').addEventListener('change', function() {
         document.getElementById('additional-info-fields').style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Toggle monetary impact fields
+    document.getElementById('has_monetary_impact').addEventListener('change', function() {
+        document.getElementById('monetary-impact-fields').style.display = this.checked ? 'block' : 'none';
+        if (!this.checked) {
+            document.getElementById('monetary_impact_type').value = 'none';
+        }
     });
 </script>
 @endsection

@@ -13,7 +13,15 @@ class MedicalQuestionController extends Controller
      */
     public function index()
     {
-        $questions = MedicalQuestion::orderBy('order')->orderBy('id')->get();
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->route('dashboard')->with('error', 'You must be associated with an insurance company to manage medical questions.');
+        }
+
+        $questions = MedicalQuestion::where('insurance_company_id', $user->insurance_company_id)
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get();
         return view('medical-questions.index', compact('questions'));
     }
 
@@ -40,12 +48,27 @@ class MedicalQuestionController extends Controller
             'additional_info_label' => 'nullable|string|max:255',
             'order' => 'nullable|integer|min:0',
             'is_active' => 'nullable',
+            // Monetary Impact
+            'has_monetary_impact' => 'nullable|boolean',
+            'monetary_impact_type' => 'nullable|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment,none',
+            'monetary_impact_amount' => 'nullable|numeric|min:0',
+            'monetary_impact_is_percentage' => 'nullable|boolean',
+            'monetary_impact_applies_to_response' => 'nullable|string|max:255',
+            'monetary_impact_description' => 'nullable|string',
         ]);
 
         // Handle boolean checkboxes
         $validated['has_exclusion_list'] = $request->boolean('has_exclusion_list');
         $validated['requires_additional_info'] = $request->boolean('requires_additional_info');
         $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['has_monetary_impact'] = $request->boolean('has_monetary_impact');
+        $validated['monetary_impact_is_percentage'] = $request->boolean('monetary_impact_is_percentage');
+        
+        // Set default monetary impact type if not provided
+        if (!isset($validated['monetary_impact_type']) || $validated['monetary_impact_type'] === 'none') {
+            $validated['monetary_impact_type'] = 'none';
+            $validated['has_monetary_impact'] = false;
+        }
 
         // Convert comma-separated keywords to array
         if (!empty($validated['exclusion_keywords'])) {
@@ -56,10 +79,18 @@ class MedicalQuestionController extends Controller
         }
 
         // Set default order if not provided
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->back()->withInput()->withErrors(['error' => 'You must be associated with an insurance company to create medical questions.']);
+        }
+
         if (!isset($validated['order'])) {
-            $maxOrder = MedicalQuestion::max('order');
+            $maxOrder = MedicalQuestion::where('insurance_company_id', $user->insurance_company_id)->max('order');
             $validated['order'] = ($maxOrder ?? 0) + 1;
         }
+
+        // Set insurance company ID
+        $validated['insurance_company_id'] = $user->insurance_company_id;
 
         MedicalQuestion::create($validated);
 
@@ -72,6 +103,10 @@ class MedicalQuestionController extends Controller
      */
     public function show(MedicalQuestion $medicalQuestion)
     {
+        $user = auth()->user();
+        if (!$user->insuranceCompany || $medicalQuestion->insurance_company_id !== $user->insurance_company_id) {
+            abort(403, 'Unauthorized access to this medical question.');
+        }
         return view('medical-questions.show', compact('medicalQuestion'));
     }
 
@@ -80,6 +115,10 @@ class MedicalQuestionController extends Controller
      */
     public function edit(MedicalQuestion $medicalQuestion)
     {
+        $user = auth()->user();
+        if (!$user->insuranceCompany || $medicalQuestion->insurance_company_id !== $user->insurance_company_id) {
+            abort(403, 'Unauthorized access to this medical question.');
+        }
         return view('medical-questions.edit', compact('medicalQuestion'));
     }
 
@@ -98,12 +137,27 @@ class MedicalQuestionController extends Controller
             'additional_info_label' => 'nullable|string|max:255',
             'order' => 'nullable|integer|min:0',
             'is_active' => 'nullable',
+            // Monetary Impact
+            'has_monetary_impact' => 'nullable|boolean',
+            'monetary_impact_type' => 'nullable|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment,none',
+            'monetary_impact_amount' => 'nullable|numeric|min:0',
+            'monetary_impact_is_percentage' => 'nullable|boolean',
+            'monetary_impact_applies_to_response' => 'nullable|string|max:255',
+            'monetary_impact_description' => 'nullable|string',
         ]);
 
         // Handle boolean checkboxes
         $validated['has_exclusion_list'] = $request->boolean('has_exclusion_list');
         $validated['requires_additional_info'] = $request->boolean('requires_additional_info');
         $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['has_monetary_impact'] = $request->boolean('has_monetary_impact');
+        $validated['monetary_impact_is_percentage'] = $request->boolean('monetary_impact_is_percentage');
+        
+        // Set default monetary impact type if not provided
+        if (!isset($validated['monetary_impact_type']) || $validated['monetary_impact_type'] === 'none') {
+            $validated['monetary_impact_type'] = 'none';
+            $validated['has_monetary_impact'] = false;
+        }
 
         // Convert comma-separated keywords to array
         if (!empty($validated['exclusion_keywords'])) {
@@ -111,6 +165,11 @@ class MedicalQuestionController extends Controller
             $validated['exclusion_keywords'] = array_filter($keywords);
         } else {
             $validated['exclusion_keywords'] = [];
+        }
+
+        $user = auth()->user();
+        if (!$user->insuranceCompany || $medicalQuestion->insurance_company_id !== $user->insurance_company_id) {
+            abort(403, 'Unauthorized access to this medical question.');
         }
 
         $medicalQuestion->update($validated);
@@ -124,6 +183,11 @@ class MedicalQuestionController extends Controller
      */
     public function destroy(MedicalQuestion $medicalQuestion)
     {
+        $user = auth()->user();
+        if (!$user->insuranceCompany || $medicalQuestion->insurance_company_id !== $user->insurance_company_id) {
+            abort(403, 'Unauthorized access to this medical question.');
+        }
+
         $medicalQuestion->delete();
 
         return redirect()->route('medical-questions.index')
@@ -135,6 +199,11 @@ class MedicalQuestionController extends Controller
      */
     public function updateOrder(Request $request)
     {
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
         $request->validate([
             'questions' => 'required|array',
             'questions.*.id' => 'required|exists:medical_questions,id',
@@ -143,6 +212,7 @@ class MedicalQuestionController extends Controller
 
         foreach ($request->questions as $questionData) {
             MedicalQuestion::where('id', $questionData['id'])
+                ->where('insurance_company_id', $user->insurance_company_id)
                 ->update(['order' => $questionData['order']]);
         }
 
