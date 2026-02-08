@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Edit Medical Question')
-@section('page-title', 'Edit Medical Question')
+@section('title', 'Edit Question')
+@section('page-title', 'Edit Question')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
@@ -189,43 +189,62 @@
                             <p class="mt-1 text-xs text-slate-500">How this question affects policy calculations</p>
                         </div>
 
+                        <!-- Impact Amount Type Selection -->
+                        <div class="md:col-span-2 border-t border-slate-200 pt-4">
+                            <label class="block text-sm font-medium text-slate-700 mb-3">
+                                Impact Amount Type
+                            </label>
+                            <div class="flex gap-4 mb-4">
+                                <label class="flex items-center">
+                                    <input 
+                                        type="radio" 
+                                        name="monetary_impact_is_percentage" 
+                                        value="0"
+                                        {{ old('monetary_impact_is_percentage', $medicalQuestion->monetary_impact_is_percentage ? '1' : '0') == '0' ? 'checked' : '' }}
+                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                                        onchange="toggleAmountType()"
+                                    >
+                                    <span class="ml-2 text-sm text-slate-700">Fixed Amount (UGX)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input 
+                                        type="radio" 
+                                        name="monetary_impact_is_percentage" 
+                                        value="1"
+                                        {{ old('monetary_impact_is_percentage', $medicalQuestion->monetary_impact_is_percentage ? '1' : '0') == '1' ? 'checked' : '' }}
+                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                                        onchange="toggleAmountType()"
+                                    >
+                                    <span class="ml-2 text-sm text-slate-700">Percentage (%)</span>
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- Impact Amount -->
                         <div>
                             <label for="monetary_impact_amount" class="block text-sm font-medium text-slate-700 mb-2">
-                                Impact Amount
+                                Impact Amount <span id="amount-type-label" class="text-slate-500">(UGX)</span>
                             </label>
-                            <input 
-                                type="number" 
-                                name="monetary_impact_amount" 
-                                id="monetary_impact_amount"
-                                step="0.01"
-                                min="0"
-                                value="{{ old('monetary_impact_amount', $medicalQuestion->monetary_impact_amount) }}"
-                                placeholder="e.g., 100000 or 10"
-                                class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                            >
-                            <p class="mt-1 text-xs text-slate-500">Amount to adjust (UGX if fixed, or percentage if percentage)</p>
+                            <div class="relative">
+                                <input 
+                                    type="number" 
+                                    name="monetary_impact_amount" 
+                                    id="monetary_impact_amount"
+                                    step="0.01"
+                                    min="0"
+                                    value="{{ old('monetary_impact_amount', $medicalQuestion->monetary_impact_amount) }}"
+                                    placeholder="e.g., 100000"
+                                    class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm pr-20"
+                                >
+                                <span id="amount-suffix" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-slate-500">UGX</span>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500" id="amount-help-text">Enter the fixed amount in UGX</p>
                         </div>
 
-                        <!-- Is Percentage -->
-                        <div class="flex items-center">
-                            <input 
-                                type="checkbox" 
-                                name="monetary_impact_is_percentage" 
-                                id="monetary_impact_is_percentage" 
-                                value="1"
-                                {{ old('monetary_impact_is_percentage', $medicalQuestion->monetary_impact_is_percentage) ? 'checked' : '' }}
-                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-                            >
-                            <label for="monetary_impact_is_percentage" class="ml-2 block text-sm font-medium text-slate-700">
-                                Amount is Percentage (%)
-                            </label>
-                        </div>
-
-                        <!-- Applies To Response -->
+                        <!-- Triggering Response -->
                         <div>
                             <label for="monetary_impact_applies_to_response" class="block text-sm font-medium text-slate-700 mb-2">
-                                Applies To Response
+                                Triggering Response <span class="text-red-500">*</span>
                             </label>
                             <input 
                                 type="text" 
@@ -233,24 +252,30 @@
                                 id="monetary_impact_applies_to_response"
                                 value="{{ old('monetary_impact_applies_to_response', $medicalQuestion->monetary_impact_applies_to_response ?? 'yes') }}"
                                 placeholder="e.g., yes, no, or specific value"
+                                required
                                 class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             >
-                            <p class="mt-1 text-xs text-slate-500">Which response triggers this impact (e.g., "yes", "no", or specific text/number)</p>
+                            <p class="mt-1 text-xs text-slate-500">
+                                <strong>Which response triggers this adjustment?</strong> Enter the exact response value that will trigger the monetary impact. 
+                                For Yes/No questions, use "yes" or "no". For text/number questions, enter the specific value or keyword that should trigger the adjustment.
+                            </p>
                         </div>
 
-                        <!-- Impact Description -->
+                        <!-- Impact Description (Guidance for Underwriters) -->
                         <div class="md:col-span-2">
                             <label for="monetary_impact_description" class="block text-sm font-medium text-slate-700 mb-2">
-                                Impact Description
+                                Underwriting Guidance <span class="text-slate-400 font-normal">(Impact Description)</span>
                             </label>
                             <textarea 
                                 name="monetary_impact_description" 
                                 id="monetary_impact_description"
-                                rows="2"
-                                placeholder="Describe how this question affects policy calculations..."
+                                rows="3"
+                                placeholder="Provide guidance text for human underwriters on how to interpret this question's impact on policy calculations..."
                                 class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             >{{ old('monetary_impact_description', $medicalQuestion->monetary_impact_description) }}</textarea>
-                            <p class="mt-1 text-xs text-slate-500">Optional description of the monetary impact</p>
+                            <p class="mt-1 text-xs text-slate-500">
+                                <strong>Guidance for human underwriters:</strong> This text appears when reviewing policy applications to help underwriters understand how this question's response affects premium, deductible, or coverage limits. Use this to provide context, reasoning, or special instructions.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -301,6 +326,32 @@
         if (!this.checked) {
             document.getElementById('monetary_impact_type').value = 'none';
         }
+    });
+    
+    // Toggle amount type display
+    function toggleAmountType() {
+        const isPercentage = document.querySelector('input[name="monetary_impact_is_percentage"][value="1"]').checked;
+        const amountLabel = document.getElementById('amount-type-label');
+        const amountSuffix = document.getElementById('amount-suffix');
+        const amountHelpText = document.getElementById('amount-help-text');
+        const amountInput = document.getElementById('monetary_impact_amount');
+        
+        if (isPercentage) {
+            amountLabel.textContent = '(%)';
+            amountSuffix.textContent = '%';
+            amountInput.placeholder = 'e.g., 10';
+            amountHelpText.textContent = 'Enter the percentage value (e.g., 10 for 10%)';
+        } else {
+            amountLabel.textContent = '(UGX)';
+            amountSuffix.textContent = 'UGX';
+            amountInput.placeholder = 'e.g., 100000';
+            amountHelpText.textContent = 'Enter the fixed amount in UGX';
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleAmountType();
     });
 </script>
 @endsection

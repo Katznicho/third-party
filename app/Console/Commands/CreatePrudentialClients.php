@@ -166,8 +166,8 @@ class CreatePrudentialClients extends Command
 
         // Calculate dependents premium
         $numberOfDependents = $clientData['number_of_dependents'] ?? 0;
-        $dependentMultiplier = $plan->dependent_coverage_multiplier ?? 0.50;
-        $dependentsPremium = $basePremium * $dependentMultiplier * $numberOfDependents;
+        // Calculate dependents premium using tiered multipliers
+        $dependentsPremium = $plan->calculateDependentPremium($basePremium, $numberOfDependents);
 
         // Subtotal
         $subtotalPremium = $basePremium + $dependentsPremium;

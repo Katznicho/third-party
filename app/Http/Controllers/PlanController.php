@@ -54,9 +54,6 @@ class PlanController extends Controller
             // Age Limits
             'min_enrollment_age' => 'nullable|integer|min:0|max:120',
             'max_enrollment_age' => 'nullable|integer|min:0|max:120|gte:min_enrollment_age',
-            // Effective Dates
-            'effective_start_date' => 'nullable|date',
-            'effective_end_date' => 'nullable|date|after_or_equal:effective_start_date',
             // Dependent Coverage
             'dependent_coverage_multiplier' => 'nullable|numeric|min:0|max:2',
             // Coverage Limits
@@ -84,6 +81,22 @@ class PlanController extends Controller
         $validated['premium_calculation_method'] = $validated['premium_calculation_method'] ?? 'benefit_based';
         $validated['insurance_training_levy_percentage'] = $validated['insurance_training_levy_percentage'] ?? 0.50;
         $validated['stamp_duty_amount'] = $validated['stamp_duty_amount'] ?? 35000;
+        
+        // Build tiered multipliers array from individual tier inputs
+        $tiers = [];
+        if (isset($validated['dependent_multiplier_tier_1'])) {
+            $tiers[] = $validated['dependent_multiplier_tier_1'];
+        }
+        if (isset($validated['dependent_multiplier_tier_2'])) {
+            $tiers[] = $validated['dependent_multiplier_tier_2'];
+        }
+        if (isset($validated['dependent_multiplier_tier_3'])) {
+            $tiers[] = $validated['dependent_multiplier_tier_3'];
+        }
+        $validated['dependent_multiplier_tiers'] = !empty($tiers) ? $tiers : null;
+        
+        // Remove individual tier fields from validated (they're now in the array)
+        unset($validated['dependent_multiplier_tier_1'], $validated['dependent_multiplier_tier_2'], $validated['dependent_multiplier_tier_3']);
         
         // Handle image upload
         if ($request->hasFile('image')) {
@@ -172,9 +185,6 @@ class PlanController extends Controller
             // Age Limits
             'min_enrollment_age' => 'nullable|integer|min:0|max:120',
             'max_enrollment_age' => 'nullable|integer|min:0|max:120|gte:min_enrollment_age',
-            // Effective Dates
-            'effective_start_date' => 'nullable|date',
-            'effective_end_date' => 'nullable|date|after_or_equal:effective_start_date',
             // Dependent Coverage
             'dependent_coverage_multiplier' => 'nullable|numeric|min:0|max:2',
             // Coverage Limits
@@ -198,6 +208,22 @@ class PlanController extends Controller
             $validated['slug'] = $this->generateUniqueSlug($validated['name'], $plan->id);
         }
         $validated['is_active'] = $request->boolean('is_active');
+        
+        // Build tiered multipliers array from individual tier inputs
+        $tiers = [];
+        if (isset($validated['dependent_multiplier_tier_1'])) {
+            $tiers[] = $validated['dependent_multiplier_tier_1'];
+        }
+        if (isset($validated['dependent_multiplier_tier_2'])) {
+            $tiers[] = $validated['dependent_multiplier_tier_2'];
+        }
+        if (isset($validated['dependent_multiplier_tier_3'])) {
+            $tiers[] = $validated['dependent_multiplier_tier_3'];
+        }
+        $validated['dependent_multiplier_tiers'] = !empty($tiers) ? $tiers : null;
+        
+        // Remove individual tier fields from validated (they're now in the array)
+        unset($validated['dependent_multiplier_tier_1'], $validated['dependent_multiplier_tier_2'], $validated['dependent_multiplier_tier_3']);
         
         // Set default values if not provided
         $validated['dependent_coverage_multiplier'] = $validated['dependent_coverage_multiplier'] ?? $plan->dependent_coverage_multiplier ?? 0.50;

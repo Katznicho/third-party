@@ -94,26 +94,6 @@
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
-
-                <!-- Effective Start Date -->
-                <div>
-                    <label for="effective_start_date" class="block text-sm font-medium text-slate-700 mb-2">Plan Start Date</label>
-                    <input type="date" name="effective_start_date" id="effective_start_date" value="{{ old('effective_start_date', $plan->effective_start_date?->format('Y-m-d')) }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="mt-1 text-xs text-slate-500">When enrollment opens (leave blank for immediate availability)</p>
-                    @error('effective_start_date')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <!-- Effective End Date -->
-                <div>
-                    <label for="effective_end_date" class="block text-sm font-medium text-slate-700 mb-2">Plan End Date</label>
-                    <input type="date" name="effective_end_date" id="effective_end_date" value="{{ old('effective_end_date', $plan->effective_end_date?->format('Y-m-d')) }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="mt-1 text-xs text-slate-500">When enrollment closes (leave blank for no end date)</p>
-                    @error('effective_end_date')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
             </div>
         </div>
 
@@ -122,12 +102,67 @@
             <h2 class="text-lg font-semibold text-slate-900 mb-4">Coverage Settings</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Dependent Coverage Multiplier -->
+                <!-- Dependent Coverage Multiplier (Legacy - kept for backward compatibility) -->
                 <div>
-                    <label for="dependent_coverage_multiplier" class="block text-sm font-medium text-slate-700 mb-2">Dependent Coverage Multiplier</label>
+                    <label for="dependent_coverage_multiplier" class="block text-sm font-medium text-slate-700 mb-2">Dependent Coverage Multiplier (Legacy)</label>
                     <input type="number" name="dependent_coverage_multiplier" id="dependent_coverage_multiplier" value="{{ old('dependent_coverage_multiplier', $plan->dependent_coverage_multiplier ?? 0.50) }}" step="0.01" min="0" max="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.50">
-                    <p class="mt-1 text-xs text-slate-500">Multiplier for dependent premiums (e.g., 0.50 = 50% of principal premium)</p>
+                    <p class="mt-1 text-xs text-slate-500">Used if tiered multipliers are not set (e.g., 0.50 = 50% of principal premium)</p>
                     @error('dependent_coverage_multiplier')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+        </div>
+
+        <!-- Tiered Dependent Multipliers Section -->
+        <div class="border-b border-slate-200 pb-4">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Tiered Dependent Multipliers</h2>
+            <p class="text-sm text-slate-600 mb-4">Configure different multipliers for each dependent tier. If set, these will override the legacy multiplier above.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                @php
+                    $tiers = old('dependent_multiplier_tiers', $plan->dependent_multiplier_tiers ?? []);
+                    $tier1 = old('dependent_multiplier_tier_1', $tiers[0] ?? 0.50);
+                    $tier2 = old('dependent_multiplier_tier_2', $tiers[1] ?? 0.40);
+                    $tier3 = old('dependent_multiplier_tier_3', $tiers[2] ?? 0.35);
+                @endphp
+                
+                <!-- Tier 1 (First Dependent) -->
+                <div>
+                    <label for="dependent_multiplier_tier_1" class="block text-sm font-medium text-slate-700 mb-2">Tier 1 - First Dependent (%)</label>
+                    <input type="number" name="dependent_multiplier_tier_1" id="dependent_multiplier_tier_1" value="{{ $tier1 }}" step="0.01" min="0" max="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.50">
+                    <p class="mt-1 text-xs text-slate-500">Multiplier for the 1st dependent (e.g., 0.50 = 50%)</p>
+                    @error('dependent_multiplier_tier_1')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Tier 2 (Second Dependent) -->
+                <div>
+                    <label for="dependent_multiplier_tier_2" class="block text-sm font-medium text-slate-700 mb-2">Tier 2 - Second Dependent (%)</label>
+                    <input type="number" name="dependent_multiplier_tier_2" id="dependent_multiplier_tier_2" value="{{ $tier2 }}" step="0.01" min="0" max="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.40">
+                    <p class="mt-1 text-xs text-slate-500">Multiplier for the 2nd dependent (e.g., 0.40 = 40%)</p>
+                    @error('dependent_multiplier_tier_2')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Tier 3 (Third Dependent) -->
+                <div>
+                    <label for="dependent_multiplier_tier_3" class="block text-sm font-medium text-slate-700 mb-2">Tier 3 - Third Dependent (%)</label>
+                    <input type="number" name="dependent_multiplier_tier_3" id="dependent_multiplier_tier_3" value="{{ $tier3 }}" step="0.01" min="0" max="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.35">
+                    <p class="mt-1 text-xs text-slate-500">Multiplier for the 3rd dependent (e.g., 0.35 = 35%)</p>
+                    @error('dependent_multiplier_tier_3')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Floor Limit -->
+                <div>
+                    <label for="dependent_multiplier_floor" class="block text-sm font-medium text-slate-700 mb-2">Floor Limit (%)</label>
+                    <input type="number" name="dependent_multiplier_floor" id="dependent_multiplier_floor" value="{{ old('dependent_multiplier_floor', $plan->dependent_multiplier_floor ?? 0.30) }}" step="0.01" min="0" max="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.30">
+                    <p class="mt-1 text-xs text-slate-500">Minimum multiplier for dependents beyond tier 3 (e.g., 0.30 = 30%)</p>
+                    @error('dependent_multiplier_floor')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>

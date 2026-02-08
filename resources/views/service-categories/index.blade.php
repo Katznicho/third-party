@@ -68,12 +68,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <a href="{{ route('service-categories.show', $category) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
-                                <a href="{{ route('service-categories.edit', $category) }}" class="text-slate-600 hover:text-slate-900 mr-3">Edit</a>
-                                <form action="{{ route('service-categories.destroy', $category) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this product?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                </form>
+                                <a href="{{ route('service-categories.edit', $category) }}" class="text-slate-600 hover:text-slate-900">Edit</a>
                             </td>
                         </tr>
                     @endforeach

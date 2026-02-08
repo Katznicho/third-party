@@ -17,26 +17,67 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <!-- Title -->
             <div>
-                <label for="title" class="block text-sm font-medium text-slate-700 mb-1">Title</label>
-                <select name="title" id="title" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="title" class="block text-sm font-medium text-slate-700 mb-1">
+                    Title
+                    @if(isset($requiredFields) && in_array('title', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <select 
+                    name="title" 
+                    id="title" 
+                    @if(isset($requiredFields) && in_array('title', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('title') border-red-300 @enderror"
+                >
                     <option value="">Select Title</option>
                     <option value="Mr" {{ old('title', $client->title ?? '') === 'Mr' ? 'selected' : '' }}>Mr</option>
                     <option value="Mrs" {{ old('title', $client->title ?? '') === 'Mrs' ? 'selected' : '' }}>Mrs</option>
                     <option value="Miss" {{ old('title', $client->title ?? '') === 'Miss' ? 'selected' : '' }}>Miss</option>
                     <option value="Dr" {{ old('title', $client->title ?? '') === 'Dr' ? 'selected' : '' }}>Dr</option>
                 </select>
+                @error('title')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Surname -->
             <div>
-                <label for="surname" class="block text-sm font-medium text-slate-700 mb-1">Surname</label>
-                <input type="text" name="surname" id="surname" value="{{ old('surname', $client->surname ?? '') }}" placeholder="Enter surname in BLOCK letters" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" style="text-transform: uppercase;">
+                <label for="surname" class="block text-sm font-medium text-slate-700 mb-1">
+                    Surname
+                    @if(isset($requiredFields) && in_array('surname', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="surname" 
+                    id="surname" 
+                    value="{{ old('surname', $client->surname ?? '') }}" 
+                    placeholder="Enter surname in BLOCK letters" 
+                    @if(isset($requiredFields) && in_array('surname', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase @error('surname') border-red-300 @enderror" 
+                    style="text-transform: uppercase;"
+                >
+                @error('surname')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- First Name -->
             <div>
-                <label for="first_name" class="block text-sm font-medium text-slate-700 mb-1">First Name <span class="text-red-500">*</span></label>
-                <input type="text" name="first_name" id="first_name" value="{{ old('first_name', $client->first_name ?? '') }}" placeholder="Enter first name in BLOCK letters" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" style="text-transform: uppercase;">
+                <label for="first_name" class="block text-sm font-medium text-slate-700 mb-1">
+                    First Name <span class="text-red-500">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    name="first_name" 
+                    id="first_name" 
+                    value="{{ old('first_name', $client->first_name ?? '') }}" 
+                    placeholder="Enter first name in BLOCK letters" 
+                    required 
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase @error('first_name') border-red-300 @enderror" 
+                    style="text-transform: uppercase;"
+                >
                 @error('first_name')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -44,14 +85,41 @@
 
             <!-- Other Names -->
             <div>
-                <label for="other_names" class="block text-sm font-medium text-slate-700 mb-1">Other Names</label>
-                <input type="text" name="other_names" id="other_names" value="{{ old('other_names', $client->other_names ?? '') }}" placeholder="Enter other names in BLOCK letters" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" style="text-transform: uppercase;">
+                <label for="other_names" class="block text-sm font-medium text-slate-700 mb-1">
+                    Other Names
+                    @if(isset($requiredFields) && in_array('other_names', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="other_names" 
+                    id="other_names" 
+                    value="{{ old('other_names', $client->other_names ?? '') }}" 
+                    placeholder="Enter other names in BLOCK letters" 
+                    @if(isset($requiredFields) && in_array('other_names', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase @error('other_names') border-red-300 @enderror" 
+                    style="text-transform: uppercase;"
+                >
+                @error('other_names')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- ID/Passport Number -->
             <div>
-                <label for="id_passport_no" class="block text-sm font-medium text-slate-700 mb-1">ID / Passport No. <span class="text-red-500">*</span></label>
-                <input type="text" name="id_passport_no" id="id_passport_no" value="{{ old('id_passport_no', $client->id_passport_no ?? '') }}" placeholder="Enter ID or passport number" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="id_passport_no" class="block text-sm font-medium text-slate-700 mb-1">
+                    ID / Passport No. <span class="text-red-500">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    name="id_passport_no" 
+                    id="id_passport_no" 
+                    value="{{ old('id_passport_no', $client->id_passport_no ?? '') }}" 
+                    placeholder="Enter ID or passport number" 
+                    required 
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('id_passport_no') border-red-300 @enderror"
+                >
                 @error('id_passport_no')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -59,71 +127,217 @@
 
             <!-- Gender -->
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">Gender</label>
+                <label class="block text-sm font-medium text-slate-700 mb-2">
+                    Gender
+                    @if(isset($requiredFields) && in_array('gender', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
                 <div class="flex gap-4">
                     <label class="flex items-center">
-                        <input type="radio" name="gender" value="Male" {{ old('gender', $client->gender ?? '') === 'Male' ? 'checked' : '' }} class="mr-2">
+                        <input 
+                            type="radio" 
+                            name="gender" 
+                            value="Male" 
+                            {{ old('gender', $client->gender ?? '') === 'Male' ? 'checked' : '' }}
+                            @if(isset($requiredFields) && in_array('gender', $requiredFields)) required @endif
+                            class="mr-2 @error('gender') border-red-300 @enderror"
+                        >
                         <span>Male</span>
                     </label>
                     <label class="flex items-center">
-                        <input type="radio" name="gender" value="Female" {{ old('gender', $client->gender ?? '') === 'Female' ? 'checked' : '' }} class="mr-2">
+                        <input 
+                            type="radio" 
+                            name="gender" 
+                            value="Female" 
+                            {{ old('gender', $client->gender ?? '') === 'Female' ? 'checked' : '' }}
+                            @if(isset($requiredFields) && in_array('gender', $requiredFields)) required @endif
+                            class="mr-2 @error('gender') border-red-300 @enderror"
+                        >
                         <span>Female</span>
                     </label>
                 </div>
+                @error('gender')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- TIN -->
             <div>
-                <label for="tin" class="block text-sm font-medium text-slate-700 mb-1">TIN</label>
-                <input type="text" name="tin" id="tin" value="{{ old('tin', $client->tin ?? '') }}" placeholder="Enter TIN number" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="tin" class="block text-sm font-medium text-slate-700 mb-1">
+                    TIN
+                    @if(isset($requiredFields) && in_array('tin', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="tin" 
+                    id="tin" 
+                    value="{{ old('tin', $client->tin ?? '') }}" 
+                    placeholder="Enter TIN number" 
+                    @if(isset($requiredFields) && in_array('tin', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('tin') border-red-300 @enderror"
+                >
+                @error('tin')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Date of Birth -->
             <div>
-                <label for="date_of_birth" class="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                <input type="date" name="date_of_birth" id="date_of_birth" value="{{ old('date_of_birth', $client->date_of_birth ? $client->date_of_birth->format('Y-m-d') : '') }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="date_of_birth" class="block text-sm font-medium text-slate-700 mb-1">
+                    Date of Birth
+                    @if(isset($requiredFields) && in_array('date_of_birth', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="date" 
+                    name="date_of_birth" 
+                    id="date_of_birth" 
+                    value="{{ old('date_of_birth', $client->date_of_birth ? $client->date_of_birth->format('Y-m-d') : '') }}" 
+                    @if(isset($requiredFields) && in_array('date_of_birth', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('date_of_birth') border-red-300 @enderror"
+                >
+                @error('date_of_birth')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Marital Status -->
             <div>
-                <label for="marital_status" class="block text-sm font-medium text-slate-700 mb-1">Marital Status</label>
-                <select name="marital_status" id="marital_status" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="marital_status" class="block text-sm font-medium text-slate-700 mb-1">
+                    Marital Status
+                    @if(isset($requiredFields) && in_array('marital_status', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <select 
+                    name="marital_status" 
+                    id="marital_status" 
+                    @if(isset($requiredFields) && in_array('marital_status', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('marital_status') border-red-300 @enderror"
+                >
                     <option value="">Select Status</option>
                     <option value="Single" {{ old('marital_status', $client->marital_status ?? '') === 'Single' ? 'selected' : '' }}>Single</option>
                     <option value="Married" {{ old('marital_status', $client->marital_status ?? '') === 'Married' ? 'selected' : '' }}>Married</option>
                     <option value="Divorced" {{ old('marital_status', $client->marital_status ?? '') === 'Divorced' ? 'selected' : '' }}>Divorced</option>
                     <option value="Widowed" {{ old('marital_status', $client->marital_status ?? '') === 'Widowed' ? 'selected' : '' }}>Widowed</option>
                 </select>
+                @error('marital_status')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Height -->
             <div>
-                <label for="height" class="block text-sm font-medium text-slate-700 mb-1">Height (ft & inches)</label>
-                <input type="text" name="height" id="height" value="{{ old('height', $client->height ?? '') }}" placeholder="e.g., 5'10" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="height" class="block text-sm font-medium text-slate-700 mb-1">
+                    Height (ft & inches)
+                    @if(isset($requiredFields) && in_array('height', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="height" 
+                    id="height" 
+                    value="{{ old('height', $client->height ?? '') }}" 
+                    placeholder="e.g., 5'10" 
+                    @if(isset($requiredFields) && in_array('height', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('height') border-red-300 @enderror"
+                >
+                @error('height')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Weight -->
             <div>
-                <label for="weight" class="block text-sm font-medium text-slate-700 mb-1">Weight (Kgs)</label>
-                <input type="text" name="weight" id="weight" value="{{ old('weight', $client->weight ?? '') }}" placeholder="e.g., 70" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="weight" class="block text-sm font-medium text-slate-700 mb-1">
+                    Weight (Kgs)
+                    @if(isset($requiredFields) && in_array('weight', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="weight" 
+                    id="weight" 
+                    value="{{ old('weight', $client->weight ?? '') }}" 
+                    placeholder="e.g., 70" 
+                    @if(isset($requiredFields) && in_array('weight', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('weight') border-red-300 @enderror"
+                >
+                @error('weight')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Employer Name -->
             <div>
-                <label for="employer_name" class="block text-sm font-medium text-slate-700 mb-1">Name of Employer (if employed)</label>
-                <input type="text" name="employer_name" id="employer_name" value="{{ old('employer_name', $client->employer_name ?? '') }}" placeholder="Enter employer name" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="employer_name" class="block text-sm font-medium text-slate-700 mb-1">
+                    Name of Employer (if employed)
+                    @if(isset($requiredFields) && in_array('employer_name', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="employer_name" 
+                    id="employer_name" 
+                    value="{{ old('employer_name', $client->employer_name ?? '') }}" 
+                    placeholder="Enter employer name" 
+                    @if(isset($requiredFields) && in_array('employer_name', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('employer_name') border-red-300 @enderror"
+                >
+                @error('employer_name')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Occupation -->
             <div>
-                <label for="occupation" class="block text-sm font-medium text-slate-700 mb-1">Occupation</label>
-                <input type="text" name="occupation" id="occupation" value="{{ old('occupation', $client->occupation ?? '') }}" placeholder="Enter occupation" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="occupation" class="block text-sm font-medium text-slate-700 mb-1">
+                    Occupation
+                    @if(isset($requiredFields) && in_array('occupation', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="occupation" 
+                    id="occupation" 
+                    value="{{ old('occupation', $client->occupation ?? '') }}" 
+                    placeholder="Enter occupation" 
+                    @if(isset($requiredFields) && in_array('occupation', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('occupation') border-red-300 @enderror"
+                >
+                @error('occupation')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Nationality -->
             <div>
-                <label for="nationality" class="block text-sm font-medium text-slate-700 mb-1">Nationality</label>
-                <input type="text" name="nationality" id="nationality" value="{{ old('nationality', $client->nationality ?? 'Ugandan') }}" placeholder="Enter nationality" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="nationality" class="block text-sm font-medium text-slate-700 mb-1">
+                    Nationality
+                    @if(isset($requiredFields) && in_array('nationality', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="nationality" 
+                    id="nationality" 
+                    value="{{ old('nationality', $client->nationality ?? 'Ugandan') }}" 
+                    placeholder="Enter nationality" 
+                    @if(isset($requiredFields) && in_array('nationality', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('nationality') border-red-300 @enderror"
+                >
+                @error('nationality')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
         </div>
     </div>
@@ -135,44 +349,154 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Home Physical Address -->
             <div>
-                <label for="home_physical_address" class="block text-sm font-medium text-slate-700 mb-1">Home Physical Address</label>
-                <textarea name="home_physical_address" id="home_physical_address" rows="2" placeholder="Enter home physical address" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old('home_physical_address', $client->home_physical_address ?? '') }}</textarea>
+                <label for="home_physical_address" class="block text-sm font-medium text-slate-700 mb-1">
+                    Home Physical Address
+                    @if(isset($requiredFields) && in_array('home_physical_address', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <textarea 
+                    name="home_physical_address" 
+                    id="home_physical_address" 
+                    rows="2" 
+                    placeholder="Enter home physical address" 
+                    @if(isset($requiredFields) && in_array('home_physical_address', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('home_physical_address') border-red-300 @enderror"
+                >{{ old('home_physical_address', $client->home_physical_address ?? '') }}</textarea>
+                @error('home_physical_address')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Office Physical Address -->
             <div>
-                <label for="office_physical_address" class="block text-sm font-medium text-slate-700 mb-1">Office Physical Address</label>
-                <textarea name="office_physical_address" id="office_physical_address" rows="2" placeholder="Enter office physical address" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old('office_physical_address', $client->office_physical_address ?? '') }}</textarea>
+                <label for="office_physical_address" class="block text-sm font-medium text-slate-700 mb-1">
+                    Office Physical Address
+                    @if(isset($requiredFields) && in_array('office_physical_address', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <textarea 
+                    name="office_physical_address" 
+                    id="office_physical_address" 
+                    rows="2" 
+                    placeholder="Enter office physical address" 
+                    @if(isset($requiredFields) && in_array('office_physical_address', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('office_physical_address') border-red-300 @enderror"
+                >{{ old('office_physical_address', $client->office_physical_address ?? '') }}</textarea>
+                @error('office_physical_address')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Home Telephone -->
             <div>
-                <label for="home_telephone" class="block text-sm font-medium text-slate-700 mb-1">Home Telephone</label>
-                <input type="text" name="home_telephone" id="home_telephone" value="{{ old('home_telephone', $client->home_telephone ?? '') }}" placeholder="Enter home telephone" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="home_telephone" class="block text-sm font-medium text-slate-700 mb-1">
+                    Home Telephone
+                    @if(isset($requiredFields) && in_array('home_telephone', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="home_telephone" 
+                    id="home_telephone" 
+                    value="{{ old('home_telephone', $client->home_telephone ?? '') }}" 
+                    placeholder="Enter home telephone" 
+                    @if(isset($requiredFields) && in_array('home_telephone', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('home_telephone') border-red-300 @enderror"
+                >
+                @error('home_telephone')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Office Telephone -->
             <div>
-                <label for="office_telephone" class="block text-sm font-medium text-slate-700 mb-1">Office Telephone</label>
-                <input type="text" name="office_telephone" id="office_telephone" value="{{ old('office_telephone', $client->office_telephone ?? '') }}" placeholder="Enter office telephone" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="office_telephone" class="block text-sm font-medium text-slate-700 mb-1">
+                    Office Telephone
+                    @if(isset($requiredFields) && in_array('office_telephone', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="office_telephone" 
+                    id="office_telephone" 
+                    value="{{ old('office_telephone', $client->office_telephone ?? '') }}" 
+                    placeholder="Enter office telephone" 
+                    @if(isset($requiredFields) && in_array('office_telephone', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('office_telephone') border-red-300 @enderror"
+                >
+                @error('office_telephone')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Cell Phone -->
             <div>
-                <label for="cell_phone" class="block text-sm font-medium text-slate-700 mb-1">Cell Phone</label>
-                <input type="text" name="cell_phone" id="cell_phone" value="{{ old('cell_phone', $client->cell_phone ?? '') }}" placeholder="Enter cell phone number" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="cell_phone" class="block text-sm font-medium text-slate-700 mb-1">
+                    Cell Phone
+                    @if(isset($requiredFields) && in_array('cell_phone', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="cell_phone" 
+                    id="cell_phone" 
+                    value="{{ old('cell_phone', $client->cell_phone ?? '') }}" 
+                    placeholder="Enter cell phone number" 
+                    @if(isset($requiredFields) && in_array('cell_phone', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('cell_phone') border-red-300 @enderror"
+                >
+                @error('cell_phone')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- WhatsApp Line -->
             <div>
-                <label for="whatsapp_line" class="block text-sm font-medium text-slate-700 mb-1">WhatsApp Line</label>
-                <input type="text" name="whatsapp_line" id="whatsapp_line" value="{{ old('whatsapp_line', $client->whatsapp_line ?? '') }}" placeholder="Enter WhatsApp number" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="whatsapp_line" class="block text-sm font-medium text-slate-700 mb-1">
+                    WhatsApp Line
+                    @if(isset($requiredFields) && in_array('whatsapp_line', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="whatsapp_line" 
+                    id="whatsapp_line" 
+                    value="{{ old('whatsapp_line', $client->whatsapp_line ?? '') }}" 
+                    placeholder="Enter WhatsApp number" 
+                    @if(isset($requiredFields) && in_array('whatsapp_line', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('whatsapp_line') border-red-300 @enderror"
+                >
+                @error('whatsapp_line')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Email -->
             <div class="md:col-span-2">
-                <label for="email" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                <input type="email" name="email" id="email" value="{{ old('email', $client->email ?? '') }}" placeholder="Enter email address" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="email" class="block text-sm font-medium text-slate-700 mb-1">
+                    Email
+                    @if(isset($requiredFields) && in_array('email', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="email" 
+                    name="email" 
+                    id="email" 
+                    value="{{ old('email', $client->email ?? '') }}" 
+                    placeholder="Enter email address" 
+                    @if(isset($requiredFields) && in_array('email', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('email') border-red-300 @enderror"
+                >
+                @error('email')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
         </div>
     </div>
@@ -184,68 +508,223 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <!-- Next of Kin Title -->
             <div>
-                <label for="next_of_kin_title" class="block text-sm font-medium text-slate-700 mb-1">Title</label>
-                <select name="next_of_kin_title" id="next_of_kin_title" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="next_of_kin_title" class="block text-sm font-medium text-slate-700 mb-1">
+                    Title
+                    @if(isset($requiredFields) && in_array('next_of_kin_title', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <select 
+                    name="next_of_kin_title" 
+                    id="next_of_kin_title" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_title', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_title') border-red-300 @enderror"
+                >
                     <option value="">Select Title</option>
                     <option value="Mr" {{ old('next_of_kin_title', $client->next_of_kin_title ?? '') === 'Mr' ? 'selected' : '' }}>Mr</option>
                     <option value="Mrs" {{ old('next_of_kin_title', $client->next_of_kin_title ?? '') === 'Mrs' ? 'selected' : '' }}>Mrs</option>
                     <option value="Miss" {{ old('next_of_kin_title', $client->next_of_kin_title ?? '') === 'Miss' ? 'selected' : '' }}>Miss</option>
                     <option value="Dr" {{ old('next_of_kin_title', $client->next_of_kin_title ?? '') === 'Dr' ? 'selected' : '' }}>Dr</option>
                 </select>
+                @error('next_of_kin_title')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin Surname -->
             <div>
-                <label for="next_of_kin_surname" class="block text-sm font-medium text-slate-700 mb-1">Surname</label>
-                <input type="text" name="next_of_kin_surname" id="next_of_kin_surname" value="{{ old('next_of_kin_surname', $client->next_of_kin_surname ?? '') }}" placeholder="Enter next of kin surname" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="next_of_kin_surname" class="block text-sm font-medium text-slate-700 mb-1">
+                    Surname
+                    @if(isset($requiredFields) && in_array('next_of_kin_surname', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="next_of_kin_surname" 
+                    id="next_of_kin_surname" 
+                    value="{{ old('next_of_kin_surname', $client->next_of_kin_surname ?? '') }}" 
+                    placeholder="Enter next of kin surname" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_surname', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_surname') border-red-300 @enderror"
+                >
+                @error('next_of_kin_surname')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin First Name -->
             <div>
-                <label for="next_of_kin_first_name" class="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                <input type="text" name="next_of_kin_first_name" id="next_of_kin_first_name" value="{{ old('next_of_kin_first_name', $client->next_of_kin_first_name ?? '') }}" placeholder="Enter next of kin first name" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="next_of_kin_first_name" class="block text-sm font-medium text-slate-700 mb-1">
+                    First Name
+                    @if(isset($requiredFields) && in_array('next_of_kin_first_name', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="next_of_kin_first_name" 
+                    id="next_of_kin_first_name" 
+                    value="{{ old('next_of_kin_first_name', $client->next_of_kin_first_name ?? '') }}" 
+                    placeholder="Enter next of kin first name" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_first_name', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_first_name') border-red-300 @enderror"
+                >
+                @error('next_of_kin_first_name')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin Other Names -->
             <div>
-                <label for="next_of_kin_other_names" class="block text-sm font-medium text-slate-700 mb-1">Other Names</label>
-                <input type="text" name="next_of_kin_other_names" id="next_of_kin_other_names" value="{{ old('next_of_kin_other_names', $client->next_of_kin_other_names ?? '') }}" placeholder="Enter next of kin other names" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="next_of_kin_other_names" class="block text-sm font-medium text-slate-700 mb-1">
+                    Other Names
+                    @if(isset($requiredFields) && in_array('next_of_kin_other_names', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="next_of_kin_other_names" 
+                    id="next_of_kin_other_names" 
+                    value="{{ old('next_of_kin_other_names', $client->next_of_kin_other_names ?? '') }}" 
+                    placeholder="Enter next of kin other names" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_other_names', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_other_names') border-red-300 @enderror"
+                >
+                @error('next_of_kin_other_names')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin Relation -->
             <div>
-                <label for="next_of_kin_relation" class="block text-sm font-medium text-slate-700 mb-1">Relation to Principal Member</label>
-                <input type="text" name="next_of_kin_relation" id="next_of_kin_relation" value="{{ old('next_of_kin_relation', $client->next_of_kin_relation ?? '') }}" placeholder="e.g., Spouse, Parent, Sibling" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="next_of_kin_relation" class="block text-sm font-medium text-slate-700 mb-1">
+                    Relation to Principal Member
+                    @if(isset($requiredFields) && in_array('next_of_kin_relation', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="next_of_kin_relation" 
+                    id="next_of_kin_relation" 
+                    value="{{ old('next_of_kin_relation', $client->next_of_kin_relation ?? '') }}" 
+                    placeholder="e.g., Spouse, Parent, Sibling" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_relation', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_relation') border-red-300 @enderror"
+                >
+                @error('next_of_kin_relation')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin ID/Passport -->
             <div>
-                <label for="next_of_kin_id_passport_no" class="block text-sm font-medium text-slate-700 mb-1">Passport / ID No.</label>
-                <input type="text" name="next_of_kin_id_passport_no" id="next_of_kin_id_passport_no" value="{{ old('next_of_kin_id_passport_no', $client->next_of_kin_id_passport_no ?? '') }}" placeholder="Enter next of kin ID or passport number" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="next_of_kin_id_passport_no" class="block text-sm font-medium text-slate-700 mb-1">
+                    Passport / ID No.
+                    @if(isset($requiredFields) && in_array('next_of_kin_id_passport_no', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="next_of_kin_id_passport_no" 
+                    id="next_of_kin_id_passport_no" 
+                    value="{{ old('next_of_kin_id_passport_no', $client->next_of_kin_id_passport_no ?? '') }}" 
+                    placeholder="Enter next of kin ID or passport number" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_id_passport_no', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_id_passport_no') border-red-300 @enderror"
+                >
+                @error('next_of_kin_id_passport_no')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin Cell Phone -->
             <div>
-                <label for="next_of_kin_cell_phone" class="block text-sm font-medium text-slate-700 mb-1">Cell Phone</label>
-                <input type="text" name="next_of_kin_cell_phone" id="next_of_kin_cell_phone" value="{{ old('next_of_kin_cell_phone', $client->next_of_kin_cell_phone ?? '') }}" placeholder="Enter next of kin cell phone" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="next_of_kin_cell_phone" class="block text-sm font-medium text-slate-700 mb-1">
+                    Cell Phone
+                    @if(isset($requiredFields) && in_array('next_of_kin_cell_phone', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="text" 
+                    name="next_of_kin_cell_phone" 
+                    id="next_of_kin_cell_phone" 
+                    value="{{ old('next_of_kin_cell_phone', $client->next_of_kin_cell_phone ?? '') }}" 
+                    placeholder="Enter next of kin cell phone" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_cell_phone', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_cell_phone') border-red-300 @enderror"
+                >
+                @error('next_of_kin_cell_phone')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin Email -->
             <div>
-                <label for="next_of_kin_email" class="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                <input type="email" name="next_of_kin_email" id="next_of_kin_email" value="{{ old('next_of_kin_email', $client->next_of_kin_email ?? '') }}" placeholder="Enter next of kin email address" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="next_of_kin_email" class="block text-sm font-medium text-slate-700 mb-1">
+                    Email
+                    @if(isset($requiredFields) && in_array('next_of_kin_email', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <input 
+                    type="email" 
+                    name="next_of_kin_email" 
+                    id="next_of_kin_email" 
+                    value="{{ old('next_of_kin_email', $client->next_of_kin_email ?? '') }}" 
+                    placeholder="Enter next of kin email address" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_email', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_email') border-red-300 @enderror"
+                >
+                @error('next_of_kin_email')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin Post Address -->
             <div class="md:col-span-2">
-                <label for="next_of_kin_post_address" class="block text-sm font-medium text-slate-700 mb-1">Post Address</label>
-                <textarea name="next_of_kin_post_address" id="next_of_kin_post_address" rows="2" placeholder="Enter next of kin postal address" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old('next_of_kin_post_address', $client->next_of_kin_post_address ?? '') }}</textarea>
+                <label for="next_of_kin_post_address" class="block text-sm font-medium text-slate-700 mb-1">
+                    Post Address
+                    @if(isset($requiredFields) && in_array('next_of_kin_post_address', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <textarea 
+                    name="next_of_kin_post_address" 
+                    id="next_of_kin_post_address" 
+                    rows="2" 
+                    placeholder="Enter next of kin postal address" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_post_address', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_post_address') border-red-300 @enderror"
+                >{{ old('next_of_kin_post_address', $client->next_of_kin_post_address ?? '') }}</textarea>
+                @error('next_of_kin_post_address')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Next of Kin Physical Address -->
             <div class="md:col-span-2">
-                <label for="next_of_kin_physical_address" class="block text-sm font-medium text-slate-700 mb-1">Physical Address</label>
-                <textarea name="next_of_kin_physical_address" id="next_of_kin_physical_address" rows="2" placeholder="Enter next of kin physical address" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old('next_of_kin_physical_address', $client->next_of_kin_physical_address ?? '') }}</textarea>
+                <label for="next_of_kin_physical_address" class="block text-sm font-medium text-slate-700 mb-1">
+                    Physical Address
+                    @if(isset($requiredFields) && in_array('next_of_kin_physical_address', $requiredFields))
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <textarea 
+                    name="next_of_kin_physical_address" 
+                    id="next_of_kin_physical_address" 
+                    rows="2" 
+                    placeholder="Enter next of kin physical address" 
+                    @if(isset($requiredFields) && in_array('next_of_kin_physical_address', $requiredFields)) required @endif
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_physical_address') border-red-300 @enderror"
+                >{{ old('next_of_kin_physical_address', $client->next_of_kin_physical_address ?? '') }}</textarea>
+                @error('next_of_kin_physical_address')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
         </div>
     </div>
@@ -393,6 +872,53 @@
                     <label for="deductible_amount" class="block text-sm font-medium text-slate-700 mb-1">Deductible Amount (UGX)</label>
                     <input type="number" name="deductible_amount" id="deductible_amount" value="{{ old('deductible_amount', isset($client) && $client->policies->isNotEmpty() ? $client->policies->first()->deductible_amount : 100000) }}" placeholder="Enter deductible amount" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <p class="text-xs text-slate-500 mt-1">Amount that must be paid before insurance coverage begins</p>
+                    
+                    @php
+                        $insuranceCompany = auth()->user()->insuranceCompany;
+                        $defaultCopayContributes = $insuranceCompany ? $insuranceCompany->copay_contributes_to_deductible : false;
+                        $defaultCoinsuranceContributes = $insuranceCompany ? $insuranceCompany->coinsurance_contributes_to_deductible : false;
+                        $policy = isset($client) && $client->policies->isNotEmpty() ? $client->policies->first() : null;
+                        $copayContributes = old('copay_contributes_to_deductible', $policy ? $policy->copay_contributes_to_deductible : null) ?? $defaultCopayContributes;
+                        $coinsuranceContributes = old('coinsurance_contributes_to_deductible', $policy ? $policy->coinsurance_contributes_to_deductible : null) ?? $defaultCoinsuranceContributes;
+                    @endphp
+                    
+                    <!-- Contribution Flags -->
+                    <div class="mt-4 space-y-3 pt-4 border-t border-slate-200">
+                        <p class="text-sm font-medium text-slate-700 mb-2">Deductible Contribution Settings:</p>
+                        <p class="text-xs text-slate-500 mb-3">Configure whether copay and coinsurance payments count towards meeting the deductible.</p>
+                        
+                        <div class="space-y-2">
+                            <label class="flex items-start">
+                                <input 
+                                    type="checkbox" 
+                                    name="copay_contributes_to_deductible" 
+                                    id="copay_contributes_to_deductible" 
+                                    value="1"
+                                    {{ $copayContributes ? 'checked' : '' }}
+                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-0.5"
+                                >
+                                <span class="ml-2 text-sm text-slate-700">
+                                    Copay contributes to deductible
+                                    <span class="text-xs text-slate-500 block mt-0.5">Copay amounts will count towards meeting the deductible</span>
+                                </span>
+                            </label>
+                            
+                            <label class="flex items-start">
+                                <input 
+                                    type="checkbox" 
+                                    name="coinsurance_contributes_to_deductible" 
+                                    id="coinsurance_contributes_to_deductible" 
+                                    value="1"
+                                    {{ $coinsuranceContributes ? 'checked' : '' }}
+                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-0.5"
+                                >
+                                <span class="ml-2 text-sm text-slate-700">
+                                    Coinsurance contributes to deductible
+                                    <span class="text-xs text-slate-500 block mt-0.5">Coinsurance amounts will count towards meeting the deductible</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -434,6 +960,8 @@
                     return [
                         'id' => (int)$plan->id,
                         'dependent_coverage_multiplier' => (float)($plan->dependent_coverage_multiplier ?? 0.50),
+                        'dependent_multiplier_tiers' => $plan->dependent_multiplier_tiers ?? null,
+                        'dependent_multiplier_floor' => $plan->dependent_multiplier_floor !== null ? (float)$plan->dependent_multiplier_floor : null,
                         'insurance_training_levy_percentage' => (float)($plan->insurance_training_levy_percentage ?? 0.50),
                         'stamp_duty_amount' => (float)($plan->stamp_duty_amount ?? 35000),
                         'premium_calculation_method' => $plan->premium_calculation_method ?? 'benefit_based',
@@ -560,8 +1088,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                     <label for="number_of_dependents" class="block text-sm font-medium text-slate-700 mb-2">Number of Dependents</label>
-                    <input type="number" name="number_of_dependents" id="number_of_dependents" value="{{ old('number_of_dependents', 0) }}" min="0" max="20" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="calculatePremium()">
-                    <p class="text-xs text-slate-500 mt-1">Include spouse and children</p>
+                    <input type="number" name="number_of_dependents" id="number_of_dependents" value="{{ old('number_of_dependents', 0) }}" min="0" max="20" readonly class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed">
+                    <p class="text-xs text-slate-500 mt-1">Automatically calculated based on dependents entered below</p>
                 </div>
             </div>
 
@@ -572,7 +1100,10 @@
                         <span class="text-sm font-bold text-slate-900" id="base-premium">UGX 0.00</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium text-slate-700">Dependents Premium (<span id="dependents-count">0</span> dependents):</span>
+                        <span class="text-sm font-medium text-slate-700">
+                            Dependents Premium (<span id="dependents-count">0</span> dependents):
+                            <span id="dependents-tier-info" class="text-xs text-slate-500 ml-2"></span>
+                        </span>
                         <span class="text-sm font-bold text-slate-900" id="dependents-premium">UGX 0.00</span>
                     </div>
                     <div class="border-t border-slate-300 pt-3 flex justify-between items-center">
@@ -597,6 +1128,13 @@
                         <div class="border-t border-slate-300 pt-3 mt-3">
                             <h4 class="text-sm font-semibold text-slate-700 mb-2">Deductible Adjustments:</h4>
                             <div id="deductible-adjustments-list" class="space-y-1"></div>
+                        </div>
+                    </div>
+                    <div id="coverage-limit-adjustments-container" style="display: none;">
+                        <div class="border-t border-slate-300 pt-3 mt-3">
+                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Coverage Limit Adjustments:</h4>
+                            <div id="coverage-limit-adjustments-list" class="space-y-1"></div>
+                            <p class="text-xs text-slate-500 mt-2">These adjustments affect annual/lifetime coverage limits and are noted for underwriter review.</p>
                         </div>
                     </div>
                     <div class="border-t-2 border-blue-500 pt-3 flex justify-between items-center bg-blue-50 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
@@ -754,6 +1292,37 @@
     let dependantCount = 1;
     let medicationCount = 1;
 
+    // Count valid dependants (those with at least first name or surname filled)
+    function countValidDependants() {
+        const sections = document.querySelectorAll('.dependant-section');
+        let count = 0;
+        
+        sections.forEach(section => {
+            const firstName = section.querySelector('input[name*="[first_name]"]')?.value.trim();
+            const surname = section.querySelector('input[name*="[surname]"]')?.value.trim();
+            
+            // Count as valid if at least first name or surname is filled
+            if (firstName || surname) {
+                count++;
+            }
+        });
+        
+        return count;
+    }
+    
+    // Update number of dependents field
+    function updateDependentsCount() {
+        const count = countValidDependants();
+        const dependentsField = document.getElementById('number_of_dependents');
+        if (dependentsField) {
+            dependentsField.value = count;
+            // Trigger premium calculation
+            if (typeof calculatePremium === 'function') {
+                calculatePremium();
+            }
+        }
+    }
+    
     // Add dependant
     function addDependant() {
         if (dependantCount >= 8) {
@@ -773,6 +1342,13 @@
             }
         });
         
+        // Add event listeners to new inputs to auto-calculate count
+        const newInputs = template.querySelectorAll('input, select');
+        newInputs.forEach(input => {
+            input.addEventListener('input', updateDependentsCount);
+            input.addEventListener('change', updateDependentsCount);
+        });
+        
         // Show remove button
         template.querySelector('.remove-btn').classList.remove('hidden');
         
@@ -782,6 +1358,9 @@
         if (dependantCount >= 8) {
             document.getElementById('add-dependant-btn').style.display = 'none';
         }
+        
+        // Update count after adding
+        updateDependentsCount();
     }
 
     // Remove dependant
@@ -801,6 +1380,9 @@
                 }
             });
         });
+        
+        // Update count after removing
+        updateDependentsCount();
     }
 
     // Add medication row for dynamic questions
@@ -998,6 +1580,8 @@
         // Get plan data
         const planData = window.plansData && window.plansData[planId] ? window.plansData[planId] : {
             dependent_coverage_multiplier: 0.50,
+            dependent_multiplier_tiers: null,
+            dependent_multiplier_floor: null,
             insurance_training_levy_percentage: 0.50,
             stamp_duty_amount: 35000,
             premium_calculation_method: 'benefit_based',
@@ -1036,8 +1620,49 @@
         basePremium = parseFloat(basePremium) || 0;
         if (isNaN(basePremium)) basePremium = 0;
         
-        // Calculate dependents premium using plan's multiplier
-        const dependentsPremium = parseFloat(basePremium) * parseFloat(dependentMultiplier) * parseFloat(numberOfDependents);
+        // Calculate dependents premium using tiered multipliers
+        let dependentsPremium = 0;
+        if (numberOfDependents > 0) {
+            const tiers = planData.dependent_multiplier_tiers || [];
+            const floor = planData.dependent_multiplier_floor !== null && planData.dependent_multiplier_floor !== undefined ? parseFloat(planData.dependent_multiplier_floor) : null;
+            const legacyMultiplier = parseFloat(dependentMultiplier) || 0.50;
+            
+            if (tiers && tiers.length > 0) {
+                // Use tiered multipliers
+                const tierInfo = [];
+                for (let i = 0; i < numberOfDependents; i++) {
+                    let multiplier;
+                    let tierLabel;
+                    if (i < tiers.length) {
+                        multiplier = parseFloat(tiers[i]) || 0;
+                        tierLabel = `Tier ${i + 1} (${(multiplier * 100).toFixed(0)}%)`;
+                    } else if (floor !== null && !isNaN(floor)) {
+                        multiplier = floor;
+                        tierLabel = `Floor (${(multiplier * 100).toFixed(0)}%)`;
+                    } else {
+                        multiplier = legacyMultiplier;
+                        tierLabel = `Legacy (${(multiplier * 100).toFixed(0)}%)`;
+                    }
+                    dependentsPremium += parseFloat(basePremium) * multiplier;
+                    tierInfo.push(`Dep ${i + 1}: ${tierLabel}`);
+                }
+                // Update tier info display
+                const tierInfoEl = document.getElementById('dependents-tier-info');
+                if (tierInfoEl && numberOfDependents > 0) {
+                    tierInfoEl.textContent = `[${tierInfo.join(', ')}]`;
+                    tierInfoEl.style.display = 'inline';
+                }
+            } else {
+                // Use legacy multiplier
+                dependentsPremium = parseFloat(basePremium) * parseFloat(legacyMultiplier) * parseFloat(numberOfDependents);
+                // Hide tier info when using legacy
+                const tierInfoEl = document.getElementById('dependents-tier-info');
+                if (tierInfoEl) {
+                    tierInfoEl.textContent = '';
+                    tierInfoEl.style.display = 'none';
+                }
+            }
+        }
         if (isNaN(dependentsPremium)) dependentsPremium = 0;
         
         // Calculate subtotal (before medical question adjustments)
@@ -1049,6 +1674,7 @@
         let deductibleAdjustment = 0;
         const premiumAdjustmentsList = [];
         const deductibleAdjustmentsList = [];
+        const coverageLimitAdjustmentsList = [];
         
         if (window.medicalQuestionsData) {
             Object.keys(window.medicalQuestionsData).forEach(questionId => {
@@ -1111,6 +1737,14 @@
                             description: question.monetary_impact_description || `Question ${questionId} adjustment`,
                             isPositive: impactAmount > 0
                         });
+                    } else if (question.monetary_impact_type === 'coverage_limit_adjustment') {
+                        // Coverage limit adjustments (stored for display and potential future use)
+                        coverageLimitAdjustmentsList.push({
+                            amount: impactAmount,
+                            isPercentage: question.monetary_impact_is_percentage,
+                            description: question.monetary_impact_description || `Question ${questionId} coverage limit adjustment`,
+                            isPositive: impactAmount > 0
+                        });
                     }
                 }
             });
@@ -1136,6 +1770,28 @@
         document.getElementById('base-premium').textContent = formatCurrency(basePremium);
         document.getElementById('dependents-count').textContent = numberOfDependents;
         document.getElementById('dependents-premium').textContent = formatCurrency(dependentsPremium);
+        
+        // Hide tier info if no dependents
+        if (numberOfDependents === 0) {
+            const tierInfoEl = document.getElementById('dependents-tier-info');
+            if (tierInfoEl) {
+                tierInfoEl.textContent = '';
+                tierInfoEl.style.display = 'none';
+            }
+        }
+    }
+    
+    // Initialize: Add event listeners to existing dependant inputs for auto-calculation
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listeners to all existing dependant inputs
+        const dependantInputs = document.querySelectorAll('#dependants-container input, #dependants-container select');
+        dependantInputs.forEach(input => {
+            input.addEventListener('input', updateDependentsCount);
+            input.addEventListener('change', updateDependentsCount);
+        });
+        
+        // Initial count calculation
+        updateDependentsCount();
         document.getElementById('subtotal-premium').textContent = formatCurrency(subtotalPremium);
         document.getElementById('training-levy').textContent = formatCurrency(trainingLevy);
         document.getElementById('stamp-duty').textContent = formatCurrency(stampDuty);
@@ -1176,6 +1832,26 @@
             deductibleAdjustmentsContainer.style.display = 'none';
             deductibleAdjustmentsListEl.innerHTML = '';
         }
+        
+        // Display coverage limit adjustments
+        const coverageLimitAdjustmentsContainer = document.getElementById('coverage-limit-adjustments-container');
+        const coverageLimitAdjustmentsListEl = document.getElementById('coverage-limit-adjustments-list');
+        if (coverageLimitAdjustmentsList.length > 0) {
+            coverageLimitAdjustmentsContainer.style.display = 'block';
+            coverageLimitAdjustmentsListEl.innerHTML = coverageLimitAdjustmentsList.map(adj => {
+                const amountDisplay = adj.isPercentage 
+                    ? `${adj.amount}%` 
+                    : formatCurrency(adj.amount);
+                const sign = adj.isPositive ? '+' : '';
+                return `<div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-600">${adj.description}:</span>
+                    <span class="font-semibold text-orange-600">${sign}${amountDisplay}</span>
+                </div>`;
+            }).join('');
+        } else {
+            coverageLimitAdjustmentsContainer.style.display = 'none';
+            coverageLimitAdjustmentsListEl.innerHTML = '';
+        }
     }
     
     // Format currency
@@ -1203,4 +1879,15 @@
     if (document.querySelector('input[name="plan_id"]:checked')) {
         calculatePremium();
     }
+    
+    // Initialize: Add event listeners to existing dependant inputs for auto-calculation
+    // Add event listeners to all existing dependant inputs
+    const dependantInputs = document.querySelectorAll('#dependants-container input, #dependants-container select');
+    dependantInputs.forEach(input => {
+        input.addEventListener('input', updateDependentsCount);
+        input.addEventListener('change', updateDependentsCount);
+    });
+    
+    // Initial count calculation
+    updateDependentsCount();
 </script>

@@ -19,6 +19,13 @@
             <a href="{{ route('plans.edit', $plan) }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
                 Edit Plan
             </a>
+            <form action="{{ route('plans.destroy', $plan) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this plan? This action cannot be undone.');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-150">
+                    Delete Plan
+                </button>
+            </form>
             <a href="{{ route('plans.index') }}" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition duration-150">
                 ← Back to Plans
             </a>
@@ -90,16 +97,6 @@
             <div>
                 <label class="block text-sm font-medium text-slate-500 mb-1">Maximum Enrollment Age</label>
                 <p class="text-sm font-medium text-slate-900">{{ $plan->max_enrollment_age ? $plan->max_enrollment_age . ' years' : 'No limit' }}</p>
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-slate-500 mb-1">Plan Start Date</label>
-                <p class="text-sm font-medium text-slate-900">{{ $plan->effective_start_date ? $plan->effective_start_date->format('F d, Y') : 'Immediate' }}</p>
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-slate-500 mb-1">Plan End Date</label>
-                <p class="text-sm font-medium text-slate-900">{{ $plan->effective_end_date ? $plan->effective_end_date->format('F d, Y') : 'No end date' }}</p>
             </div>
         </div>
     </div>

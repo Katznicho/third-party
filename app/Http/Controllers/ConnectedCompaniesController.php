@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 class ConnectedCompaniesController extends Controller
 {
     /**
-     * Display a listing of connected companies.
+     * Display a listing of service providers.
      */
     public function index()
     {

@@ -15,6 +15,13 @@
             <a href="{{ route('clients.edit', $client) }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Edit Client
             </a>
+            <form action="{{ route('clients.destroy', $client) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this client? This action cannot be undone.');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    Delete Client
+                </button>
+            </form>
             <a href="{{ route('clients.index') }}" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50">
                 ← Back to Clients
             </a>

@@ -59,7 +59,7 @@ Route::middleware('auth')->group(function () {
     // Payment Responsibilities
     Route::resource('payment-responsibilities', \App\Http\Controllers\PaymentResponsibilityController::class);
     
-    // Connected Companies
+    // Service Providers
     Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
     
     // Vendor Code Email
@@ -73,4 +73,6 @@ Route::middleware('auth')->group(function () {
     // Settings
     Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings/policy-number', [\App\Http\Controllers\SettingsController::class, 'updatePolicyNumberSettings'])->name('settings.update-policy-number');
+    Route::put('/settings/deductible-contribution', [\App\Http\Controllers\SettingsController::class, 'updateDeductibleContributionSettings'])->name('settings.update-deductible-contribution');
+    Route::put('/settings/required-client-fields', [\App\Http\Controllers\SettingsController::class, 'updateRequiredClientFields'])->name('settings.update-required-client-fields');
 });

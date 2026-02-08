@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Medical Question Details')
-@section('page-title', 'Medical Question Details')
+@section('title', 'Question Details')
+@section('page-title', 'Question Details')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
@@ -9,12 +9,19 @@
         <div class="flex justify-between items-start mb-6">
             <div>
                 <h1 class="text-2xl font-bold text-slate-900">Question Details</h1>
-                <p class="text-slate-600 mt-1">View medical question information</p>
+                <p class="text-slate-600 mt-1">View question information</p>
             </div>
             <div class="flex space-x-2">
                 <a href="{{ route('medical-questions.edit', $medicalQuestion) }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Edit
                 </a>
+                <form action="{{ route('medical-questions.destroy', $medicalQuestion) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this question? This action cannot be undone.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        Delete
+                    </button>
+                </form>
                 <a href="{{ route('medical-questions.index') }}" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50">
                     Back to List
                 </a>
@@ -152,7 +159,7 @@
                             
                             @if($medicalQuestion->monetary_impact_applies_to_response)
                             <div>
-                                <h4 class="text-xs font-medium text-slate-500 mb-1">Applies To Response</h4>
+                                <h4 class="text-xs font-medium text-slate-500 mb-1">Triggering Response</h4>
                                 <p class="text-sm text-slate-900">
                                     <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                                         "{{ $medicalQuestion->monetary_impact_applies_to_response }}"
@@ -164,7 +171,7 @@
                             
                             @if($medicalQuestion->monetary_impact_description)
                             <div class="md:col-span-2">
-                                <h4 class="text-xs font-medium text-slate-500 mb-1">Impact Description</h4>
+                                <h4 class="text-xs font-medium text-slate-500 mb-1">Underwriting Guidance (Impact Description)</h4>
                                 <p class="text-sm text-slate-900 bg-white p-3 rounded border border-slate-200">
                                     {{ $medicalQuestion->monetary_impact_description }}
                                 </p>

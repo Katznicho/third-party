@@ -55,7 +55,7 @@ class MedicalQuestionController extends Controller
             'monetary_impact_type' => $hasMonetaryImpact ? 'required|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment' : 'nullable|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment,none',
             'monetary_impact_amount' => 'nullable|numeric|min:0',
             'monetary_impact_is_percentage' => 'nullable|boolean',
-            'monetary_impact_applies_to_response' => 'nullable|string|max:255',
+            'monetary_impact_applies_to_response' => $hasMonetaryImpact ? 'required|string|max:255' : 'nullable|string|max:255',
             'monetary_impact_description' => 'nullable|string',
         ], [
             'monetary_impact_type.required' => 'Please select a valid Impact Type when "Has Monetary Impact" is enabled.',
@@ -163,7 +163,7 @@ class MedicalQuestionController extends Controller
             'monetary_impact_type' => $hasMonetaryImpact ? 'required|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment' : 'nullable|in:premium_adjustment,deductible_adjustment,coverage_limit_adjustment,none',
             'monetary_impact_amount' => 'nullable|numeric|min:0',
             'monetary_impact_is_percentage' => 'nullable|boolean',
-            'monetary_impact_applies_to_response' => 'nullable|string|max:255',
+            'monetary_impact_applies_to_response' => $hasMonetaryImpact ? 'required|string|max:255' : 'nullable|string|max:255',
             'monetary_impact_description' => 'nullable|string',
         ], [
             'monetary_impact_type.required' => 'Please select a valid Impact Type when "Has Monetary Impact" is enabled.',

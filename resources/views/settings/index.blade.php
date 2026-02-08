@@ -147,6 +147,182 @@
             </div>
         </form>
     </div>
+
+
+    <!-- Deductible Contribution Settings -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-xl font-bold text-slate-900 mb-4 border-b border-slate-200 pb-3">Deductible Contribution Settings</h2>
+        <p class="text-sm text-slate-600 mb-6">
+            Configure whether copay and coinsurance payments contribute towards meeting the deductible. 
+            These are default settings that apply to all new policies. Individual policies can override these settings.
+        </p>
+
+        <form action="{{ route('settings.update-deductible-contribution') }}" method="POST" class="space-y-6">
+            @csrf
+            @method('PUT')
+
+            <div class="space-y-4">
+                <!-- Copay Contribution -->
+                <div class="flex items-start">
+                    <input 
+                        type="checkbox" 
+                        name="copay_contributes_to_deductible" 
+                        id="copay_contributes_to_deductible" 
+                        value="1"
+                        {{ old('copay_contributes_to_deductible', $insuranceCompany->copay_contributes_to_deductible ?? false) ? 'checked' : '' }}
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
+                    >
+                    <div class="ml-3">
+                        <label for="copay_contributes_to_deductible" class="block text-sm font-medium text-slate-700">
+                            Copay contributes to deductible
+                        </label>
+                        <p class="text-xs text-slate-500 mt-1">
+                            When enabled, copay amounts paid by clients will count towards meeting their deductible. 
+                            For example, if a client has a UGX 100,000 deductible and pays UGX 10,000 in copays, 
+                            only UGX 90,000 remains to meet the deductible.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Coinsurance Contribution -->
+                <div class="flex items-start">
+                    <input 
+                        type="checkbox" 
+                        name="coinsurance_contributes_to_deductible" 
+                        id="coinsurance_contributes_to_deductible" 
+                        value="1"
+                        {{ old('coinsurance_contributes_to_deductible', $insuranceCompany->coinsurance_contributes_to_deductible ?? false) ? 'checked' : '' }}
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
+                    >
+                    <div class="ml-3">
+                        <label for="coinsurance_contributes_to_deductible" class="block text-sm font-medium text-slate-700">
+                            Coinsurance contributes to deductible
+                        </label>
+                        <p class="text-xs text-slate-500 mt-1">
+                            When enabled, coinsurance amounts paid by clients will count towards meeting their deductible. 
+                            For example, if a client has a UGX 100,000 deductible and pays UGX 15,000 in coinsurance, 
+                            only UGX 85,000 remains to meet the deductible.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Box -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-blue-900 mb-2">How it works:</h3>
+                <ul class="text-xs text-blue-800 space-y-1 list-disc list-inside">
+                    <li>These settings are <strong>default values</strong> for all new policies created after saving.</li>
+                    <li>Existing policies are not automatically updated.</li>
+                    <li>Individual policies can override these settings during creation or editing.</li>
+                    <li>When both copay and coinsurance contribute, both amounts are counted towards the deductible.</li>
+                </ul>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex justify-end pt-4 border-t border-slate-200">
+                <button 
+                    type="submit" 
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150"
+                >
+                    Save Settings
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Required Client Fields Settings -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-xl font-bold text-slate-900 mb-4 border-b border-slate-200 pb-3">Required Client Fields</h2>
+        <p class="text-sm text-slate-600 mb-6">
+            Configure which fields are required when creating clients. Different insurance companies may require different information. 
+            For example, Prudential may require more detailed information than Jubilee.
+        </p>
+
+        <form action="{{ route('settings.update-required-client-fields') }}" method="POST" class="space-y-6">
+            @csrf
+            @method('PUT')
+
+            @php
+                $defaultFields = \App\Models\InsuranceCompany::getDefaultRequiredFields();
+                $currentFields = $insuranceCompany->required_client_fields ?? [];
+                $fieldLabels = [
+                    'surname' => 'Surname',
+                    'first_name' => 'First Name',
+                    'other_names' => 'Other Names',
+                    'title' => 'Title',
+                    'id_passport_no' => 'ID/Passport Number',
+                    'gender' => 'Gender',
+                    'tin' => 'TIN',
+                    'date_of_birth' => 'Date of Birth',
+                    'marital_status' => 'Marital Status',
+                    'height' => 'Height',
+                    'weight' => 'Weight',
+                    'employer_name' => 'Employer Name',
+                    'occupation' => 'Occupation',
+                    'nationality' => 'Nationality',
+                    'home_physical_address' => 'Home Physical Address',
+                    'office_physical_address' => 'Office Physical Address',
+                    'home_telephone' => 'Home Telephone',
+                    'office_telephone' => 'Office Telephone',
+                    'cell_phone' => 'Cell Phone',
+                    'whatsapp_line' => 'WhatsApp Line',
+                    'email' => 'Email',
+                    'next_of_kin_surname' => 'Next of Kin Surname',
+                    'next_of_kin_first_name' => 'Next of Kin First Name',
+                    'next_of_kin_other_names' => 'Next of Kin Other Names',
+                    'next_of_kin_title' => 'Next of Kin Title',
+                    'next_of_kin_relation' => 'Next of Kin Relation',
+                    'next_of_kin_id_passport_no' => 'Next of Kin ID/Passport',
+                    'next_of_kin_cell_phone' => 'Next of Kin Cell Phone',
+                    'next_of_kin_email' => 'Next of Kin Email',
+                    'next_of_kin_post_address' => 'Next of Kin Postal Address',
+                    'next_of_kin_physical_address' => 'Next of Kin Physical Address',
+                ];
+            @endphp
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach($defaultFields as $fieldName => $defaultValue)
+                    @php
+                        $isRequired = isset($currentFields[$fieldName]) 
+                            ? (bool)$currentFields[$fieldName] 
+                            : $defaultValue;
+                        $label = $fieldLabels[$fieldName] ?? ucwords(str_replace('_', ' ', $fieldName));
+                    @endphp
+                    <label class="flex items-center p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            name="required_fields[{{ $fieldName }}]" 
+                            value="1"
+                            {{ $isRequired ? 'checked' : '' }}
+                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                        >
+                        <span class="ml-2 text-sm text-slate-700">{{ $label }}</span>
+                    </label>
+                @endforeach
+            </div>
+
+            <!-- Info Box -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-blue-900 mb-2">How it works:</h3>
+                <ul class="text-xs text-blue-800 space-y-1 list-disc list-inside">
+                    <li>Checked fields will be <strong>required</strong> when creating or editing clients.</li>
+                    <li>Unchecked fields will be <strong>optional</strong>.</li>
+                    <li>These settings apply to all new client creation forms.</li>
+                    <li><strong>Note:</strong> First Name and ID/Passport Number are always required by default and cannot be unchecked.</li>
+                </ul>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex justify-end pt-4 border-t border-slate-200">
+                <button 
+                    type="submit" 
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150"
+                >
+                    Save Settings
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>

@@ -230,10 +230,9 @@ class CreateAARClients extends Command
             $basePremium = ($plan->base_premium ?? 0) + $basePremium;
         }
 
-        // Calculate dependents premium
+        // Calculate dependents premium using tiered multipliers
         $numberOfDependents = $clientData['number_of_dependents'] ?? 0;
-        $dependentMultiplier = $plan->dependent_coverage_multiplier ?? 0.50;
-        $dependentsPremium = $basePremium * $dependentMultiplier * $numberOfDependents;
+        $dependentsPremium = $plan->calculateDependentPremium($basePremium, $numberOfDependents);
 
         // Subtotal
         $subtotalPremium = $basePremium + $dependentsPremium;

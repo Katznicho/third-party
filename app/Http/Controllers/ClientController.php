@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Policy;
 use App\Models\PolicyBenefit;
 use App\Models\Plan;
+use App\Models\InsuranceCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -30,6 +31,72 @@ class ClientController extends Controller
     }
 
     /**
+     * Build validation rules based on insurance company settings
+     */
+    private function buildValidationRules(InsuranceCompany $insuranceCompany, bool $isUpdate = false, $clientId = null): array
+    {
+        $requiredFields = $insuranceCompany->getRequiredFields();
+        
+        // Base rules that are always the same
+        $rules = [
+            'type' => 'required|in:principal,dependent',
+            'principal_member_id' => 'required_if:type,dependent|nullable|exists:clients,id',
+            'plan_id' => 'required_if:type,principal|nullable|exists:plans,id',
+            'desired_start_date' => 'nullable|date',
+            'number_of_dependents' => 'nullable|integer|min:0|max:20',
+            'has_deductible' => 'nullable|boolean',
+            'deductible_amount' => 'nullable|numeric|min:0',
+            'copay_amount' => 'nullable|numeric|min:0',
+            'coinsurance_percentage' => 'nullable|numeric|min:0|max:100',
+            'copay_max_limit' => 'nullable|numeric|min:0',
+            'copay_contributes_to_deductible' => 'nullable|boolean',
+            'coinsurance_contributes_to_deductible' => 'nullable|boolean',
+            'telemedicine_only' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+        ];
+        
+        // Dynamic rules based on required fields
+        $fieldRules = [
+            'surname' => in_array('surname', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'first_name' => 'required|string|max:255', // Always required
+            'other_names' => in_array('other_names', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'title' => in_array('title', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'id_passport_no' => $isUpdate 
+                ? 'required|string|max:255|unique:clients,id_passport_no,' . $clientId
+                : 'required|string|max:255|unique:clients,id_passport_no', // Always required
+            'gender' => in_array('gender', $requiredFields) ? 'required|in:Male,Female' : 'nullable|in:Male,Female',
+            'tin' => in_array('tin', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'date_of_birth' => in_array('date_of_birth', $requiredFields) ? 'required|date' : 'nullable|date',
+            'marital_status' => in_array('marital_status', $requiredFields) ? 'required|in:Single,Married,Divorced,Widowed' : 'nullable|in:Single,Married,Divorced,Widowed',
+            'height' => in_array('height', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'weight' => in_array('weight', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'employer_name' => in_array('employer_name', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'occupation' => in_array('occupation', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'nationality' => in_array('nationality', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'home_physical_address' => in_array('home_physical_address', $requiredFields) ? 'required|string|max:500' : 'nullable|string|max:500',
+            'office_physical_address' => in_array('office_physical_address', $requiredFields) ? 'required|string|max:500' : 'nullable|string|max:500',
+            'home_telephone' => in_array('home_telephone', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'office_telephone' => in_array('office_telephone', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'cell_phone' => in_array('cell_phone', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'whatsapp_line' => in_array('whatsapp_line', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'email' => in_array('email', $requiredFields) ? 'required|email|max:255' : 'nullable|email|max:255',
+            'relation_to_principal' => 'nullable|string|max:255',
+            'next_of_kin_surname' => in_array('next_of_kin_surname', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'next_of_kin_first_name' => in_array('next_of_kin_first_name', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'next_of_kin_other_names' => in_array('next_of_kin_other_names', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'next_of_kin_title' => in_array('next_of_kin_title', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'next_of_kin_relation' => in_array('next_of_kin_relation', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'next_of_kin_id_passport_no' => in_array('next_of_kin_id_passport_no', $requiredFields) ? 'required|string|max:255' : 'nullable|string|max:255',
+            'next_of_kin_cell_phone' => in_array('next_of_kin_cell_phone', $requiredFields) ? 'required|string|max:50' : 'nullable|string|max:50',
+            'next_of_kin_email' => in_array('next_of_kin_email', $requiredFields) ? 'required|email|max:255' : 'nullable|email|max:255',
+            'next_of_kin_post_address' => in_array('next_of_kin_post_address', $requiredFields) ? 'required|string|max:500' : 'nullable|string|max:500',
+            'next_of_kin_physical_address' => in_array('next_of_kin_physical_address', $requiredFields) ? 'required|string|max:500' : 'nullable|string|max:500',
+        ];
+        
+        return array_merge($rules, $fieldRules);
+    }
+
+    /**
      * Show the form for creating a new resource.
      */
     public function create()
@@ -45,7 +112,10 @@ class ClientController extends Controller
             ->orderBy('id')
             ->get();
         
-        return view('clients.create', compact('medicalQuestions'));
+        $insuranceCompany = $user->insuranceCompany;
+        $requiredFields = $insuranceCompany ? $insuranceCompany->getRequiredFields() : ['first_name', 'id_passport_no'];
+        
+        return view('clients.create', compact('medicalQuestions', 'requiredFields', 'insuranceCompany'));
     }
 
     /**
@@ -53,52 +123,13 @@ class ClientController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'type' => 'required|in:principal,dependent',
-            'principal_member_id' => 'required_if:type,dependent|nullable|exists:clients,id',
-            'surname' => 'nullable|string|max:255',
-            'first_name' => 'required|string|max:255',
-            'other_names' => 'nullable|string|max:255',
-            'title' => 'nullable|string|max:50',
-            'id_passport_no' => 'required|string|max:255|unique:clients,id_passport_no',
-            'gender' => 'nullable|in:Male,Female',
-            'tin' => 'nullable|string|max:255',
-            'date_of_birth' => 'nullable|date',
-            'marital_status' => 'nullable|in:Single,Married,Divorced,Widowed',
-            'height' => 'nullable|string|max:50',
-            'weight' => 'nullable|string|max:50',
-            'employer_name' => 'nullable|string|max:255',
-            'occupation' => 'nullable|string|max:255',
-            'nationality' => 'nullable|string|max:255',
-            'home_physical_address' => 'nullable|string|max:500',
-            'office_physical_address' => 'nullable|string|max:500',
-            'home_telephone' => 'nullable|string|max:50',
-            'office_telephone' => 'nullable|string|max:50',
-            'cell_phone' => 'nullable|string|max:50',
-            'whatsapp_line' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
-            'relation_to_principal' => 'nullable|string|max:255',
-            'next_of_kin_surname' => 'nullable|string|max:255',
-            'next_of_kin_first_name' => 'nullable|string|max:255',
-            'next_of_kin_other_names' => 'nullable|string|max:255',
-            'next_of_kin_title' => 'nullable|string|max:50',
-            'next_of_kin_relation' => 'nullable|string|max:255',
-            'next_of_kin_id_passport_no' => 'nullable|string|max:255',
-            'next_of_kin_cell_phone' => 'nullable|string|max:50',
-            'next_of_kin_email' => 'nullable|email|max:255',
-            'next_of_kin_post_address' => 'nullable|string|max:500',
-            'next_of_kin_physical_address' => 'nullable|string|max:500',
-            'has_deductible' => 'nullable|boolean',
-            'deductible_amount' => 'nullable|numeric|min:0',
-            'copay_amount' => 'nullable|numeric|min:0',
-            'coinsurance_percentage' => 'nullable|numeric|min:0|max:100',
-            'copay_max_limit' => 'nullable|numeric|min:0',
-            'telemedicine_only' => 'nullable|boolean',
-            'is_active' => 'nullable|boolean',
-            'plan_id' => 'required_if:type,principal|nullable|exists:plans,id', // Plan required for principal members
-            'desired_start_date' => 'nullable|date',
-            'number_of_dependents' => 'nullable|integer|min:0|max:20',
-        ]);
+        $user = auth()->user();
+        $insuranceCompany = $user->insuranceCompany;
+        if (!$insuranceCompany) {
+            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $validated = $request->validate($this->buildValidationRules($insuranceCompany));
 
         // Handle checkboxes
         $validated['has_deductible'] = $request->boolean('has_deductible');
@@ -178,9 +209,8 @@ class ClientController extends Controller
             }
             // else 'benefit_based' - already calculated above
             
-            // Calculate dependents premium using plan's multiplier
-            $dependentMultiplier = $plan->dependent_coverage_multiplier ?? 0.50;
-            $dependentsPremium = $basePremium * $dependentMultiplier * $numberOfDependents;
+            // Calculate dependents premium using tiered multipliers
+            $dependentsPremium = $plan->calculateDependentPremium($basePremium, $numberOfDependents);
             
             // Subtotal premium (principal + dependents)
             $subtotalPremium = $basePremium + $dependentsPremium;
@@ -262,6 +292,19 @@ class ClientController extends Controller
                 $finalDeductibleAmount = $deductibleAdjustment;
             }
             
+            // Get insurance company defaults for contribution flags
+            $insuranceCompany = auth()->user()->insuranceCompany;
+            $defaultCopayContributes = $insuranceCompany ? $insuranceCompany->copay_contributes_to_deductible : false;
+            $defaultCoinsuranceContributes = $insuranceCompany ? $insuranceCompany->coinsurance_contributes_to_deductible : false;
+            
+            // Use provided values or fall back to company defaults
+            $copayContributes = isset($validated['copay_contributes_to_deductible']) 
+                ? (bool)$validated['copay_contributes_to_deductible'] 
+                : $defaultCopayContributes;
+            $coinsuranceContributes = isset($validated['coinsurance_contributes_to_deductible']) 
+                ? (bool)$validated['coinsurance_contributes_to_deductible'] 
+                : $defaultCoinsuranceContributes;
+            
             // Create policy with calculated premium
             $policy = Policy::create([
                 'policy_number' => $policyNumber,
@@ -282,6 +325,8 @@ class ClientController extends Controller
                 'coinsurance_percentage' => $validated['coinsurance_percentage'] ?? null,
                 'deductible_amount' => $finalDeductibleAmount,
                 'copay_max_limit' => $validated['copay_max_limit'] ?? null,
+                'copay_contributes_to_deductible' => $copayContributes,
+                'coinsurance_contributes_to_deductible' => $coinsuranceContributes,
                 'telemedicine_only' => $validated['telemedicine_only'] ?? false,
             ]);
             
@@ -530,7 +575,10 @@ class ClientController extends Controller
         // Load existing responses and policy
         $client->load(['medicalQuestionResponses', 'policies']);
         
-        return view('clients.edit', compact('client', 'principals', 'medicalQuestions'));
+        $insuranceCompany = $user->insuranceCompany;
+        $requiredFields = $insuranceCompany ? $insuranceCompany->getRequiredFields() : ['first_name', 'id_passport_no'];
+        
+        return view('clients.edit', compact('client', 'principals', 'medicalQuestions', 'requiredFields', 'insuranceCompany'));
     }
 
     /**
@@ -538,50 +586,24 @@ class ClientController extends Controller
      */
     public function update(Request $request, Client $client)
     {
-        $validated = $request->validate([
-            'type' => 'required|in:principal,dependent',
-            'principal_member_id' => 'required_if:type,dependent|nullable|exists:clients,id',
-            'surname' => 'nullable|string|max:255',
-            'first_name' => 'required|string|max:255',
-            'other_names' => 'nullable|string|max:255',
-            'title' => 'nullable|string|max:50',
-            'id_passport_no' => 'required|string|max:255|unique:clients,id_passport_no,' . $client->id,
-            'gender' => 'nullable|in:Male,Female',
-            'tin' => 'nullable|string|max:255',
-            'date_of_birth' => 'nullable|date',
-            'marital_status' => 'nullable|in:Single,Married,Divorced,Widowed',
-            'height' => 'nullable|string|max:50',
-            'weight' => 'nullable|string|max:50',
-            'employer_name' => 'nullable|string|max:255',
-            'occupation' => 'nullable|string|max:255',
-            'nationality' => 'nullable|string|max:255',
-            'home_physical_address' => 'nullable|string|max:500',
-            'office_physical_address' => 'nullable|string|max:500',
-            'home_telephone' => 'nullable|string|max:50',
-            'office_telephone' => 'nullable|string|max:50',
-            'cell_phone' => 'nullable|string|max:50',
-            'whatsapp_line' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
-            'relation_to_principal' => 'nullable|string|max:255',
-            'next_of_kin_surname' => 'nullable|string|max:255',
-            'next_of_kin_first_name' => 'nullable|string|max:255',
-            'next_of_kin_other_names' => 'nullable|string|max:255',
-            'next_of_kin_title' => 'nullable|string|max:50',
-            'next_of_kin_relation' => 'nullable|string|max:255',
-            'next_of_kin_id_passport_no' => 'nullable|string|max:255',
-            'next_of_kin_cell_phone' => 'nullable|string|max:50',
-            'next_of_kin_email' => 'nullable|email|max:255',
-            'next_of_kin_post_address' => 'nullable|string|max:500',
-            'next_of_kin_physical_address' => 'nullable|string|max:500',
-            'has_deductible' => 'nullable|boolean',
-            'deductible_amount' => 'nullable|numeric|min:0',
-            'copay_amount' => 'nullable|numeric|min:0',
-            'coinsurance_percentage' => 'nullable|numeric|min:0|max:100',
-            'copay_max_limit' => 'nullable|numeric|min:0',
-            'telemedicine_only' => 'nullable|boolean',
-            'is_active' => 'nullable|boolean',
-            'plan_id' => 'nullable|exists:plans,id',
-        ]);
+        $user = auth()->user();
+        $insuranceCompany = $user->insuranceCompany;
+        if (!$insuranceCompany) {
+            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $validated = $request->validate($this->buildValidationRules($insuranceCompany, true, $client->id));
+
+        // Handle checkboxes
+        $validated['has_deductible'] = $request->boolean('has_deductible');
+        $validated['telemedicine_only'] = $request->boolean('telemedicine_only');
+        $validated['is_active'] = $request->boolean('is_active');
+
+        // Set principal_member_id to null if not dependent
+        if ($validated['type'] === 'principal') {
+            $validated['principal_member_id'] = null;
+            $validated['relation_to_principal'] = null;
+        }
 
         // Handle checkboxes
         $validated['has_deductible'] = $request->boolean('has_deductible');
@@ -599,12 +621,28 @@ class ClientController extends Controller
         // Update policy if client is principal and has a policy
         if ($validated['type'] === 'principal' && $client->policies()->exists()) {
             $policy = $client->policies()->first();
+            
+            // Get insurance company defaults for contribution flags
+            $insuranceCompany = auth()->user()->insuranceCompany;
+            $defaultCopayContributes = $insuranceCompany ? $insuranceCompany->copay_contributes_to_deductible : false;
+            $defaultCoinsuranceContributes = $insuranceCompany ? $insuranceCompany->coinsurance_contributes_to_deductible : false;
+            
+            // Use provided values or fall back to company defaults (or keep existing policy value)
+            $copayContributes = isset($validated['copay_contributes_to_deductible']) 
+                ? (bool)$validated['copay_contributes_to_deductible'] 
+                : ($policy->copay_contributes_to_deductible ?? $defaultCopayContributes);
+            $coinsuranceContributes = isset($validated['coinsurance_contributes_to_deductible']) 
+                ? (bool)$validated['coinsurance_contributes_to_deductible'] 
+                : ($policy->coinsurance_contributes_to_deductible ?? $defaultCoinsuranceContributes);
+            
             $policy->update([
                 'has_deductible' => $validated['has_deductible'] ?? false,
                 'copay_amount' => $validated['copay_amount'] ?? null,
                 'coinsurance_percentage' => $validated['coinsurance_percentage'] ?? null,
                 'deductible_amount' => ($validated['has_deductible'] ?? false) ? ($validated['deductible_amount'] ?? null) : null,
                 'copay_max_limit' => $validated['copay_max_limit'] ?? null,
+                'copay_contributes_to_deductible' => $copayContributes,
+                'coinsurance_contributes_to_deductible' => $coinsuranceContributes,
                 'telemedicine_only' => $validated['telemedicine_only'] ?? false,
             ]);
         }

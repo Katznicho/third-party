@@ -23,11 +23,10 @@ class Plan extends Model
         // Age Limits
         'min_enrollment_age',
         'max_enrollment_age',
-        // Effective Dates
-        'effective_start_date',
-        'effective_end_date',
         // Dependent Coverage
         'dependent_coverage_multiplier',
+        'dependent_multiplier_tiers',
+        'dependent_multiplier_floor',
         // Coverage Limits
         'annual_max_coverage',
         'lifetime_max_coverage',
@@ -50,9 +49,9 @@ class Plan extends Model
             'is_active' => 'boolean',
             'min_enrollment_age' => 'integer',
             'max_enrollment_age' => 'integer',
-            'effective_start_date' => 'date',
-            'effective_end_date' => 'date',
             'dependent_coverage_multiplier' => 'decimal:2',
+            'dependent_multiplier_tiers' => 'array',
+            'dependent_multiplier_floor' => 'decimal:2',
             'annual_max_coverage' => 'decimal:2',
             'lifetime_max_coverage' => 'decimal:2',
             'per_incident_max_coverage' => 'decimal:2',
@@ -77,6 +76,50 @@ class Plan extends Model
     public function clients(): HasMany
     {
         return $this->hasMany(Client::class);
+    }
+
+    /**
+     * Calculate dependent premium using tiered multipliers
+     * 
+     * @param float $basePremium
+     * @param int $numberOfDependents
+     * @return float
+     */
+    public function calculateDependentPremium(float $basePremium, int $numberOfDependents): float
+    {
+        if ($numberOfDependents <= 0) {
+            return 0;
+        }
+
+        $tiers = $this->dependent_multiplier_tiers ?? [];
+        $floor = $this->dependent_multiplier_floor ?? null;
+        $legacyMultiplier = $this->dependent_coverage_multiplier ?? 0.50;
+
+        // If no tiers are configured, use legacy multiplier
+        if (empty($tiers)) {
+            return $basePremium * $legacyMultiplier * $numberOfDependents;
+        }
+
+        $totalPremium = 0;
+        
+        for ($i = 0; $i < $numberOfDependents; $i++) {
+            $tierIndex = $i; // 0-based index
+            
+            if (isset($tiers[$tierIndex])) {
+                // Use tier multiplier
+                $multiplier = $tiers[$tierIndex];
+            } elseif ($floor !== null) {
+                // Use floor limit for dependents beyond defined tiers
+                $multiplier = $floor;
+            } else {
+                // Fallback to legacy multiplier if no floor is set
+                $multiplier = $legacyMultiplier;
+            }
+            
+            $totalPremium += $basePremium * $multiplier;
+        }
+
+        return $totalPremium;
     }
 
 }
