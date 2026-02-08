@@ -29,6 +29,17 @@ class InsuranceCompany extends Model
         'copay_contributes_to_deductible',
         'coinsurance_contributes_to_deductible',
         'required_client_fields',
+        'enable_name_dob_verification',
+        'enable_id_passport_verification',
+        'enable_phone_verification',
+        'enable_email_verification',
+        'name_mismatch_action',
+        'dob_mismatch_action',
+        'id_mismatch_action',
+        'name_similarity_threshold',
+        'dob_tolerance_days',
+        'enable_visit_verification',
+        'visit_verification_validity_days',
     ];
 
     protected function casts(): array
@@ -40,6 +51,14 @@ class InsuranceCompany extends Model
             'copay_contributes_to_deductible' => 'boolean',
             'coinsurance_contributes_to_deductible' => 'boolean',
             'required_client_fields' => 'array',
+            'enable_name_dob_verification' => 'boolean',
+            'enable_id_passport_verification' => 'boolean',
+            'enable_phone_verification' => 'boolean',
+            'enable_email_verification' => 'boolean',
+            'name_similarity_threshold' => 'integer',
+            'dob_tolerance_days' => 'integer',
+            'enable_visit_verification' => 'boolean',
+            'visit_verification_validity_days' => 'integer',
         ];
     }
 

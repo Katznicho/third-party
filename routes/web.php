@@ -75,4 +75,21 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/policy-number', [\App\Http\Controllers\SettingsController::class, 'updatePolicyNumberSettings'])->name('settings.update-policy-number');
     Route::put('/settings/deductible-contribution', [\App\Http\Controllers\SettingsController::class, 'updateDeductibleContributionSettings'])->name('settings.update-deductible-contribution');
     Route::put('/settings/required-client-fields', [\App\Http\Controllers\SettingsController::class, 'updateRequiredClientFields'])->name('settings.update-required-client-fields');
+    Route::put('/settings/verification', [\App\Http\Controllers\SettingsController::class, 'updateVerificationSettings'])->name('settings.update-verification');
+    
+    // Coverage Decision Matrix
+    Route::resource('settings/coverage-decision-matrix', \App\Http\Controllers\CoverageDecisionMatrixController::class)->names([
+        'index' => 'settings.coverage-decision-matrix.index',
+        'store' => 'settings.coverage-decision-matrix.store',
+        'update' => 'settings.coverage-decision-matrix.update',
+        'destroy' => 'settings.coverage-decision-matrix.destroy',
+    ]);
+    
+    // Pre-Authorization Triggers
+    Route::resource('settings/pre-authorization-triggers', \App\Http\Controllers\PreAuthorizationTriggerController::class)->names([
+        'index' => 'settings.pre-authorization-triggers.index',
+        'store' => 'settings.pre-authorization-triggers.store',
+        'update' => 'settings.pre-authorization-triggers.update',
+        'destroy' => 'settings.pre-authorization-triggers.destroy',
+    ]);
 });

@@ -654,38 +654,81 @@ class BusinessController extends Controller
 
     /**
      * Verify if a policy number exists for a given insurance company
+     * Supports alternative verification methods when policy number fails
      */
-    public function verifyPolicyNumber($insuranceCompanyId, $policyNumber)
+    public function verifyPolicyNumber(Request $request, $insuranceCompanyId, $policyNumber = null)
     {
         try {
-            $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
-                ->where('policy_number', $policyNumber)
-                ->where('status', 'active')
-                ->with(['principalMember', 'insuranceCompany'])
-                ->first();
+            $insuranceCompany = InsuranceCompany::findOrFail($insuranceCompanyId);
+            
+            // Get policy number from route parameter or request
+            $policyNumber = $policyNumber ?? $request->input('policy_number');
+            
+            // If policy number is provided, try primary verification first
+            if ($policyNumber) {
+                $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
+                    ->where('policy_number', $policyNumber)
+                    ->where('status', 'active')
+                    ->with(['principalMember', 'insuranceCompany'])
+                    ->first();
 
-            if (!$policy) {
+                if ($policy) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Policy number verified',
+                        'exists' => true,
+                        'verification_method' => 'policy_number',
+                        'data' => [
+                            'policy_number' => $policy->policy_number,
+                            'insurance_company_id' => $policy->insurance_company_id,
+                            'insurance_company_name' => $policy->insuranceCompany->name ?? null,
+                            'principal_member_id' => $policy->principal_member_id,
+                            'principal_member_name' => $policy->principalMember ? ($policy->principalMember->first_name . ' ' . $policy->principalMember->surname) : null,
+                            'status' => $policy->status,
+                            'expiry_date' => $policy->expiry_date?->toDateString(),
+                        ],
+                    ], 200);
+                }
+            }
+
+            // Policy number verification failed, try alternative methods
+            $alternativeData = $request->only([
+                'name', 'date_of_birth', 'id_passport_no', 'phone', 'email', 'visit_id'
+            ]);
+
+            // Check if any alternative verification is enabled
+            if (empty($alternativeData)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Policy number not found or inactive',
+                    'message' => 'Policy number not found or inactive. Please provide alternative verification information.',
                     'exists' => false,
+                    'requires_alternative_verification' => true,
                 ], 404);
             }
 
+            // Try alternative verification methods
+            $verificationResult = $this->attemptAlternativeVerification($insuranceCompany, $alternativeData);
+
+            if ($verificationResult['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $verificationResult['message'],
+                    'exists' => true,
+                    'verification_method' => $verificationResult['method'],
+                    'verification_status' => $verificationResult['status'],
+                    'data' => $verificationResult['data'],
+                    'warnings' => $verificationResult['warnings'] ?? [],
+                ], 200);
+            }
+
             return response()->json([
-                'success' => true,
-                'message' => 'Policy number verified',
-                'exists' => true,
-                'data' => [
-                    'policy_number' => $policy->policy_number,
-                    'insurance_company_id' => $policy->insurance_company_id,
-                    'insurance_company_name' => $policy->insuranceCompany->name ?? null,
-                    'principal_member_id' => $policy->principal_member_id,
-                    'principal_member_name' => $policy->principalMember ? ($policy->principalMember->first_name . ' ' . $policy->principalMember->surname) : null,
-                    'status' => $policy->status,
-                    'expiry_date' => $policy->expiry_date?->toDateString(),
-                ],
-            ], 200);
+                'success' => false,
+                'message' => $verificationResult['message'],
+                'exists' => false,
+                'verification_status' => $verificationResult['status'] ?? 'rejected',
+                'mismatches' => $verificationResult['mismatches'] ?? [],
+            ], 404);
+
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Failed to verify policy number', [
                 'insurance_company_id' => $insuranceCompanyId,
@@ -696,6 +739,345 @@ class BusinessController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to verify policy number',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Attempt alternative verification methods
+     */
+    private function attemptAlternativeVerification(InsuranceCompany $insuranceCompany, array $data)
+    {
+        $mismatches = [];
+        $warnings = [];
+        $matchedPolicy = null;
+        $matchedClient = null;
+        $verificationMethod = null;
+
+        // Try visit-based verification first (if enabled and visit_id provided)
+        if ($insuranceCompany->enable_visit_verification && !empty($data['visit_id'])) {
+            $visitVerification = \App\Models\VisitIdentityVerification::where('visit_id', $data['visit_id'])
+                ->where('insurance_company_id', $insuranceCompany->id)
+                ->where('verification_status', 'verified')
+                ->where('expires_at', '>', now())
+                ->with(['policy', 'client'])
+                ->first();
+
+            if ($visitVerification && $visitVerification->policy) {
+                return [
+                    'success' => true,
+                    'message' => 'Client verified using visit ID',
+                    'method' => 'visit_id',
+                    'status' => 'verified',
+                    'data' => [
+                        'policy_number' => $visitVerification->policy->policy_number,
+                        'insurance_company_id' => $visitVerification->policy->insurance_company_id,
+                        'principal_member_id' => $visitVerification->policy->principal_member_id,
+                        'visit_id' => $visitVerification->visit_id,
+                        'verified_at' => $visitVerification->verified_at?->toIso8601String(),
+                    ],
+                ];
+            }
+        }
+
+        // Try name + date of birth verification
+        if ($insuranceCompany->enable_name_dob_verification && !empty($data['name']) && !empty($data['date_of_birth'])) {
+            $policies = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
+                ->where('status', 'active')
+                ->with(['principalMember'])
+                ->get();
+
+            foreach ($policies as $policy) {
+                if ($policy->principalMember) {
+                    $clientName = trim(($policy->principalMember->first_name ?? '') . ' ' . ($policy->principalMember->surname ?? ''));
+                    $providedName = trim($data['name']);
+                    $similarity = $this->calculateNameSimilarity($clientName, $providedName);
+                    
+                    $dobMatch = false;
+                    if ($policy->principalMember->date_of_birth && $data['date_of_birth']) {
+                        $clientDob = \Carbon\Carbon::parse($policy->principalMember->date_of_birth);
+                        $providedDob = \Carbon\Carbon::parse($data['date_of_birth']);
+                        $daysDiff = abs($clientDob->diffInDays($providedDob));
+                        $dobMatch = $daysDiff <= $insuranceCompany->dob_tolerance_days;
+                    }
+
+                    if ($similarity >= $insuranceCompany->name_similarity_threshold && $dobMatch) {
+                        $matchedPolicy = $policy;
+                        $matchedClient = $policy->principalMember;
+                        $verificationMethod = 'name_dob';
+                        
+                        if ($similarity < 100) {
+                            $warnings[] = "Name similarity: {$similarity}% (threshold: {$insuranceCompany->name_similarity_threshold}%)";
+                        }
+                        break;
+                    } elseif ($similarity >= $insuranceCompany->name_similarity_threshold && !$dobMatch) {
+                        $mismatches[] = 'date_of_birth';
+                    } elseif ($similarity < $insuranceCompany->name_similarity_threshold && $dobMatch) {
+                        $mismatches[] = 'name';
+                    }
+                }
+            }
+        }
+
+        // Try ID/Passport verification
+        if (!$matchedPolicy && $insuranceCompany->enable_id_passport_verification && !empty($data['id_passport_no'])) {
+            $client = \App\Models\Client::where('id_passport_no', $data['id_passport_no'])->first();
+            if ($client) {
+                $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
+                    ->where(function($query) use ($client) {
+                        $query->where('principal_member_id', $client->id)
+                              ->orWhereHas('dependents', function($q) use ($client) {
+                                  $q->where('clients.id', $client->id);
+                              });
+                    })
+                    ->where('status', 'active')
+                    ->with(['principalMember'])
+                    ->first();
+
+                if ($policy) {
+                    $matchedPolicy = $policy;
+                    $matchedClient = $client;
+                    $verificationMethod = 'id_passport';
+                }
+            }
+        }
+
+        // Try phone verification
+        if (!$matchedPolicy && $insuranceCompany->enable_phone_verification && !empty($data['phone'])) {
+            $client = \App\Models\Client::where('cell_phone', $data['phone'])
+                ->orWhere('whatsapp_line', $data['phone'])
+                ->first();
+            
+            if ($client) {
+                $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
+                    ->where(function($query) use ($client) {
+                        $query->where('principal_member_id', $client->id)
+                              ->orWhereHas('dependents', function($q) use ($client) {
+                                  $q->where('clients.id', $client->id);
+                              });
+                    })
+                    ->where('status', 'active')
+                    ->with(['principalMember'])
+                    ->first();
+
+                if ($policy) {
+                    $matchedPolicy = $policy;
+                    $matchedClient = $client;
+                    $verificationMethod = 'phone';
+                }
+            }
+        }
+
+        // Try email verification
+        if (!$matchedPolicy && $insuranceCompany->enable_email_verification && !empty($data['email'])) {
+            $client = \App\Models\Client::where('email', $data['email'])->first();
+            
+            if ($client) {
+                $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
+                    ->where(function($query) use ($client) {
+                        $query->where('principal_member_id', $client->id)
+                              ->orWhereHas('dependents', function($q) use ($client) {
+                                  $q->where('clients.id', $client->id);
+                              });
+                    })
+                    ->where('status', 'active')
+                    ->with(['principalMember'])
+                    ->first();
+
+                if ($policy) {
+                    $matchedPolicy = $policy;
+                    $matchedClient = $client;
+                    $verificationMethod = 'email';
+                }
+            }
+        }
+
+        // If we found a match, check for mismatches and determine action
+        if ($matchedPolicy) {
+            $status = 'verified';
+            $actionNeeded = null;
+
+            // Check for mismatches that require review
+            if (!empty($mismatches)) {
+                foreach ($mismatches as $mismatch) {
+                    $actionField = $mismatch . '_mismatch_action';
+                    $action = $insuranceCompany->$actionField ?? 'flag_for_review';
+                    
+                    if ($action === 'auto_reject') {
+                        return [
+                            'success' => false,
+                            'message' => ucfirst($mismatch) . ' mismatch detected. Verification rejected.',
+                            'status' => 'rejected',
+                            'mismatches' => $mismatches,
+                        ];
+                    } else {
+                        $status = 'flagged';
+                        $actionNeeded = 'review';
+                    }
+                }
+            }
+
+            // Create visit verification record if visit_id provided
+            if (!empty($data['visit_id'])) {
+                $this->createVisitVerification($insuranceCompany, $data['visit_id'], $matchedPolicy, $matchedClient, $data, $status);
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Client verified using ' . str_replace('_', ' ', $verificationMethod),
+                'method' => $verificationMethod,
+                'status' => $status,
+                'warnings' => $warnings,
+                'data' => [
+                    'policy_number' => $matchedPolicy->policy_number,
+                    'insurance_company_id' => $matchedPolicy->insurance_company_id,
+                    'principal_member_id' => $matchedPolicy->principal_member_id,
+                    'principal_member_name' => $matchedClient ? ($matchedClient->first_name . ' ' . $matchedClient->surname) : null,
+                    'status' => $matchedPolicy->status,
+                    'expiry_date' => $matchedPolicy->expiry_date?->toDateString(),
+                ],
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'No matching policy found using alternative verification methods',
+            'status' => 'not_found',
+        ];
+    }
+
+    /**
+     * Calculate name similarity percentage using Levenshtein distance
+     */
+    private function calculateNameSimilarity(string $name1, string $name2): int
+    {
+        $name1 = strtolower(trim($name1));
+        $name2 = strtolower(trim($name2));
+        
+        if ($name1 === $name2) {
+            return 100;
+        }
+
+        $maxLength = max(strlen($name1), strlen($name2));
+        if ($maxLength === 0) {
+            return 0;
+        }
+
+        $distance = levenshtein($name1, $name2);
+        $similarity = (1 - ($distance / $maxLength)) * 100;
+        
+        return (int) round($similarity);
+    }
+
+    /**
+     * Create visit verification record
+     */
+    private function createVisitVerification(InsuranceCompany $insuranceCompany, string $visitId, $policy, $client, array $providedData, string $status)
+    {
+        $expiresAt = now()->addDays($insuranceCompany->visit_verification_validity_days);
+
+        \App\Models\VisitIdentityVerification::updateOrCreate(
+            ['visit_id' => $visitId, 'insurance_company_id' => $insuranceCompany->id],
+            [
+                'policy_id' => $policy->id,
+                'client_id' => $client->id ?? null,
+                'provided_name' => $providedData['name'] ?? null,
+                'provided_date_of_birth' => $providedData['date_of_birth'] ?? null,
+                'provided_id_passport_no' => $providedData['id_passport_no'] ?? null,
+                'provided_phone' => $providedData['phone'] ?? null,
+                'provided_email' => $providedData['email'] ?? null,
+                'matched_name' => $client ? ($client->first_name . ' ' . $client->surname) : null,
+                'matched_date_of_birth' => $client->date_of_birth ?? null,
+                'matched_id_passport_no' => $client->id_passport_no ?? null,
+                'matched_phone' => $client->cell_phone ?? null,
+                'matched_email' => $client->email ?? null,
+                'verification_status' => $status,
+                'verified_at' => now(),
+                'expires_at' => $expiresAt,
+            ]
+        );
+    }
+
+    /**
+     * Verify identity using visit ID
+     */
+    public function verifyVisitIdentity(Request $request, $insuranceCompanyId)
+    {
+        try {
+            $validated = $request->validate([
+                'visit_id' => 'required|string',
+                'name' => 'nullable|string',
+                'date_of_birth' => 'nullable|date',
+                'id_passport_no' => 'nullable|string',
+                'phone' => 'nullable|string',
+                'email' => 'nullable|email',
+            ]);
+
+            $insuranceCompany = InsuranceCompany::findOrFail($insuranceCompanyId);
+
+            if (!$insuranceCompany->enable_visit_verification) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Visit-based verification is not enabled for this insurance company',
+                ], 403);
+            }
+
+            // Check if visit verification already exists and is valid
+            $visitVerification = \App\Models\VisitIdentityVerification::where('visit_id', $validated['visit_id'])
+                ->where('insurance_company_id', $insuranceCompany->id)
+                ->where('verification_status', 'verified')
+                ->where('expires_at', '>', now())
+                ->with(['policy', 'client'])
+                ->first();
+
+            if ($visitVerification && $visitVerification->policy) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Visit already verified',
+                    'verification_method' => 'visit_id',
+                    'verification_status' => 'verified',
+                    'data' => [
+                        'policy_number' => $visitVerification->policy->policy_number,
+                        'insurance_company_id' => $visitVerification->policy->insurance_company_id,
+                        'principal_member_id' => $visitVerification->policy->principal_member_id,
+                        'visit_id' => $visitVerification->visit_id,
+                        'verified_at' => $visitVerification->verified_at?->toIso8601String(),
+                        'expires_at' => $visitVerification->expires_at?->toIso8601String(),
+                    ],
+                ], 200);
+            }
+
+            // Try to verify using alternative methods and create visit verification
+            $verificationResult = $this->attemptAlternativeVerification($insuranceCompany, $validated);
+
+            if ($verificationResult['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $verificationResult['message'],
+                    'verification_method' => $verificationResult['method'],
+                    'verification_status' => $verificationResult['status'],
+                    'data' => $verificationResult['data'],
+                    'warnings' => $verificationResult['warnings'] ?? [],
+                ], 200);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $verificationResult['message'],
+                'verification_status' => $verificationResult['status'] ?? 'rejected',
+                'mismatches' => $verificationResult['mismatches'] ?? [],
+            ], 404);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to verify visit identity', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to verify visit identity',
                 'error' => $e->getMessage(),
             ], 500);
         }

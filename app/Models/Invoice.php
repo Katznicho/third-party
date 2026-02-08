@@ -12,7 +12,8 @@ class Invoice extends Model
     use HasFactory;
 
     protected $fillable = [
-        'invoice_number', 'policy_id', 'client_id', 'invoice_type', 'description',
+        'invoice_number', 'policy_id', 'pre_authorization_id', 'approval_id', 'coverage_decision', 'coverage_decision_notes',
+        'client_id', 'invoice_type', 'description',
         'invoice_date', 'due_date', 'paid_date', 'subtotal', 'tax_amount', 'discount_amount',
         'total_amount', 'paid_amount', 'balance_amount', 'status', 'billing_period_start',
         'billing_period_end', 'premium_amount', 'insurance_training_levy', 'stamp_duty',
@@ -57,5 +58,28 @@ class Invoice extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function preAuthorization(): BelongsTo
+    {
+        return $this->belongsTo(PreAuthorization::class);
+    }
+
+    /**
+     * Get approval ID from pre-authorization if exists
+     */
+    public function getApprovalIdAttribute($value)
+    {
+        // If approval_id is set directly, return it
+        if ($value) {
+            return $value;
+        }
+
+        // Otherwise, get it from pre-authorization
+        if ($this->preAuthorization && $this->preAuthorization->approval_id) {
+            return $this->preAuthorization->approval_id;
+        }
+
+        return null;
     }
 }

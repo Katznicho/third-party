@@ -97,4 +97,47 @@ class SettingsController extends Controller
         return redirect()->route('settings.index')
             ->with('success', 'Required client fields settings updated successfully.');
     }
+
+    /**
+     * Update identity verification settings
+     */
+    public function updateVerificationSettings(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $validated = $request->validate([
+            'enable_name_dob_verification' => 'nullable|boolean',
+            'enable_id_passport_verification' => 'nullable|boolean',
+            'enable_phone_verification' => 'nullable|boolean',
+            'enable_email_verification' => 'nullable|boolean',
+            'name_mismatch_action' => 'required|in:auto_reject,flag_for_review',
+            'dob_mismatch_action' => 'required|in:auto_reject,flag_for_review',
+            'id_mismatch_action' => 'required|in:auto_reject,flag_for_review',
+            'name_similarity_threshold' => 'required|integer|min:0|max:100',
+            'dob_tolerance_days' => 'required|integer|min:0|max:365',
+            'enable_visit_verification' => 'nullable|boolean',
+            'visit_verification_validity_days' => 'required|integer|min:1|max:365',
+        ]);
+
+        $insuranceCompany = $user->insuranceCompany;
+        $insuranceCompany->update([
+            'enable_name_dob_verification' => $request->boolean('enable_name_dob_verification', false),
+            'enable_id_passport_verification' => $request->boolean('enable_id_passport_verification', false),
+            'enable_phone_verification' => $request->boolean('enable_phone_verification', false),
+            'enable_email_verification' => $request->boolean('enable_email_verification', false),
+            'name_mismatch_action' => $validated['name_mismatch_action'],
+            'dob_mismatch_action' => $validated['dob_mismatch_action'],
+            'id_mismatch_action' => $validated['id_mismatch_action'],
+            'name_similarity_threshold' => $validated['name_similarity_threshold'],
+            'dob_tolerance_days' => $validated['dob_tolerance_days'],
+            'enable_visit_verification' => $request->boolean('enable_visit_verification', false),
+            'visit_verification_validity_days' => $validated['visit_verification_validity_days'],
+        ]);
+
+        return redirect()->route('settings.index')
+            ->with('success', 'Identity verification settings updated successfully.');
+    }
 }

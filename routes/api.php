@@ -48,7 +48,12 @@ Route::prefix('v1')->group(function () {
     Route::get('/businesses/{businessId}/connected-vendors', [BusinessController::class, 'getConnectedVendors'])->name('api.businesses.connected-vendors');
     
     // Verify policy number exists (public, for client registration)
+    // Supports both GET (policy number only) and POST (with alternative verification data)
     Route::get('/policies/verify/{insuranceCompanyId}/{policyNumber}', [BusinessController::class, 'verifyPolicyNumber'])->name('api.policies.verify');
+    Route::post('/policies/verify/{insuranceCompanyId}', [BusinessController::class, 'verifyPolicyNumber'])->name('api.policies.verify.post');
+    
+    // Visit-based identity verification
+    Route::post('/policies/verify-visit/{insuranceCompanyId}', [BusinessController::class, 'verifyVisitIdentity'])->name('api.policies.verify-visit');
     
     // Protected routes (require API token)
     Route::middleware('auth:sanctum')->group(function () {

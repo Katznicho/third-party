@@ -13,6 +13,7 @@ class PreAuthorization extends Model
 
     protected $fillable = [
         'authorization_number',
+        'approval_id',
         'policy_id',
         'client_id',
         'service_category_id',
@@ -38,6 +39,8 @@ class PreAuthorization extends Model
         'visit_number',
         'visit_start_date',
         'visit_end_date',
+        'triggered_by_trigger_id',
+        'trigger_reason',
     ];
 
     protected function casts(): array
@@ -74,6 +77,34 @@ class PreAuthorization extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function trigger(): BelongsTo
+    {
+        return $this->belongsTo(PreAuthorizationTrigger::class, 'triggered_by_trigger_id');
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Generate and set approval ID when approved
+     */
+    public function generateApprovalId(): string
+    {
+        $prefix = 'APP';
+        $year = now()->format('Y');
+        $month = now()->format('m');
+        $day = now()->format('d');
+        $random = strtoupper(\Illuminate\Support\Str::random(8));
+        
+        $approvalId = "{$prefix}-{$year}{$month}{$day}-{$random}";
+        $this->approval_id = $approvalId;
+        $this->save();
+        
+        return $approvalId;
     }
 
     public function items(): HasMany
