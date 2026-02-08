@@ -36,7 +36,7 @@ class CoverageDecisionMatrixController extends Controller
             'rule_name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'condition_type' => 'required|in:service_category_not_covered,service_category_coverage_limit_exceeded,cost_threshold_exceeded,keyword_match,procedure_type,visit_type_not_covered,custom_condition',
-            'condition_config' => 'nullable|array',
+            'condition_config' => 'nullable|string',
             'action' => 'required|in:auto_reject,flag_for_review,require_pre_authorization',
             'rejection_message' => 'nullable|string',
             'review_notes_template' => 'nullable|string',
@@ -47,6 +47,11 @@ class CoverageDecisionMatrixController extends Controller
         $insuranceCompany = $user->insuranceCompany;
         $validated['insurance_company_id'] = $insuranceCompany->id;
         $validated['is_active'] = $request->boolean('is_active', true);
+        
+        // Parse condition_config JSON string to array
+        if (isset($validated['condition_config']) && is_string($validated['condition_config'])) {
+            $validated['condition_config'] = json_decode($validated['condition_config'], true) ?? [];
+        }
 
         CoverageDecisionMatrix::create($validated);
 
@@ -65,7 +70,7 @@ class CoverageDecisionMatrixController extends Controller
             'rule_name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'condition_type' => 'required|in:service_category_not_covered,service_category_coverage_limit_exceeded,cost_threshold_exceeded,keyword_match,procedure_type,visit_type_not_covered,custom_condition',
-            'condition_config' => 'nullable|array',
+            'condition_config' => 'nullable|string',
             'action' => 'required|in:auto_reject,flag_for_review,require_pre_authorization',
             'rejection_message' => 'nullable|string',
             'review_notes_template' => 'nullable|string',
@@ -74,6 +79,12 @@ class CoverageDecisionMatrixController extends Controller
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
+        
+        // Parse condition_config JSON string to array
+        if (isset($validated['condition_config']) && is_string($validated['condition_config'])) {
+            $validated['condition_config'] = json_decode($validated['condition_config'], true) ?? [];
+        }
+        
         $coverageDecisionMatrix->update($validated);
 
         return redirect()->route('settings.coverage-decision-matrix.index')

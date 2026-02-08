@@ -118,7 +118,7 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-1">Condition Type *</label>
-                            <select name="condition_type" id="condition_type" required
+                            <select name="condition_type" id="condition_type" required onchange="updateConditionConfig()"
                                     class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="service_category_not_covered">Service Category Not Covered</option>
                                 <option value="service_category_coverage_limit_exceeded">Coverage Limit Exceeded</option>
@@ -141,14 +141,23 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Priority *</label>
-                            <input type="number" name="priority" id="priority" min="1" max="1000" value="100" required
-                                   placeholder="100"
-                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-slate-500 mt-1">Lower number = higher priority (1 is highest, 1000 is lowest)</p>
+                    <!-- Dynamic Condition Config -->
+                    <div id="condition_config_section">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Condition Configuration *</label>
+                        <div id="condition_config_input" class="space-y-2">
+                            <!-- This will be dynamically populated based on condition_type -->
                         </div>
+                        <input type="hidden" name="condition_config" id="condition_config" value="{}">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Priority *</label>
+                        <input type="number" name="priority" id="priority" min="1" max="1000" value="100" required
+                               placeholder="e.g., 10 (lower = higher priority)"
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-slate-500 mt-1">Lower number = higher priority (1 is highest, 1000 is lowest). Example: 10, 20, 30</p>
+                    </div>
 
                         <div class="flex items-center pt-6">
                             <input type="checkbox" name="is_active" id="is_active" value="1" checked
@@ -162,15 +171,15 @@
                         <textarea name="rejection_message" id="rejection_message" rows="2"
                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   placeholder="e.g., This service is not covered under your policy. Please contact your insurance provider for more information."></textarea>
-                        <p class="text-xs text-slate-500 mt-1">Message shown to users when this rule triggers</p>
+                        <p class="text-xs text-slate-500 mt-1">Message shown to users when this rule triggers. Leave empty to use default message.</p>
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Review Notes Template</label>
                         <textarea name="review_notes_template" id="review_notes_template" rows="3"
                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="e.g., Policy {policy_number} - Service {service_category} for amount {amount} requires review. {policy_number}, {service_category}, {amount}"></textarea>
-                        <p class="text-xs text-slate-500 mt-1">Template for review notes. Available placeholders: {policy_number}, {service_category}, {amount}</p>
+                                  placeholder="e.g., Policy {policy_number} - Service {service_category} for amount {amount} requires review. Available placeholders: {policy_number}, {service_category}, {amount}"></textarea>
+                        <p class="text-xs text-slate-500 mt-1">Template for review notes. Available placeholders: <code class="bg-slate-100 px-1 rounded">{policy_number}</code>, <code class="bg-slate-100 px-1 rounded">{service_category}</code>, <code class="bg-slate-100 px-1 rounded">{amount}</code></p>
                     </div>
                 </div>
 
@@ -191,6 +200,160 @@
 let editingRuleId = null;
 const rules = @json($rules);
 
+function updateConditionConfig() {
+    const conditionType = document.getElementById('condition_type').value;
+    const configInput = document.getElementById('condition_config_input');
+    const configHidden = document.getElementById('condition_config');
+    
+    let html = '';
+    let config = {};
+    
+    switch(conditionType) {
+        case 'service_category_not_covered':
+            html = `
+                <label class="block text-xs text-slate-600 mb-1">Service Category IDs (comma-separated)</label>
+                <input type="text" id="config_service_category_ids" 
+                       placeholder="e.g., 1, 2, 3 (IDs of service categories to reject)"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       onchange="updateConfigJson()">
+                <p class="text-xs text-slate-500 mt-1">Enter service category IDs separated by commas</p>
+            `;
+            break;
+            
+        case 'service_category_coverage_limit_exceeded':
+            html = `
+                <label class="block text-xs text-slate-600 mb-1">Threshold Percentage</label>
+                <input type="number" id="config_threshold_percentage" min="0" max="100" 
+                       placeholder="e.g., 90 (trigger when 90% of coverage limit is used)"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       onchange="updateConfigJson()">
+                <p class="text-xs text-slate-500 mt-1">Percentage of coverage limit used before triggering (0-100)</p>
+            `;
+            break;
+            
+        case 'cost_threshold_exceeded':
+            html = `
+                <label class="block text-xs text-slate-600 mb-1">Cost Threshold (UGX)</label>
+                <input type="number" id="config_cost_threshold" min="0" step="0.01"
+                       placeholder="e.g., 500000 (trigger when cost exceeds UGX 500,000)"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       onchange="updateConfigJson()">
+                <p class="text-xs text-slate-500 mt-1">Minimum cost amount to trigger this rule</p>
+            `;
+            break;
+            
+        case 'keyword_match':
+            html = `
+                <label class="block text-xs text-slate-600 mb-1">Keywords (one per line or comma-separated)</label>
+                <textarea id="config_keywords" rows="3"
+                          placeholder="e.g., cosmetic, plastic surgery, aesthetic&#10;or: cosmetic, plastic surgery, aesthetic"
+                          class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onchange="updateConfigJson()"></textarea>
+                <p class="text-xs text-slate-500 mt-1">Enter keywords that should trigger this rule (case-insensitive)</p>
+            `;
+            break;
+            
+        case 'procedure_type':
+            html = `
+                <label class="block text-xs text-slate-600 mb-1">Procedure Types (comma-separated)</label>
+                <input type="text" id="config_procedure_types"
+                       placeholder="e.g., surgery, consultation, lab_test"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       onchange="updateConfigJson()">
+                <p class="text-xs text-slate-500 mt-1">Enter procedure types separated by commas</p>
+            `;
+            break;
+            
+        case 'visit_type_not_covered':
+            html = `
+                <label class="block text-xs text-slate-600 mb-1">Visit Types (comma-separated)</label>
+                <input type="text" id="config_visit_types"
+                       placeholder="e.g., emergency, walk_in, referral"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       onchange="updateConfigJson()">
+                <p class="text-xs text-slate-500 mt-1">Enter visit types separated by commas</p>
+            `;
+            break;
+            
+        default:
+            html = `
+                <label class="block text-xs text-slate-600 mb-1">Custom Configuration (JSON)</label>
+                <textarea id="config_custom" rows="4"
+                          placeholder='{"key": "value"}'
+                          class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          onchange="updateConfigJson()"></textarea>
+                <p class="text-xs text-slate-500 mt-1">Enter JSON configuration for custom condition</p>
+            `;
+    }
+    
+    configInput.innerHTML = html;
+    updateConfigJson();
+}
+
+function updateConfigJson() {
+    const conditionType = document.getElementById('condition_type').value;
+    const configHidden = document.getElementById('condition_config');
+    let config = {};
+    
+    switch(conditionType) {
+        case 'service_category_not_covered':
+            const categoryIds = document.getElementById('config_service_category_ids')?.value;
+            if (categoryIds) {
+                config.service_category_ids = categoryIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            }
+            break;
+            
+        case 'service_category_coverage_limit_exceeded':
+            const threshold = document.getElementById('config_threshold_percentage')?.value;
+            if (threshold) {
+                config.threshold_percentage = parseInt(threshold);
+            }
+            break;
+            
+        case 'cost_threshold_exceeded':
+            const costThreshold = document.getElementById('config_cost_threshold')?.value;
+            if (costThreshold) {
+                config.cost_threshold = parseFloat(costThreshold);
+            }
+            break;
+            
+        case 'keyword_match':
+            const keywordsInput = document.getElementById('config_keywords')?.value;
+            if (keywordsInput) {
+                // Support both comma-separated and newline-separated
+                const keywords = keywordsInput.split(/[,\n]/).map(k => k.trim()).filter(k => k);
+                config.keywords = keywords;
+            }
+            break;
+            
+        case 'procedure_type':
+            const procedureTypes = document.getElementById('config_procedure_types')?.value;
+            if (procedureTypes) {
+                config.procedure_types = procedureTypes.split(',').map(t => t.trim()).filter(t => t);
+            }
+            break;
+            
+        case 'visit_type_not_covered':
+            const visitTypes = document.getElementById('config_visit_types')?.value;
+            if (visitTypes) {
+                config.visit_types = visitTypes.split(',').map(t => t.trim()).filter(t => t);
+            }
+            break;
+            
+        default:
+            const customConfig = document.getElementById('config_custom')?.value;
+            if (customConfig) {
+                try {
+                    config = JSON.parse(customConfig);
+                } catch(e) {
+                    console.error('Invalid JSON:', e);
+                }
+            }
+    }
+    
+    configHidden.value = JSON.stringify(config);
+}
+
 function openCreateModal() {
     editingRuleId = null;
     document.getElementById('modalTitle').textContent = 'Add Decision Rule';
@@ -198,6 +361,8 @@ function openCreateModal() {
     document.getElementById('formMethod').innerHTML = '';
     document.getElementById('ruleForm').reset();
     document.getElementById('is_active').checked = true;
+    document.getElementById('condition_config').value = '{}';
+    updateConditionConfig();
     document.getElementById('ruleModal').classList.remove('hidden');
 }
 
@@ -218,6 +383,51 @@ function openEditModal(ruleId) {
     document.getElementById('is_active').checked = rule.is_active;
     document.getElementById('rejection_message').value = rule.rejection_message || '';
     document.getElementById('review_notes_template').value = rule.review_notes_template || '';
+    
+    // Update condition config UI
+    updateConditionConfig();
+    
+    // Populate condition config fields
+    const config = rule.condition_config || {};
+    setTimeout(() => {
+        switch(rule.condition_type) {
+            case 'service_category_not_covered':
+                if (config.service_category_ids) {
+                    document.getElementById('config_service_category_ids').value = config.service_category_ids.join(', ');
+                }
+                break;
+            case 'service_category_coverage_limit_exceeded':
+                if (config.threshold_percentage) {
+                    document.getElementById('config_threshold_percentage').value = config.threshold_percentage;
+                }
+                break;
+            case 'cost_threshold_exceeded':
+                if (config.cost_threshold) {
+                    document.getElementById('config_cost_threshold').value = config.cost_threshold;
+                }
+                break;
+            case 'keyword_match':
+                if (config.keywords) {
+                    document.getElementById('config_keywords').value = config.keywords.join('\n');
+                }
+                break;
+            case 'procedure_type':
+                if (config.procedure_types) {
+                    document.getElementById('config_procedure_types').value = config.procedure_types.join(', ');
+                }
+                break;
+            case 'visit_type_not_covered':
+                if (config.visit_types) {
+                    document.getElementById('config_visit_types').value = config.visit_types.join(', ');
+                }
+                break;
+            default:
+                if (config) {
+                    document.getElementById('config_custom').value = JSON.stringify(config, null, 2);
+                }
+        }
+        updateConfigJson();
+    }, 100);
     
     document.getElementById('ruleModal').classList.remove('hidden');
 }

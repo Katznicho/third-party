@@ -754,9 +754,35 @@ class BusinessController extends Controller
         $matchedPolicy = null;
         $matchedClient = null;
         $verificationMethod = null;
+        $attemptLog = [];
+
+        \Illuminate\Support\Facades\Log::info('=== ALTERNATIVE VERIFICATION START ===', [
+            'insurance_company_id' => $insuranceCompany->id,
+            'insurance_company_name' => $insuranceCompany->name,
+            'provided_data' => [
+                'has_visit_id' => !empty($data['visit_id']),
+                'has_name' => !empty($data['name']),
+                'has_date_of_birth' => !empty($data['date_of_birth']),
+                'has_id_passport_no' => !empty($data['id_passport_no']),
+                'has_phone' => !empty($data['phone']),
+                'has_email' => !empty($data['email']),
+            ],
+            'enabled_methods' => [
+                'visit_verification' => $insuranceCompany->enable_visit_verification ?? false,
+                'name_dob_verification' => $insuranceCompany->enable_name_dob_verification ?? false,
+                'id_passport_verification' => $insuranceCompany->enable_id_passport_verification ?? false,
+                'phone_verification' => $insuranceCompany->enable_phone_verification ?? false,
+                'email_verification' => $insuranceCompany->enable_email_verification ?? false,
+            ],
+        ]);
 
         // Try visit-based verification first (if enabled and visit_id provided)
         if ($insuranceCompany->enable_visit_verification && !empty($data['visit_id'])) {
+            \Illuminate\Support\Facades\Log::info('🔍 Attempting Visit ID verification', [
+                'visit_id' => $data['visit_id'],
+                'insurance_company_id' => $insuranceCompany->id,
+            ]);
+            
             $visitVerification = \App\Models\VisitIdentityVerification::where('visit_id', $data['visit_id'])
                 ->where('insurance_company_id', $insuranceCompany->id)
                 ->where('verification_status', 'verified')
@@ -765,11 +791,36 @@ class BusinessController extends Controller
                 ->first();
 
             if ($visitVerification && $visitVerification->policy) {
+                // Check the action setting for visit verification
+                $action = $insuranceCompany->visit_verification_action ?? 'auto_accept';
+                $status = 'verified';
+                
+                if ($action === 'auto_reject') {
+                    \Illuminate\Support\Facades\Log::info('❌ Visit ID verification REJECTED by settings', [
+                        'visit_id' => $data['visit_id'],
+                        'policy_number' => $visitVerification->policy->policy_number,
+                    ]);
+                    
+                    return [
+                        'success' => false,
+                        'message' => 'Verification rejected based on insurance company settings.',
+                        'status' => 'rejected',
+                    ];
+                } elseif ($action === 'flag_for_review') {
+                    $status = 'flagged';
+                }
+                
+                \Illuminate\Support\Facades\Log::info('✅ Visit ID verification SUCCESS', [
+                    'visit_id' => $data['visit_id'],
+                    'policy_number' => $visitVerification->policy->policy_number,
+                    'status' => $status,
+                ]);
+                
                 return [
                     'success' => true,
                     'message' => 'Client verified using visit ID',
                     'method' => 'visit_id',
-                    'status' => 'verified',
+                    'status' => $status,
                     'data' => [
                         'policy_number' => $visitVerification->policy->policy_number,
                         'insurance_company_id' => $visitVerification->policy->insurance_company_id,
@@ -778,15 +829,40 @@ class BusinessController extends Controller
                         'verified_at' => $visitVerification->verified_at?->toIso8601String(),
                     ],
                 ];
+            } else {
+                \Illuminate\Support\Facades\Log::info('❌ Visit ID verification FAILED', [
+                    'visit_id' => $data['visit_id'],
+                    'reason' => $visitVerification ? 'Visit expired or not verified' : 'No visit verification found',
+                ]);
+                $attemptLog[] = 'Visit ID: No matching verified visit found';
             }
+        } elseif ($insuranceCompany->enable_visit_verification && empty($data['visit_id'])) {
+            $attemptLog[] = 'Visit ID: Method enabled but no visit_id provided';
         }
 
         // Try name + date of birth verification
         if ($insuranceCompany->enable_name_dob_verification && !empty($data['name']) && !empty($data['date_of_birth'])) {
+            \Illuminate\Support\Facades\Log::info('🔍 Attempting Name & DOB verification', [
+                'provided_name' => $data['name'],
+                'provided_dob' => $data['date_of_birth'],
+                'name_similarity_threshold' => $insuranceCompany->name_similarity_threshold,
+                'dob_tolerance_days' => $insuranceCompany->dob_tolerance_days,
+            ]);
+            
             $policies = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
                 ->where('status', 'active')
                 ->with(['principalMember'])
                 ->get();
+
+            \Illuminate\Support\Facades\Log::info('📋 Checking against policies', [
+                'total_policies' => $policies->count(),
+                'name_similarity_threshold' => $insuranceCompany->name_similarity_threshold,
+                'dob_tolerance_days' => $insuranceCompany->dob_tolerance_days,
+            ]);
+
+            $bestMatch = null;
+            $bestSimilarity = 0;
+            $closestDobDiff = null;
 
             foreach ($policies as $policy) {
                 if ($policy->principalMember) {
@@ -795,17 +871,51 @@ class BusinessController extends Controller
                     $similarity = $this->calculateNameSimilarity($clientName, $providedName);
                     
                     $dobMatch = false;
+                    $daysDiff = null;
                     if ($policy->principalMember->date_of_birth && $data['date_of_birth']) {
                         $clientDob = \Carbon\Carbon::parse($policy->principalMember->date_of_birth);
                         $providedDob = \Carbon\Carbon::parse($data['date_of_birth']);
                         $daysDiff = abs($clientDob->diffInDays($providedDob));
-                        $dobMatch = $daysDiff <= $insuranceCompany->dob_tolerance_days;
+                        $dobMatch = $daysDiff <= ($insuranceCompany->dob_tolerance_days ?? 0);
                     }
+
+                    // Track best match for logging
+                    if ($similarity > $bestSimilarity) {
+                        $bestSimilarity = $similarity;
+                        $bestMatch = [
+                            'policy_number' => $policy->policy_number,
+                            'client_name' => $clientName,
+                            'similarity' => $similarity,
+                            'days_diff' => $daysDiff,
+                        ];
+                    }
+                    if ($daysDiff !== null && ($closestDobDiff === null || $daysDiff < $closestDobDiff)) {
+                        $closestDobDiff = $daysDiff;
+                    }
+
+                    \Illuminate\Support\Facades\Log::info('🔎 Comparing with policy', [
+                        'policy_number' => $policy->policy_number,
+                        'client_name' => $clientName,
+                        'provided_name' => $providedName,
+                        'name_similarity' => $similarity,
+                        'name_threshold' => $insuranceCompany->name_similarity_threshold,
+                        'name_match' => $similarity >= $insuranceCompany->name_similarity_threshold,
+                        'client_dob' => $policy->principalMember->date_of_birth?->toDateString(),
+                        'provided_dob' => $data['date_of_birth'],
+                        'days_diff' => $daysDiff,
+                        'dob_match' => $dobMatch,
+                        'dob_tolerance_days' => $insuranceCompany->dob_tolerance_days,
+                    ]);
 
                     if ($similarity >= $insuranceCompany->name_similarity_threshold && $dobMatch) {
                         $matchedPolicy = $policy;
                         $matchedClient = $policy->principalMember;
                         $verificationMethod = 'name_dob';
+                        
+                        \Illuminate\Support\Facades\Log::info('✅ Name & DOB verification SUCCESS', [
+                            'policy_number' => $policy->policy_number,
+                            'name_similarity' => $similarity,
+                        ]);
                         
                         if ($similarity < 100) {
                             $warnings[] = "Name similarity: {$similarity}% (threshold: {$insuranceCompany->name_similarity_threshold}%)";
@@ -813,17 +923,81 @@ class BusinessController extends Controller
                         break;
                     } elseif ($similarity >= $insuranceCompany->name_similarity_threshold && !$dobMatch) {
                         $mismatches[] = 'date_of_birth';
+                        \Illuminate\Support\Facades\Log::info('⚠️ Name matched but DOB did not', [
+                            'policy_number' => $policy->policy_number,
+                            'name_similarity' => $similarity,
+                        ]);
                     } elseif ($similarity < $insuranceCompany->name_similarity_threshold && $dobMatch) {
                         $mismatches[] = 'name';
+                        \Illuminate\Support\Facades\Log::info('⚠️ DOB matched but name did not', [
+                            'policy_number' => $policy->policy_number,
+                            'name_similarity' => $similarity,
+                        ]);
                     }
                 }
             }
+            
+            if (!$matchedPolicy) {
+                $failureReason = 'No policy matched the name and DOB criteria';
+                $details = [];
+                
+                if ($bestMatch) {
+                    $details[] = 'Best name match: ' . $bestMatch['client_name'] . ' (' . $bestMatch['similarity'] . '% similarity, threshold: ' . $insuranceCompany->name_similarity_threshold . '%)';
+                }
+                if ($closestDobDiff !== null) {
+                    $details[] = 'Closest DOB difference: ' . $closestDobDiff . ' days (tolerance: ' . ($insuranceCompany->dob_tolerance_days ?? 0) . ' days)';
+                }
+                
+                \Illuminate\Support\Facades\Log::info('❌ Name & DOB verification FAILED', [
+                    'reason' => $failureReason,
+                    'policies_checked' => $policies->count(),
+                    'best_match' => $bestMatch,
+                    'closest_dob_diff' => $closestDobDiff,
+                    'details' => $details,
+                ]);
+                
+                $logMessage = 'Name & Date of Birth: No matching policy found';
+                if (!empty($details)) {
+                    $logMessage .= ' (' . implode('; ', $details) . ')';
+                }
+                $attemptLog[] = $logMessage;
+            }
+        } elseif ($insuranceCompany->enable_name_dob_verification) {
+            $missing = [];
+            if (empty($data['name'])) $missing[] = 'name';
+            if (empty($data['date_of_birth'])) $missing[] = 'date_of_birth';
+            $attemptLog[] = 'Name & Date of Birth: Method enabled but missing ' . implode(' and ', $missing);
         }
 
         // Try ID/Passport verification
         if (!$matchedPolicy && $insuranceCompany->enable_id_passport_verification && !empty($data['id_passport_no'])) {
-            $client = \App\Models\Client::where('id_passport_no', $data['id_passport_no'])->first();
-            if ($client) {
+            \Illuminate\Support\Facades\Log::info('🔍 Attempting ID/Passport verification', [
+                'provided_id_passport_no' => $data['id_passport_no'],
+                'insurance_company_id' => $insuranceCompany->id,
+            ]);
+            
+            // Find clients with matching ID/Passport that have policies with this insurance company
+            $clients = \App\Models\Client::where('id_passport_no', $data['id_passport_no'])
+                ->whereHas('policies', function($query) use ($insuranceCompany) {
+                    $query->where('insurance_company_id', $insuranceCompany->id);
+                })
+                ->orWhereHas('principalMember.policies', function($query) use ($insuranceCompany) {
+                    // Also check if this is a dependent whose principal has a policy
+                    $query->where('insurance_company_id', $insuranceCompany->id);
+                })
+                ->get();
+            
+            \Illuminate\Support\Facades\Log::info('👤 Clients found with matching ID/Passport', [
+                'total_clients' => $clients->count(),
+                'clients' => $clients->map(function($c) {
+                    return [
+                        'client_id' => $c->id,
+                        'client_name' => $c->first_name . ' ' . $c->surname,
+                    ];
+                })->toArray(),
+            ]);
+            
+            foreach ($clients as $client) {
                 $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
                     ->where(function($query) use ($client) {
                         $query->where('principal_member_id', $client->id)
@@ -839,17 +1013,67 @@ class BusinessController extends Controller
                     $matchedPolicy = $policy;
                     $matchedClient = $client;
                     $verificationMethod = 'id_passport';
+                    
+                    \Illuminate\Support\Facades\Log::info('✅ ID/Passport verification SUCCESS', [
+                        'policy_number' => $policy->policy_number,
+                        'client_id' => $client->id,
+                    ]);
+                    break;
                 }
             }
+            
+            if (!$matchedPolicy) {
+                if ($clients->count() > 0) {
+                    \Illuminate\Support\Facades\Log::info('❌ ID/Passport verification FAILED', [
+                        'reason' => 'Client(s) found but no active policy with this insurance company',
+                        'clients_found' => $clients->count(),
+                    ]);
+                    $attemptLog[] = 'ID/Passport: Client found but no active policy';
+                } else {
+                    \Illuminate\Support\Facades\Log::info('❌ ID/Passport verification FAILED', [
+                        'reason' => 'No client found with matching ID/Passport number for this insurance company',
+                    ]);
+                    $attemptLog[] = 'ID/Passport: No client found with matching ID/Passport';
+                }
+            }
+        } elseif ($insuranceCompany->enable_id_passport_verification && empty($data['id_passport_no'])) {
+            $attemptLog[] = 'ID/Passport: Method enabled but no id_passport_no provided';
         }
 
         // Try phone verification
         if (!$matchedPolicy && $insuranceCompany->enable_phone_verification && !empty($data['phone'])) {
-            $client = \App\Models\Client::where('cell_phone', $data['phone'])
-                ->orWhere('whatsapp_line', $data['phone'])
-                ->first();
+            \Illuminate\Support\Facades\Log::info('🔍 Attempting Phone verification', [
+                'provided_phone' => $data['phone'],
+                'insurance_company_id' => $insuranceCompany->id,
+            ]);
             
-            if ($client) {
+            // Find clients with matching phone that have policies with this insurance company
+            $clients = \App\Models\Client::where(function($query) use ($data) {
+                    $query->where('cell_phone', $data['phone'])
+                          ->orWhere('whatsapp_line', $data['phone']);
+                })
+                ->whereHas('policies', function($query) use ($insuranceCompany) {
+                    $query->where('insurance_company_id', $insuranceCompany->id);
+                })
+                ->orWhereHas('principalMember.policies', function($query) use ($insuranceCompany) {
+                    // Also check if this is a dependent whose principal has a policy
+                    $query->where('insurance_company_id', $insuranceCompany->id);
+                })
+                ->get();
+            
+            \Illuminate\Support\Facades\Log::info('👤 Clients found with matching phone', [
+                'total_clients' => $clients->count(),
+                'clients' => $clients->map(function($c) {
+                    return [
+                        'client_id' => $c->id,
+                        'client_name' => $c->first_name . ' ' . $c->surname,
+                        'cell_phone' => $c->cell_phone,
+                        'whatsapp_line' => $c->whatsapp_line,
+                    ];
+                })->toArray(),
+            ]);
+            
+            foreach ($clients as $client) {
                 $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
                     ->where(function($query) use ($client) {
                         $query->where('principal_member_id', $client->id)
@@ -865,15 +1089,86 @@ class BusinessController extends Controller
                     $matchedPolicy = $policy;
                     $matchedClient = $client;
                     $verificationMethod = 'phone';
+                    
+                    \Illuminate\Support\Facades\Log::info('✅ Phone verification SUCCESS', [
+                        'policy_number' => $policy->policy_number,
+                        'client_id' => $client->id,
+                    ]);
+                    break;
                 }
             }
+            
+            if (!$matchedPolicy) {
+                if ($clients->count() > 0) {
+                    \Illuminate\Support\Facades\Log::info('❌ Phone verification FAILED', [
+                        'reason' => 'Client(s) found but no active policy with this insurance company',
+                        'clients_found' => $clients->count(),
+                    ]);
+                    $attemptLog[] = 'Phone: Client found but no active policy';
+                } else {
+                    \Illuminate\Support\Facades\Log::info('❌ Phone verification FAILED', [
+                        'reason' => 'No client found with matching phone number for this insurance company',
+                    ]);
+                    $attemptLog[] = 'Phone: No client found with matching phone';
+                }
+            }
+        } elseif ($insuranceCompany->enable_phone_verification && empty($data['phone'])) {
+            $attemptLog[] = 'Phone: Method enabled but no phone provided';
         }
 
         // Try email verification
         if (!$matchedPolicy && $insuranceCompany->enable_email_verification && !empty($data['email'])) {
-            $client = \App\Models\Client::where('email', $data['email'])->first();
+            \Illuminate\Support\Facades\Log::info('🔍 Attempting Email verification', [
+                'provided_email' => $data['email'],
+                'insurance_company_id' => $insuranceCompany->id,
+            ]);
             
-            if ($client) {
+            // Find clients with matching email that have policies with this insurance company
+            $clients = \App\Models\Client::where('email', $data['email'])
+                ->whereHas('policies', function($query) use ($insuranceCompany) {
+                    $query->where('insurance_company_id', $insuranceCompany->id);
+                })
+                ->orWhereHas('principalMember.policies', function($query) use ($insuranceCompany) {
+                    // Also check if this is a dependent whose principal has a policy
+                    $query->where('insurance_company_id', $insuranceCompany->id);
+                })
+                ->get();
+            
+            \Illuminate\Support\Facades\Log::info('👤 Clients found with matching email', [
+                'total_clients' => $clients->count(),
+                'clients' => $clients->map(function($c) {
+                    return [
+                        'client_id' => $c->id,
+                        'client_name' => $c->first_name . ' ' . $c->surname,
+                        'client_dob' => $c->date_of_birth?->toDateString(),
+                    ];
+                })->toArray(),
+            ]);
+            
+            foreach ($clients as $client) {
+                // Check for any policy (active or inactive) first to see what exists
+                $anyPolicy = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
+                    ->where(function($query) use ($client) {
+                        $query->where('principal_member_id', $client->id)
+                              ->orWhereHas('dependents', function($q) use ($client) {
+                                  $q->where('clients.id', $client->id);
+                              });
+                    })
+                    ->with(['principalMember'])
+                    ->get();
+                
+                \Illuminate\Support\Facades\Log::info('📋 Policies found for email client', [
+                    'client_id' => $client->id,
+                    'total_policies' => $anyPolicy->count(),
+                    'policies' => $anyPolicy->map(function($p) {
+                        return [
+                            'policy_number' => $p->policy_number,
+                            'status' => $p->status,
+                            'insurance_company_id' => $p->insurance_company_id,
+                        ];
+                    })->toArray(),
+                ]);
+                
                 $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
                     ->where(function($query) use ($client) {
                         $query->where('principal_member_id', $client->id)
@@ -889,8 +1184,38 @@ class BusinessController extends Controller
                     $matchedPolicy = $policy;
                     $matchedClient = $client;
                     $verificationMethod = 'email';
+                    
+                    \Illuminate\Support\Facades\Log::info('✅ Email verification SUCCESS', [
+                        'policy_number' => $policy->policy_number,
+                        'client_id' => $client->id,
+                    ]);
+                    break;
+                } else {
+                    $reason = 'Client found but no active policy with this insurance company';
+                    if ($anyPolicy->count() > 0) {
+                        $inactiveStatuses = $anyPolicy->pluck('status')->unique()->toArray();
+                        $reason .= ' (found ' . $anyPolicy->count() . ' policy/policies with status: ' . implode(', ', $inactiveStatuses) . ')';
+                    }
+                    
+                    \Illuminate\Support\Facades\Log::info('❌ Email verification FAILED for client', [
+                        'reason' => $reason,
+                        'client_id' => $client->id,
+                    ]);
                 }
             }
+            
+            if (!$matchedPolicy) {
+                if ($clients->count() > 0) {
+                    $attemptLog[] = 'Email: Client found but no active policy';
+                } else {
+                    \Illuminate\Support\Facades\Log::info('❌ Email verification FAILED', [
+                        'reason' => 'No client found with matching email for this insurance company',
+                    ]);
+                    $attemptLog[] = 'Email: No client found with matching email';
+                }
+            }
+        } elseif ($insuranceCompany->enable_email_verification && empty($data['email'])) {
+            $attemptLog[] = 'Email: Method enabled but no email provided';
         }
 
         // If we found a match, check for mismatches and determine action
@@ -898,8 +1223,9 @@ class BusinessController extends Controller
             $status = 'verified';
             $actionNeeded = null;
 
-            // Check for mismatches that require review
-            if (!empty($mismatches)) {
+            // Only check for mismatches if verification was done via Name & DOB method
+            // Mismatches are only relevant for Name & DOB verification where partial matches can occur
+            if ($verificationMethod === 'name_dob' && !empty($mismatches)) {
                 foreach ($mismatches as $mismatch) {
                     $actionField = $mismatch . '_mismatch_action';
                     $action = $insuranceCompany->$actionField ?? 'flag_for_review';
@@ -915,6 +1241,25 @@ class BusinessController extends Controller
                         $status = 'flagged';
                         $actionNeeded = 'review';
                     }
+                }
+            } else {
+                // For alternative verification methods (email, phone, id_passport, visit_id)
+                // Check the action setting for that specific method
+                $actionField = $verificationMethod . '_verification_action';
+                $action = $insuranceCompany->$actionField ?? 'auto_accept';
+                
+                if ($action === 'auto_reject') {
+                    return [
+                        'success' => false,
+                        'message' => 'Verification rejected based on insurance company settings.',
+                        'status' => 'rejected',
+                    ];
+                } elseif ($action === 'flag_for_review') {
+                    $status = 'flagged';
+                    $actionNeeded = 'review';
+                } else {
+                    // auto_accept - status remains 'verified'
+                    $status = 'verified';
                 }
             }
 
@@ -940,10 +1285,73 @@ class BusinessController extends Controller
             ];
         }
 
+        // Build detailed error message about what was attempted
+        $attemptedMethods = [];
+        $enabledMethods = [];
+        
+        if ($insuranceCompany->enable_visit_verification) {
+            $enabledMethods[] = 'Visit ID';
+            if (!empty($data['visit_id'])) {
+                $attemptedMethods[] = 'Visit ID';
+            }
+        }
+        
+        if ($insuranceCompany->enable_name_dob_verification) {
+            $enabledMethods[] = 'Name & Date of Birth';
+            if (!empty($data['name']) && !empty($data['date_of_birth'])) {
+                $attemptedMethods[] = 'Name & Date of Birth';
+            }
+        }
+        
+        if ($insuranceCompany->enable_id_passport_verification) {
+            $enabledMethods[] = 'ID/Passport';
+            if (!empty($data['id_passport_no'])) {
+                $attemptedMethods[] = 'ID/Passport';
+            }
+        }
+        
+        if ($insuranceCompany->enable_phone_verification) {
+            $enabledMethods[] = 'Phone';
+            if (!empty($data['phone'])) {
+                $attemptedMethods[] = 'Phone';
+            }
+        }
+        
+        if ($insuranceCompany->enable_email_verification) {
+            $enabledMethods[] = 'Email';
+            if (!empty($data['email'])) {
+                $attemptedMethods[] = 'Email';
+            }
+        }
+        
+        \Illuminate\Support\Facades\Log::info('=== ALTERNATIVE VERIFICATION END ===', [
+            'result' => $matchedPolicy ? 'SUCCESS' : 'FAILED',
+            'verification_method' => $verificationMethod,
+            'attempt_log' => $attemptLog,
+            'enabled_methods' => $enabledMethods,
+            'attempted_methods' => $attemptedMethods,
+        ]);
+        
+        $message = 'No matching policy found.';
+        
+        if (empty($enabledMethods)) {
+            $message .= ' No alternative verification methods are enabled for this insurance company.';
+        } elseif (empty($attemptedMethods)) {
+            $message .= ' Alternative verification methods are enabled (' . implode(', ', $enabledMethods) . '), but no matching data was provided.';
+        } else {
+            $message .= ' Attempted methods: ' . implode(', ', $attemptedMethods) . '. No matching policy was found.';
+            if (!empty($attemptLog)) {
+                $message .= ' Details: ' . implode('; ', $attemptLog);
+            }
+        }
+
         return [
             'success' => false,
-            'message' => 'No matching policy found using alternative verification methods',
+            'message' => $message,
             'status' => 'not_found',
+            'enabled_methods' => $enabledMethods,
+            'attempted_methods' => $attemptedMethods,
+            'attempt_log' => $attemptLog,
         ];
     }
 

@@ -40,6 +40,10 @@ class InsuranceCompany extends Model
         'dob_tolerance_days',
         'enable_visit_verification',
         'visit_verification_validity_days',
+        'email_verification_action',
+        'phone_verification_action',
+        'id_passport_verification_action',
+        'visit_verification_action',
     ];
 
     protected function casts(): array

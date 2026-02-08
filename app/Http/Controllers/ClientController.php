@@ -19,9 +19,23 @@ class ClientController extends Controller
     {
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         
-        // Get all clients (both with and without policies for this insurance company)
-        // For now, show all clients, but filter policies by insurance company
-        $clients = Client::with(['policies' => function($query) use ($insuranceCompanyId) {
+        if (!$insuranceCompanyId) {
+            return redirect()->route('dashboard')
+                ->with('error', 'You must be associated with an insurance company to view clients.');
+        }
+        
+        // Get clients that have policies with this insurance company
+        // This includes:
+        // 1. Principal members who have policies with this insurance company
+        // 2. Dependents of those principal members
+        $clients = Client::whereHas('policies', function($query) use ($insuranceCompanyId) {
+                $query->where('insurance_company_id', $insuranceCompanyId);
+            })
+            ->orWhereHas('principalMember.policies', function($query) use ($insuranceCompanyId) {
+                // Include dependents whose principal member has a policy with this insurance company
+                $query->where('insurance_company_id', $insuranceCompanyId);
+            })
+            ->with(['policies' => function($query) use ($insuranceCompanyId) {
                 $query->where('insurance_company_id', $insuranceCompanyId);
             }, 'principalMember', 'plan'])
             ->latest()
@@ -541,9 +555,30 @@ class ClientController extends Controller
      */
     public function show(Client $client)
     {
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+        
+        // Check if client belongs to this insurance company
+        $hasPolicy = $client->policies()
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->exists();
+        
+        // Also check if client is a dependent of a principal with a policy
+        if (!$hasPolicy && $client->principalMember) {
+            $hasPolicy = $client->principalMember->policies()
+                ->where('insurance_company_id', $insuranceCompanyId)
+                ->exists();
+        }
+        
+        if (!$hasPolicy) {
+            abort(403, 'You do not have access to this client.');
+        }
+        
         $client->load([
             'principalMember', 
             'dependents', 
+            'policies' => function($query) use ($insuranceCompanyId) {
+                $query->where('insurance_company_id', $insuranceCompanyId);
+            },
             'policies.insuranceCompany',
             'policies.benefits.serviceCategory',
             'medicalQuestionResponses.question',
@@ -557,23 +592,50 @@ class ClientController extends Controller
      */
     public function edit(Client $client)
     {
-        $principals = Client::where('type', 'principal')
-            ->where('id', '!=', $client->id)
-            ->get();
-        
         $user = auth()->user();
+        $insuranceCompanyId = $user->insurance_company_id;
+        
         if (!$user->insuranceCompany) {
             return redirect()->route('dashboard')->with('error', 'You must be associated with an insurance company to edit clients.');
         }
 
-        $medicalQuestions = \App\Models\MedicalQuestion::where('insurance_company_id', $user->insurance_company_id)
+        // Check if client belongs to this insurance company
+        $hasPolicy = $client->policies()
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->exists();
+        
+        // Also check if client is a dependent of a principal with a policy
+        if (!$hasPolicy && $client->principalMember) {
+            $hasPolicy = $client->principalMember->policies()
+                ->where('insurance_company_id', $insuranceCompanyId)
+                ->exists();
+        }
+        
+        if (!$hasPolicy) {
+            abort(403, 'You do not have access to this client.');
+        }
+
+        // Only show principals from this insurance company
+        $principals = Client::where('type', 'principal')
+            ->where('id', '!=', $client->id)
+            ->whereHas('policies', function($query) use ($insuranceCompanyId) {
+                $query->where('insurance_company_id', $insuranceCompanyId);
+            })
+            ->get();
+
+        $medicalQuestions = \App\Models\MedicalQuestion::where('insurance_company_id', $insuranceCompanyId)
             ->where('is_active', true)
             ->orderBy('order')
             ->orderBy('id')
             ->get();
         
-        // Load existing responses and policy
-        $client->load(['medicalQuestionResponses', 'policies']);
+        // Load existing responses and policy (filtered by insurance company)
+        $client->load([
+            'medicalQuestionResponses', 
+            'policies' => function($query) use ($insuranceCompanyId) {
+                $query->where('insurance_company_id', $insuranceCompanyId);
+            }
+        ]);
         
         $insuranceCompany = $user->insuranceCompany;
         $requiredFields = $insuranceCompany ? $insuranceCompany->getRequiredFields() : ['first_name', 'id_passport_no'];
@@ -587,9 +649,27 @@ class ClientController extends Controller
     public function update(Request $request, Client $client)
     {
         $user = auth()->user();
+        $insuranceCompanyId = $user->insurance_company_id;
         $insuranceCompany = $user->insuranceCompany;
+        
         if (!$insuranceCompany) {
             return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        // Check if client belongs to this insurance company
+        $hasPolicy = $client->policies()
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->exists();
+        
+        // Also check if client is a dependent of a principal with a policy
+        if (!$hasPolicy && $client->principalMember) {
+            $hasPolicy = $client->principalMember->policies()
+                ->where('insurance_company_id', $insuranceCompanyId)
+                ->exists();
+        }
+        
+        if (!$hasPolicy) {
+            abort(403, 'You do not have access to this client.');
         }
 
         $validated = $request->validate($this->buildValidationRules($insuranceCompany, true, $client->id));
@@ -708,8 +788,26 @@ class ClientController extends Controller
      */
     public function destroy(Client $client)
     {
-        // Check if client has policies
-        if ($client->policies()->count() > 0) {
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+        
+        // Check if client belongs to this insurance company
+        $hasPolicy = $client->policies()
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->exists();
+        
+        // Also check if client is a dependent of a principal with a policy
+        if (!$hasPolicy && $client->principalMember) {
+            $hasPolicy = $client->principalMember->policies()
+                ->where('insurance_company_id', $insuranceCompanyId)
+                ->exists();
+        }
+        
+        if (!$hasPolicy) {
+            abort(403, 'You do not have access to this client.');
+        }
+
+        // Check if client has policies (only for this insurance company)
+        if ($client->policies()->where('insurance_company_id', $insuranceCompanyId)->count() > 0) {
             return redirect()->route('clients.index')
                 ->with('error', 'Cannot delete client with existing policies. Please remove policies first.');
         }

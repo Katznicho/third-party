@@ -120,6 +120,10 @@ class SettingsController extends Controller
             'dob_tolerance_days' => 'required|integer|min:0|max:365',
             'enable_visit_verification' => 'nullable|boolean',
             'visit_verification_validity_days' => 'required|integer|min:1|max:365',
+            'email_verification_action' => 'required|in:auto_accept,flag_for_review,auto_reject',
+            'phone_verification_action' => 'required|in:auto_accept,flag_for_review,auto_reject',
+            'id_passport_verification_action' => 'required|in:auto_accept,flag_for_review,auto_reject',
+            'visit_verification_action' => 'required|in:auto_accept,flag_for_review,auto_reject',
         ]);
 
         $insuranceCompany = $user->insuranceCompany;
@@ -135,6 +139,10 @@ class SettingsController extends Controller
             'dob_tolerance_days' => $validated['dob_tolerance_days'],
             'enable_visit_verification' => $request->boolean('enable_visit_verification', false),
             'visit_verification_validity_days' => $validated['visit_verification_validity_days'],
+            'email_verification_action' => $validated['email_verification_action'],
+            'phone_verification_action' => $validated['phone_verification_action'],
+            'id_passport_verification_action' => $validated['id_passport_verification_action'],
+            'visit_verification_action' => $validated['visit_verification_action'],
         ]);
 
         return redirect()->route('settings.index')
