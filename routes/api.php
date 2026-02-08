@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AuthController as ApiAuthController;
 |
 */
 
+
 // Public API routes (no authentication required for registration)
 Route::prefix('v1')->group(function () {
     // Business and User Registration
