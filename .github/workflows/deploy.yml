@@ -39,9 +39,41 @@ jobs:
 
       # Step 5: Test SSH Connection
       - name: Test SSH Connection
+        timeout-minutes: 5
         run: |
-          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} whoami
-          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "echo 'Test command execution' && ls -la /home/u242329769/domains/vendor.kashtre.com/public_html"
+          echo "🔍 Testing network connectivity..."
+          echo "Server: ${{ secrets.FTP_SERVER }}"
+          echo "Port: 65002"
+          echo "Username: ${{ secrets.FTP_USERNAME }}"
+          
+          # Test basic connectivity
+          echo "📡 Testing port connectivity..."
+          timeout 10 bash -c "</dev/tcp/${{ secrets.FTP_SERVER }}/65002" && echo "✓ Port 65002 is reachable" || echo "✗ Port 65002 is not reachable"
+          
+          # Test DNS resolution
+          echo "🌐 Testing DNS resolution..."
+          nslookup ${{ secrets.FTP_SERVER }} || dig ${{ secrets.FTP_SERVER }} || echo "⚠ DNS resolution test failed"
+          
+          # Test SSH connection with verbose output and timeout
+          echo "🔐 Testing SSH connection..."
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=60 \
+            -o ServerAliveCountMax=3 \
+            -v \
+            -p 65002 \
+            ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} \
+            "whoami && echo 'SSH connection successful'"
+          
+          echo "✅ Running additional test command..."
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=30 \
+            -p 65002 \
+            ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} \
+            "echo 'Test command execution' && ls -la /home/u242329769/domains/vendor.kashtre.com/public_html"
 
       # Step 6: Deploy to Hostinger via SSH
       - name: Deploy to Hostinger
@@ -67,11 +99,11 @@ jobs:
             --exclude 'storage/framework/cache/*' \
             --exclude 'storage/framework/sessions/*' \
             --exclude 'storage/framework/views/*' \
-            -e "ssh -p 65002 -o StrictHostKeyChecking=no" \
+            -e "ssh -p 65002 -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3" \
             $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
 
           # Step 1: Set permissions and create storage link
-          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd $DEPLOY_DIR && \
+          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd $DEPLOY_DIR && \
             echo '✓ Setting permissions...' && \
             chmod -R 755 storage bootstrap/cache 2>/dev/null || echo 'Warning: Could not set permissions' && \
             echo '✓ Removing existing storage link...' && \
@@ -80,7 +112,7 @@ jobs:
             /usr/bin/php artisan storage:link 2>&1 || php artisan storage:link 2>&1 || echo 'Warning: Could not create storage link'"
 
           # Step 2: Install dependencies on server and run migrations
-          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd $DEPLOY_DIR && \
+          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "cd $DEPLOY_DIR && \
             echo '✓ Finding PHP path...' && \
             PHP_PATH=\$(which php || echo 'php') && \
             echo \"Using PHP: \$PHP_PATH\" && \
