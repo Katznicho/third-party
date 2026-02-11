@@ -23,15 +23,23 @@ class KashtreApiService
     public function getInvoicesForInsuranceCompany($insuranceCompanyId)
     {
         try {
-            $url = "{$this->baseUrl}/api/v1/invoices/insurance-company/{$insuranceCompanyId}";
+            // Ensure base URL doesn't have trailing slash
+            $baseUrl = rtrim($this->baseUrl, '/');
+            $url = "{$baseUrl}/api/v1/invoices/insurance-company/{$insuranceCompanyId}";
             
             Log::info('KashtreApiService: Fetching invoices', [
                 'url' => $url,
+                'base_url' => $this->baseUrl,
+                'cleaned_base_url' => $baseUrl,
                 'insurance_company_id' => $insuranceCompanyId,
             ]);
 
             $response = Http::timeout(30)
                 ->acceptJson()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
                 ->get($url);
 
             Log::info('KashtreApiService: Response received', [
