@@ -23,27 +23,43 @@ class KashtreApiService
     public function getInvoicesForInsuranceCompany($insuranceCompanyId)
     {
         try {
+            $url = "{$this->baseUrl}/api/v1/invoices/insurance-company/{$insuranceCompanyId}";
+            
+            Log::info('KashtreApiService: Fetching invoices', [
+                'url' => $url,
+                'insurance_company_id' => $insuranceCompanyId,
+            ]);
+
             $response = Http::timeout(30)
-                ->get("{$this->baseUrl}/api/v1/invoices/insurance-company/{$insuranceCompanyId}");
+                ->get($url);
 
             if ($response->successful()) {
-                return $response->json();
+                $data = $response->json();
+                Log::info('KashtreApiService: Successfully fetched invoices', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'invoice_count' => is_array($data['data'] ?? null) ? count($data['data']) : 0,
+                ]);
+                return $data;
             }
 
+            $errorBody = $response->json() ?? $response->body();
+            
             Log::error('Failed to fetch invoices from Kashtre', [
                 'insurance_company_id' => $insuranceCompanyId,
+                'url' => $url,
                 'status' => $response->status(),
-                'error' => $response->json(),
+                'error' => $errorBody,
             ]);
 
             return [
                 'success' => false,
-                'message' => 'Failed to fetch invoices from Kashtre',
+                'message' => "Failed to fetch invoices from Kashtre (HTTP {$response->status()})",
                 'data' => [],
             ];
         } catch (\Exception $e) {
             Log::error('Exception while fetching invoices from Kashtre', [
                 'insurance_company_id' => $insuranceCompanyId,
+                'url' => $url ?? 'unknown',
                 'error' => $e->getMessage(),
             ]);
 
