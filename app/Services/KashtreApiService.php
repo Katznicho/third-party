@@ -31,7 +31,14 @@ class KashtreApiService
             ]);
 
             $response = Http::timeout(30)
+                ->acceptJson()
                 ->get($url);
+
+            Log::info('KashtreApiService: Response received', [
+                'url' => $url,
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+            ]);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -47,8 +54,10 @@ class KashtreApiService
             Log::error('Failed to fetch invoices from Kashtre', [
                 'insurance_company_id' => $insuranceCompanyId,
                 'url' => $url,
+                'base_url' => $this->baseUrl,
                 'status' => $response->status(),
                 'error' => $errorBody,
+                'response_body' => substr($response->body(), 0, 1000),
             ]);
 
             return [
