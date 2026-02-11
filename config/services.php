@@ -36,7 +36,9 @@ return [
     ],
 
     'kashtre' => [
-        'api_url' => env('KASHTRE_API_URL', 'http://127.0.0.1:8000'),
+        // Default to production URL (https://kashtre.com) unless KASHTRE_API_URL is set
+        // For local development, set KASHTRE_API_URL=http://127.0.0.1:8000 in .env
+        'api_url' => env('KASHTRE_API_URL', 'https://kashtre.com'),
     ],
 
 ];
