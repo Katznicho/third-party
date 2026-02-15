@@ -41,4 +41,11 @@ return [
         'api_url' => env('KASHTRE_API_URL', 'https://kashtre.com'),
     ],
 
+    'marzsms' => [
+        'base_url' => env('MARZSMS_BASE_URL', 'https://sms.wearemarz.com/api/v1'),
+        'api_key' => env('MARZSMS_API_KEY'),
+        'api_secret' => env('MARZSMS_API_SECRET'),
+        'verify_ssl' => env('MARZSMS_VERIFY_SSL', true),
+    ],
+
 ];

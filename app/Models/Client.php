@@ -99,6 +99,11 @@ class Client extends Model
         return $this->hasMany(MedicalQuestionResponse::class);
     }
 
+    public function verificationOtps(): HasMany
+    {
+        return $this->hasMany(VerificationOtp::class);
+    }
+
     /**
      * Check if client has any exclusion-triggering responses
      */

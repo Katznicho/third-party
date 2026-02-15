@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
+use App\Http\Controllers\Api\ClientVerificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,6 +56,14 @@ Route::prefix('v1')->group(function () {
     
     // Visit-based identity verification
     Route::post('/policies/verify-visit/{insuranceCompanyId}', [BusinessController::class, 'verifyVisitIdentity'])->name('api.policies.verify-visit');
+    
+    // Client verification by phone number and OTP
+    Route::post('/clients/search-and-send-otp', [ClientVerificationController::class, 'searchAndSendOtp'])->name('api.clients.search-and-send-otp');
+    Route::post('/clients/verify-otp', [ClientVerificationController::class, 'verifyOtp'])->name('api.clients.verify-otp');
+    
+    // Client verification by email and OTP
+    Route::post('/clients/search-and-send-otp-email', [ClientVerificationController::class, 'searchAndSendOtpByEmail'])->name('api.clients.search-and-send-otp-email');
+    Route::post('/clients/verify-otp-email', [ClientVerificationController::class, 'verifyOtpByEmail'])->name('api.clients.verify-otp-email');
     
     // Protected routes (require API token)
     Route::middleware('auth:sanctum')->group(function () {
