@@ -1891,3 +1891,449 @@
     // Initial count calculation
     updateDependentsCount();
 </script>
+        const container = document.getElementById('phone_otp_container');
+        
+        if (!phone) {
+            showAlert({
+                icon: 'warning',
+                title: 'Phone Number Required',
+                text: 'Please enter a phone number first',
+                confirmButtonColor: '#3b82f6'
+            });
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        messageEl.textContent = '';
+        messageEl.className = 'mt-1 text-sm';
+        
+        try {
+            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
+            const response = await fetch('/api/v1/clients/search-and-send-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ phone: phone })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                container.classList.remove('hidden');
+                messageEl.textContent = '✓ OTP sent to your phone. Please check your SMS.';
+                messageEl.className = 'mt-1 text-sm text-green-600';
+                document.getElementById('phone_otp').focus();
+            } else {
+                // Client not found - show SweetAlert to ask for registered phone number
+                const { value: registeredPhone } = await showAlert({
+                    icon: 'info',
+                    title: 'Phone Number Not Found',
+                    html: `
+                        <p class="mb-4">No client found with the phone number: <strong>${phone}</strong></p>
+                        <p class="text-sm text-gray-600 mb-4">Please enter the phone number you registered with your insurance company:</p>
+                    `,
+                    input: 'tel',
+                    inputLabel: 'Registered Phone Number',
+                    inputPlaceholder: 'Enter your registered phone number',
+                    inputAttributes: {
+                        'aria-label': 'Enter your registered phone number'
+                    },
+                    showCancelButton: true,
+                    confirmButtonText: 'Send OTP',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#3b82f6',
+                    cancelButtonColor: '#6b7280',
+                    inputValidator: (value) => {
+                        if (!value) {
+                            return 'Please enter a phone number';
+                        }
+                        if (value.length < 9) {
+                            return 'Please enter a valid phone number';
+                        }
+                    }
+                });
+                
+                if (registeredPhone) {
+                    // Update the phone input field
+                    document.getElementById('cell_phone').value = registeredPhone;
+                    // Retry with the registered phone number
+                    await sendPhoneOtpWithNumber(registeredPhone);
+                } else {
+                    messageEl.textContent = 'Verification cancelled.';
+                    messageEl.className = 'mt-1 text-sm text-gray-600';
+                }
+            }
+        } catch (error) {
+            messageEl.textContent = 'Error: ' + error.message;
+            messageEl.className = 'mt-1 text-sm text-red-600';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Verify';
+        }
+    }
+    
+    // Helper function to send OTP with a specific phone number
+    async function sendPhoneOtpWithNumber(phone) {
+        const btn = document.getElementById('verify_phone_btn');
+        const messageEl = document.getElementById('phone_otp_message');
+        const container = document.getElementById('phone_otp_container');
+        
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        messageEl.textContent = '';
+        messageEl.className = 'mt-1 text-sm';
+        
+        try {
+            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
+            const response = await fetch('/api/v1/clients/search-and-send-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ phone: phone })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                container.classList.remove('hidden');
+                messageEl.textContent = '✓ OTP sent to your phone. Please check your SMS.';
+                messageEl.className = 'mt-1 text-sm text-green-600';
+                document.getElementById('phone_otp').focus();
+            } else {
+                showAlert({
+                    icon: 'error',
+                    title: 'Verification Failed',
+                    text: data.message || 'Failed to send OTP. Please check the phone number and try again.',
+                    confirmButtonColor: '#3b82f6'
+                });
+                messageEl.textContent = data.message || 'Failed to send OTP.';
+                messageEl.className = 'mt-1 text-sm text-red-600';
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'An error occurred: ' + error.message,
+                confirmButtonColor: '#3b82f6'
+            });
+            messageEl.textContent = 'Error: ' + error.message;
+            messageEl.className = 'mt-1 text-sm text-red-600';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Verify';
+        }
+    }
+    
+    async function verifyPhoneOtp() {
+        const phone = document.getElementById('cell_phone').value.trim();
+        const otp = document.getElementById('phone_otp').value.trim();
+        const btn = document.getElementById('verify_phone_otp_btn');
+        const messageEl = document.getElementById('phone_otp_message');
+        const verifiedInput = document.getElementById('phone_verified');
+        
+        if (!otp || otp.length !== 6) {
+            messageEl.textContent = 'Please enter a valid 6-digit OTP';
+            messageEl.className = 'mt-1 text-sm text-red-600';
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.textContent = 'Verifying...';
+        
+        try {
+            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
+            const response = await fetch('/api/v1/clients/verify-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ phone: phone, otp: otp })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                verifiedInput.value = '1';
+                messageEl.textContent = '✓ OTP verified successfully! Phone number confirmed.';
+                messageEl.className = 'mt-1 text-sm text-green-600';
+                document.getElementById('phone_otp_container').classList.add('opacity-75');
+                document.getElementById('phone_otp').disabled = true;
+                btn.disabled = true;
+                btn.textContent = 'Verified';
+                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+            } else {
+                messageEl.textContent = data.message || 'Invalid OTP. Please try again.';
+                messageEl.className = 'mt-1 text-sm text-red-600';
+                if (data.attempts_remaining !== undefined) {
+                    messageEl.textContent += ' (' + data.attempts_remaining + ' attempts remaining)';
+                }
+            }
+        } catch (error) {
+            messageEl.textContent = 'Error: ' + error.message;
+            messageEl.className = 'mt-1 text-sm text-red-600';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Verify OTP';
+        }
+    }
+    
+    // Email OTP Functions
+    async function sendEmailOtp() {
+        const email = document.getElementById('email').value.trim();
+        const btn = document.getElementById('verify_email_btn');
+        const messageEl = document.getElementById('email_otp_message');
+        const container = document.getElementById('email_otp_container');
+        
+        if (!email) {
+            showAlert({
+                icon: 'warning',
+                title: 'Email Required',
+                text: 'Please enter an email address first',
+                confirmButtonColor: '#3b82f6'
+            });
+            return;
+        }
+        
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showAlert({
+                icon: 'warning',
+                title: 'Invalid Email',
+                text: 'Please enter a valid email address',
+                confirmButtonColor: '#3b82f6'
+            });
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        messageEl.textContent = '';
+        messageEl.className = 'mt-1 text-sm';
+        
+        try {
+            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
+            const response = await fetch('/api/v1/clients/search-and-send-otp-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ email: email })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                container.classList.remove('hidden');
+                messageEl.textContent = '✓ OTP sent to your email. Please check your inbox.';
+                messageEl.className = 'mt-1 text-sm text-green-600';
+                document.getElementById('email_otp').focus();
+            } else {
+                // Client not found - show SweetAlert to ask for registered email
+                const { value: registeredEmail } = await showAlert({
+                    icon: 'info',
+                    title: 'Email Not Found',
+                    html: `
+                        <p class="mb-4">No client found with the email: <strong>${email}</strong></p>
+                        <p class="text-sm text-gray-600 mb-4">Please enter the email address you registered with your insurance company:</p>
+                    `,
+                    input: 'email',
+                    inputLabel: 'Registered Email Address',
+                    inputPlaceholder: 'Enter your registered email address',
+                    inputAttributes: {
+                        'aria-label': 'Enter your registered email address'
+                    },
+                    showCancelButton: true,
+                    confirmButtonText: 'Send OTP',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#3b82f6',
+                    cancelButtonColor: '#6b7280',
+                    inputValidator: (value) => {
+                        if (!value) {
+                            return 'Please enter an email address';
+                        }
+                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                            return 'Please enter a valid email address';
+                        }
+                    }
+                });
+                
+                if (registeredEmail) {
+                    // Update the email input field
+                    document.getElementById('email').value = registeredEmail;
+                    // Retry with the registered email
+                    await sendEmailOtpWithAddress(registeredEmail);
+                } else {
+                    messageEl.textContent = 'Verification cancelled.';
+                    messageEl.className = 'mt-1 text-sm text-gray-600';
+                }
+            }
+        } catch (error) {
+            messageEl.textContent = 'Error: ' + error.message;
+            messageEl.className = 'mt-1 text-sm text-red-600';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Verify';
+        }
+    }
+    
+    // Helper function to send OTP with a specific email address
+    async function sendEmailOtpWithAddress(email) {
+        const btn = document.getElementById('verify_email_btn');
+        const messageEl = document.getElementById('email_otp_message');
+        const container = document.getElementById('email_otp_container');
+        
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        messageEl.textContent = '';
+        messageEl.className = 'mt-1 text-sm';
+        
+        try {
+            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
+            const response = await fetch('/api/v1/clients/search-and-send-otp-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ email: email })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                container.classList.remove('hidden');
+                messageEl.textContent = '✓ OTP sent to your email. Please check your inbox.';
+                messageEl.className = 'mt-1 text-sm text-green-600';
+                document.getElementById('email_otp').focus();
+            } else {
+                showAlert({
+                    icon: 'error',
+                    title: 'Verification Failed',
+                    text: data.message || 'Failed to send OTP. Please check the email address and try again.',
+                    confirmButtonColor: '#3b82f6'
+                });
+                messageEl.textContent = data.message || 'Failed to send OTP.';
+                messageEl.className = 'mt-1 text-sm text-red-600';
+            }
+        } catch (error) {
+            showAlert({
+                icon: 'error',
+                title: 'Error',
+                text: 'An error occurred: ' + error.message,
+                confirmButtonColor: '#3b82f6'
+            });
+            messageEl.textContent = 'Error: ' + error.message;
+            messageEl.className = 'mt-1 text-sm text-red-600';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Verify';
+        }
+    }
+    
+    async function verifyEmailOtp() {
+        const email = document.getElementById('email').value.trim();
+        const otp = document.getElementById('email_otp').value.trim();
+        const btn = document.getElementById('verify_email_otp_btn');
+        const messageEl = document.getElementById('email_otp_message');
+        const verifiedInput = document.getElementById('email_verified');
+        
+        if (!otp || otp.length !== 6) {
+            messageEl.textContent = 'Please enter a valid 6-digit OTP';
+            messageEl.className = 'mt-1 text-sm text-red-600';
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.textContent = 'Verifying...';
+        
+        try {
+            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
+            const response = await fetch('/api/v1/clients/verify-otp-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ email: email, otp: otp })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                verifiedInput.value = '1';
+                messageEl.textContent = '✓ OTP verified successfully! Email address confirmed.';
+                messageEl.className = 'mt-1 text-sm text-green-600';
+                document.getElementById('email_otp_container').classList.add('opacity-75');
+                document.getElementById('email_otp').disabled = true;
+                btn.disabled = true;
+                btn.textContent = 'Verified';
+                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+            } else {
+                messageEl.textContent = data.message || 'Invalid OTP. Please try again.';
+                messageEl.className = 'mt-1 text-sm text-red-600';
+                if (data.attempts_remaining !== undefined) {
+                    messageEl.textContent += ' (' + data.attempts_remaining + ' attempts remaining)';
+                }
+            }
+        } catch (error) {
+            messageEl.textContent = 'Error: ' + error.message;
+            messageEl.className = 'mt-1 text-sm text-red-600';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Verify OTP';
+        }
+    }
+    
+    // Form submission validation - check if verification was started but not completed
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const phoneOtpContainer = document.getElementById('phone_otp_container');
+        const emailOtpContainer = document.getElementById('email_otp_container');
+        const phoneVerified = document.getElementById('phone_verified').value === '1';
+        const emailVerified = document.getElementById('email_verified').value === '1';
+        
+        // Only require verification if OTP container is visible (user started verification)
+        if (!phoneOtpContainer.classList.contains('hidden') && !phoneVerified) {
+            e.preventDefault();
+            alert('Please complete phone number verification before submitting the form.');
+            return false;
+        }
+        
+        if (!emailOtpContainer.classList.contains('hidden') && !emailVerified) {
+            e.preventDefault();
+            alert('Please complete email verification before submitting the form.');
+            return false;
+        }
+    });
+</script>

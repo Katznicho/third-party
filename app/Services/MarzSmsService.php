@@ -33,6 +33,9 @@ class MarzSmsService
                 $recipient = implode(', ', $recipient);
             }
 
+            // Format phone number for MarzSMS API (remove + sign, keep international format)
+            $recipient = $this->formatPhoneForApi($recipient);
+
             // Ensure base URL doesn't have trailing slash
             $baseUrl = rtrim($this->baseUrl, '/');
             $url = "{$baseUrl}/sms/send";
@@ -63,12 +66,36 @@ class MarzSmsService
 
             if ($response->successful()) {
                 $data = $response->json();
-                Log::info('MarzSmsService: SMS sent successfully', [
+                
+                // Check if the response indicates success
+                $isSuccess = $data['success'] ?? ($response->status() === 200);
+                
+                Log::info('MarzSmsService: SMS API response', [
                     'recipient' => $recipient,
-                    'success' => $data['success'] ?? false,
-                    'remaining_balance' => $data['data']['remaining_balance'] ?? null,
+                    'http_status' => $response->status(),
+                    'response_success' => $data['success'] ?? null,
+                    'is_success' => $isSuccess,
+                    'full_response' => $data,
                 ]);
-                return $data;
+                
+                if ($isSuccess) {
+                    Log::info('MarzSmsService: SMS sent successfully', [
+                        'recipient' => $recipient,
+                        'remaining_balance' => $data['data']['remaining_balance'] ?? null,
+                    ]);
+                    return $data;
+                } else {
+                    // API returned 200 but success is false
+                    Log::error('MarzSmsService: SMS API returned false success', [
+                        'recipient' => $recipient,
+                        'response' => $data,
+                    ]);
+                    return [
+                        'success' => false,
+                        'message' => $data['message'] ?? 'Failed to send SMS',
+                        'error' => $data['error'] ?? 'send_failed',
+                    ];
+                }
             }
 
             $errorBody = $response->json() ?? $response->body();
@@ -97,6 +124,35 @@ class MarzSmsService
                 'error' => 'exception',
             ];
         }
+    }
+
+    /**
+     * Format phone number for MarzSMS API
+     * Removes + sign and ensures international format (256XXXXXXXXX)
+     * 
+     * @param string|array $phone
+     * @return string
+     */
+    protected function formatPhoneForApi($phone): string
+    {
+        if (is_array($phone)) {
+            return implode(', ', array_map([$this, 'formatPhoneForApi'], $phone));
+        }
+
+        // Remove all non-digit characters except comma (for multiple recipients)
+        $phone = preg_replace('/[^0-9,]/', '', $phone);
+        
+        // If starts with 256, keep as is
+        if (strpos($phone, '256') === 0) {
+            return $phone;
+        }
+        
+        // If starts with 0, replace with 256
+        if (strpos($phone, '0') === 0) {
+            return '256' . substr($phone, 1);
+        }
+        
+        return $phone;
     }
 
     /**

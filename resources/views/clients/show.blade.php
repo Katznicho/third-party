@@ -65,7 +65,12 @@
             
             <div>
                 <label class="block text-sm font-medium text-slate-500 mb-1">Cell Phone</label>
-                <p class="text-base text-slate-900">{{ $client->cell_phone ?? 'N/A' }}</p>
+                <p class="text-base text-slate-900">{{ $client->cell_phone ?: 'N/A' }}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Home Telephone</label>
+                <p class="text-base text-slate-900">{{ $client->home_telephone ?: 'N/A' }}</p>
             </div>
             
             <div>

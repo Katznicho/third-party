@@ -39,10 +39,20 @@ class ClientVerificationController extends Controller
             'original_phone' => $request->phone,
         ]);
 
-        // Search for client by cell_phone
-        $client = Client::where('cell_phone', $phone)
-            ->orWhere('cell_phone', $this->formatPhoneNumber($phone))
-            ->orWhere('cell_phone', 'like', '%' . substr($phone, -9) . '%') // Last 9 digits
+        // Search for client by cell_phone or home_telephone
+        $formattedPhone = $this->formatPhoneNumber($phone);
+        $last9Digits = substr($phone, -9);
+        
+        $client = Client::where(function($query) use ($phone, $formattedPhone, $last9Digits) {
+                $query->where('cell_phone', $phone)
+                    ->orWhere('cell_phone', $formattedPhone)
+                    ->orWhere('cell_phone', 'like', '%' . $last9Digits . '%');
+            })
+            ->orWhere(function($query) use ($phone, $formattedPhone, $last9Digits) {
+                $query->where('home_telephone', $phone)
+                    ->orWhere('home_telephone', $formattedPhone)
+                    ->orWhere('home_telephone', 'like', '%' . $last9Digits . '%');
+            })
             ->first();
 
         if (!$client) {
@@ -95,12 +105,13 @@ class ClientVerificationController extends Controller
                 'client_id' => $client->id,
                 'phone' => $phone,
                 'sms_error' => $smsResult['message'] ?? 'Unknown error',
+                'sms_result' => $smsResult,
             ]);
 
-            // Still return success but indicate SMS might have failed
+            // Return error response when SMS fails
             return response()->json([
-                'success' => true,
-                'message' => 'Client found, but failed to send OTP. Please try again.',
+                'success' => false,
+                'message' => 'Failed to send OTP: ' . ($smsResult['message'] ?? 'SMS service error. Please try again.'),
                 'data' => [
                     'client_id' => $client->id,
                     'client_name' => $client->full_name,
@@ -108,7 +119,7 @@ class ClientVerificationController extends Controller
                     'sms_sent' => false,
                     'sms_error' => $smsResult['message'] ?? 'Failed to send SMS',
                 ],
-            ], 200);
+            ], 500);
         }
 
         Log::info('ClientVerification: OTP sent successfully', [
@@ -150,10 +161,20 @@ class ClientVerificationController extends Controller
             'otp_provided' => $otp,
         ]);
 
-        // Find client first
-        $client = Client::where('cell_phone', $phone)
-            ->orWhere('cell_phone', $this->formatPhoneNumber($phone))
-            ->orWhere('cell_phone', 'like', '%' . substr($phone, -9) . '%')
+        // Find client first by cell_phone or home_telephone
+        $formattedPhone = $this->formatPhoneNumber($phone);
+        $last9Digits = substr($phone, -9);
+        
+        $client = Client::where(function($query) use ($phone, $formattedPhone, $last9Digits) {
+                $query->where('cell_phone', $phone)
+                    ->orWhere('cell_phone', $formattedPhone)
+                    ->orWhere('cell_phone', 'like', '%' . $last9Digits . '%');
+            })
+            ->orWhere(function($query) use ($phone, $formattedPhone, $last9Digits) {
+                $query->where('home_telephone', $phone)
+                    ->orWhere('home_telephone', $formattedPhone)
+                    ->orWhere('home_telephone', 'like', '%' . $last9Digits . '%');
+            })
             ->first();
 
         if (!$client) {
