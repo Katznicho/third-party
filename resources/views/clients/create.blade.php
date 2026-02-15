@@ -14,6 +14,7 @@
         <a href="{{ route('clients.index') }}" class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition duration-150">
             ← Back to Clients
         </a>
+        
     </div>
 
     <!-- Create Form - Uses shared form partial -->
