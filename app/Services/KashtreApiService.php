@@ -12,9 +12,9 @@ class KashtreApiService
     public function __construct()
     {
         // Get the base URL from config
-        // Defaults to https://kashtre.com in production
-        // For local development, set KASHTRE_API_URL=http://127.0.0.1:8000 in .env
-        $this->baseUrl = config('services.kashtre.api_url', 'https://kashtre.com');
+        // Defaults to https://demo.kashtre.com unless KASHTRE_API_URL is set
+        // For local development, set KASHTRE_API_URL=http://127.0.0.1:8002 in .env
+        $this->baseUrl = config('services.kashtre.api_url', 'https://demo.kashtre.com');
     }
 
     /**

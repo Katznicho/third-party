@@ -36,9 +36,9 @@ return [
     ],
 
     'kashtre' => [
-        // Default to production URL (https://kashtre.com) unless KASHTRE_API_URL is set
-        // For local development, set KASHTRE_API_URL=http://127.0.0.1:8000 in .env
-        'api_url' => env('KASHTRE_API_URL', 'https://kashtre.com'),
+        // Default to demo URL (https://demo.kashtre.com) unless KASHTRE_API_URL is set
+        // For local development, set KASHTRE_API_URL=http://127.0.0.1:8002 in .env
+        'api_url' => env('KASHTRE_API_URL', 'https://demo.kashtre.com'),
     ],
 
     'marzsms' => [
