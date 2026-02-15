@@ -109,36 +109,105 @@ class InvoiceController extends Controller
      */
     public function markAsPaid(Request $request, $invoiceId)
     {
-        $validated = $request->validate([
-            'payment_method' => 'required|in:bank_transfer,mobile_money,cash',
-            'payment_reference' => 'nullable|string|max:255',
-            'payment_date' => 'nullable|date',
-            'notes' => 'nullable|string',
-            'phone_number' => 'required_if:payment_method,mobile_money|string|max:20',
-            'proof_of_payment' => 'required_if:payment_method,bank_transfer,cash|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:10240', // 10MB max
-            'amount' => 'required|numeric|min:0',
-        ]);
+        try {
+            Log::info('=== markAsPaid METHOD CALLED ===', [
+                'invoice_id' => $invoiceId,
+                'user_id' => auth()->id(),
+                'request_method' => $request->method(),
+                'request_data' => $request->all(),
+            ]);
+        
+            try {
+            $validated = $request->validate([
+                'payment_method' => 'required|in:bank_transfer,mobile_money,cash',
+                'payment_reference' => 'nullable|string|max:255',
+                'payment_date' => 'nullable|date',
+                'notes' => 'nullable|string',
+                'phone_number' => 'required_if:payment_method,mobile_money|nullable|string|max:20',
+                'proof_of_payment' => 'required_if:payment_method,bank_transfer,cash|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:10240', // 10MB max
+                'amount' => 'required|numeric|min:0',
+            ]);
+            
+            Log::info('Validation passed', ['validated' => $validated]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all(),
+            ]);
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            Log::error('Unexpected exception during validation', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->with('error', 'Validation error: ' . $e->getMessage());
+        }
 
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         
+        Log::info('Insurance company check', ['insurance_company_id' => $insuranceCompanyId]);
+        
         if (!$insuranceCompanyId) {
+            Log::error('No insurance company ID found');
             return back()->with('error', 'No insurance company associated with your account.');
         }
 
         // Get invoice details first
+        Log::info('Fetching invoice details', ['invoice_id' => $invoiceId]);
         $invoiceDetails = $this->kashtreApi->getInvoiceDetails($invoiceId);
+        
+        Log::info('Invoice details response', [
+            'success' => $invoiceDetails['success'] ?? false,
+            'has_data' => isset($invoiceDetails['data']),
+        ]);
+        
         if (!$invoiceDetails['success'] || !$invoiceDetails['data']) {
+            Log::error('Failed to fetch invoice details', ['response' => $invoiceDetails]);
             return back()->with('error', 'Failed to fetch invoice details.');
         }
         
         // Create Payment record FIRST with pending status (before processing payment)
-        $payment = $this->createPaymentRecord($invoiceId, $invoiceDetails, $validated, 'pending', null);
+        Log::info('About to create payment record', [
+            'invoice_id' => $invoiceId,
+            'payment_method' => $validated['payment_method'],
+            'amount' => $validated['amount'],
+        ]);
+        
+        try {
+            $payment = $this->createPaymentRecord($invoiceId, $invoiceDetails, $validated, 'pending', null);
+            Log::info('Payment record created successfully, continuing with payment processing', [
+                'payment_id' => $payment->id ?? null,
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Check if it's a policy_id NOT NULL constraint error
+            if (isset($e->errorInfo[2]) && strpos($e->errorInfo[2], 'policy_id') !== false && strpos($e->errorInfo[2], 'NULL') !== false) {
+                return back()->with('error', 'Payment creation failed: policy_id cannot be null. Please run the migration: php artisan migrate');
+            }
+            
+            return back()->with('error', 'Failed to create payment record: ' . ($e->errorInfo[2] ?? $e->getMessage()) . '. Please check the logs for details.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to create payment record: ' . $e->getMessage() . '. Please check the logs for details.');
+        }
         
         if (!$payment) {
-            Log::warning('Failed to create payment record, but continuing with payment processing', [
+            Log::error('CRITICAL: Failed to create payment record!', [
                 'invoice_id' => $invoiceId,
+                'user_id' => auth()->id(),
+                'insurance_company_id' => $insuranceCompanyId,
+                'payment_method' => $validated['payment_method'],
+                'amount' => $validated['amount'],
+                'message' => 'Payment record creation failed. Check logs for details.',
             ]);
+            
+            // FAIL the request if payment creation fails - we need to track all payments
+            return back()->with('error', 'Failed to create payment record. Please check the logs and try again. Error details have been logged.');
         }
+        
+        Log::info('Payment record created successfully', [
+            'payment_id' => $payment->id,
+            'payment_reference' => $payment->payment_reference,
+            'invoice_id' => $invoiceId,
+        ]);
         
         // Handle proof of payment upload for bank transfer and cash
         $proofOfPaymentPath = null;
@@ -274,15 +343,46 @@ class InvoiceController extends Controller
                 ]);
             }
             
+            Log::info('Calling Kashtre API to mark invoice as paid', [
+                'invoice_id' => $invoiceId,
+                'insurance_company_id' => $insuranceCompanyId,
+                'payment_method' => $validated['payment_method'],
+            ]);
+            
             $result = $this->kashtreApi->markInvoiceAsPaid($invoiceId, $insuranceCompanyId, $validated);
+            
+            Log::info('Kashtre API response', [
+                'success' => $result['success'] ?? false,
+                'message' => $result['message'] ?? 'No message',
+                'result' => $result,
+            ]);
 
             if ($result['success']) {
+                Log::info('Payment processed successfully - redirecting to invoice show page');
                 return redirect()->route('invoices.show', $invoiceId)
                     ->with('success', 'Proof of payment uploaded successfully. Payment is pending review and will be marked as paid once approved.');
+            } else {
+                Log::error('Kashtre API returned failure', ['result' => $result]);
+                return back()->with('error', $result['message'] ?? 'Failed to mark invoice as paid in Kashtre.');
             }
         }
 
-        return back()->with('error', $result['message'] ?? 'Failed to clear payment.');
+            Log::error('Unexpected end of markAsPaid method - no return statement reached', [
+                'invoice_id' => $invoiceId,
+                'payment_method' => $validated['payment_method'] ?? 'unknown',
+            ]);
+            return back()->with('error', 'An unexpected error occurred. Please check the logs.');
+        } catch (\Exception $e) {
+            // Catch any unhandled exceptions
+            Log::error('UNHANDLED EXCEPTION in markAsPaid', [
+                'invoice_id' => $invoiceId,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->with('error', 'An error occurred: ' . $e->getMessage() . '. Please check the logs for details.');
+        }
     }
 
     /**
@@ -324,26 +424,60 @@ class InvoiceController extends Controller
     private function createPaymentRecord($invoiceId, $invoiceDetails, $validated, $status, $transactionReference = null)
     {
         try {
+            // Log attempt to create payment
+            Log::info('=== STARTING PAYMENT RECORD CREATION ===', [
+                'invoice_id' => $invoiceId,
+                'user_id' => auth()->id(),
+                'insurance_company_id' => auth()->user()->insurance_company_id,
+                'payment_method' => $validated['payment_method'] ?? null,
+                'amount' => $validated['amount'] ?? null,
+            ]);
             $invoice = $invoiceDetails['data']['invoice'] ?? [];
             $client = $invoice['client'] ?? [];
             
             // Get client_id from invoice data or find by client name/phone
             $clientId = null;
-            if (isset($client['id'])) {
-                // Try to find client by Kashtre client ID (stored in client_id field)
-                $clientModel = \App\Models\Client::where('client_id', $client['client_id'] ?? null)
-                    ->orWhere('phone_number', $client['phone_number'] ?? $invoice['client_phone'] ?? null)
-                    ->orWhere('full_name', $invoice['client_name'] ?? null)
+            
+            // Try to find client by phone number (cell_phone column in clients table)
+            $phoneNumber = $client['phone_number'] ?? $invoice['client_phone'] ?? null;
+            if ($phoneNumber) {
+                // Remove + if present and normalize
+                $phoneNumber = ltrim($phoneNumber, '+');
+                $clientModel = \App\Models\Client::where('cell_phone', $phoneNumber)
+                    ->orWhere('cell_phone', '+' . $phoneNumber)
                     ->first();
-                $clientId = $clientModel->id ?? null;
-            } else {
-                // Try to find client by name or phone
-                if (isset($invoice['client_name']) || isset($invoice['client_phone'])) {
-                    $clientModel = \App\Models\Client::where('full_name', $invoice['client_name'] ?? '')
-                        ->orWhere('phone_number', $invoice['client_phone'] ?? null)
-                        ->first();
-                    $clientId = $clientModel->id ?? null;
+                if ($clientModel) {
+                    $clientId = $clientModel->id;
                 }
+            }
+            
+            // If not found by phone, try to find by name (split full name into parts)
+            if (!$clientId && isset($invoice['client_name'])) {
+                $clientName = trim($invoice['client_name']);
+                if ($clientName) {
+                    // Try to match by first_name and surname
+                    $nameParts = explode(' ', $clientName, 3);
+                    $firstName = $nameParts[0] ?? null;
+                    $surname = $nameParts[1] ?? null;
+                    $otherNames = $nameParts[2] ?? null;
+                    
+                    if ($firstName && $surname) {
+                        $clientModel = \App\Models\Client::where('first_name', 'like', $firstName . '%')
+                            ->where('surname', 'like', $surname . '%')
+                            ->first();
+                        if ($clientModel) {
+                            $clientId = $clientModel->id;
+                        }
+                    }
+                }
+            }
+            
+            if (!$clientId) {
+                Log::info('Client not found in third-party system', [
+                    'invoice_id' => $invoiceId,
+                    'client_name' => $invoice['client_name'] ?? null,
+                    'client_phone' => $invoice['client_phone'] ?? null,
+                ]);
             }
             
             // Get policy_id - try to find policy by client
@@ -372,13 +506,23 @@ class InvoiceController extends Controller
             // Will be updated to 'completed' when payment is confirmed/reviewed
             $paymentStatus = 'pending';
             
-            // Create payment record
-            $payment = Payment::create([
+            // Note: policy_id can be null now (after migration), so we can create payments without a policy
+            // This is useful for payments from Kashtre invoices where the client/policy might not exist in third-party system
+            if (!$policyId) {
+                Log::info('No policy found for payment, creating payment without policy_id', [
+                    'invoice_id' => $invoiceId,
+                    'client_id' => $clientId,
+                    'insurance_company_id' => auth()->user()->insurance_company_id,
+                ]);
+            }
+            
+            // Log the data we're about to insert for debugging
+            $paymentData = [
                 'payment_reference' => $paymentReference,
                 'invoice_id' => null, // Invoice is in Kashtre, not in third-party system
-                'policy_id' => $policyId,
+                'policy_id' => $policyId, // Can be null now
                 'client_id' => $clientId,
-                'payment_type' => 'invoice_payment',
+                'payment_type' => 'full_payment', // Changed from 'invoice_payment' to valid enum value
                 'amount' => $validated['amount'],
                 'paid_amount' => $validated['amount'],
                 'balance_amount' => 0,
@@ -396,9 +540,35 @@ class InvoiceController extends Controller
                     'client_phone' => $invoice['client_phone'] ?? null,
                     'proof_of_payment_path' => $validated['proof_of_payment_path'] ?? null,
                     'payment_method' => $validated['payment_method'],
+                    'insurance_company_id' => auth()->user()->insurance_company_id, // Store insurance company ID for filtering
                 ],
                 'processed_by' => auth()->id(),
+            ];
+            
+            Log::info('Attempting to create payment record', [
+                'invoice_id' => $invoiceId,
+                'payment_data' => $paymentData,
+                'user_id' => auth()->id(),
+                'insurance_company_id' => auth()->user()->insurance_company_id,
             ]);
+            
+            // Check if payment_reference already exists
+            $existingPayment = Payment::where('payment_reference', $paymentReference)->first();
+            if ($existingPayment) {
+                Log::warning('Payment reference already exists, generating new one', [
+                    'existing_reference' => $paymentReference,
+                    'existing_payment_id' => $existingPayment->id,
+                ]);
+                // Generate a new unique reference
+                $paymentReference = 'PAY-' . strtoupper(Str::random(8)) . '-' . time();
+                $paymentData['payment_reference'] = $paymentReference;
+                Log::info('Generated new payment reference', [
+                    'new_reference' => $paymentReference,
+                ]);
+            }
+            
+            // Create payment record
+            $payment = Payment::create($paymentData);
             
             Log::info('Payment record created', [
                 'payment_id' => $payment->id,
@@ -413,15 +583,39 @@ class InvoiceController extends Controller
             ]);
             
             return $payment;
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Database constraint errors
+            $errorInfo = [
+                'invoice_id' => $invoiceId,
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'sql_state' => $e->errorInfo[0] ?? null,
+                'sql_error_code' => $e->errorInfo[1] ?? null,
+                'sql_error_message' => $e->errorInfo[2] ?? null,
+                'trace' => $e->getTraceAsString(),
+            ];
+            
+            // Check if it's a NOT NULL constraint error for policy_id
+            if (isset($e->errorInfo[2]) && strpos($e->errorInfo[2], 'policy_id') !== false && strpos($e->errorInfo[2], 'NULL') !== false) {
+                $errorInfo['migration_required'] = true;
+                $errorInfo['migration_file'] = '2026_02_16_000001_make_policy_id_nullable_in_payments_table.php';
+                $errorInfo['action'] = 'Run: php artisan migrate';
+            }
+            
+            Log::error('Database error creating payment record', $errorInfo);
+            
+            // Re-throw so the calling method can handle it
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to create payment record', [
                 'invoice_id' => $invoiceId,
                 'error' => $e->getMessage(),
+                'error_class' => get_class($e),
                 'trace' => $e->getTraceAsString(),
             ]);
             
-            // Don't fail the entire request if payment record creation fails
-            return null;
+            // Re-throw so the calling method can handle it
+            throw $e;
         }
     }
 }
