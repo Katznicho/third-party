@@ -24,12 +24,12 @@ return [
         /*
          * API version.
          */
-        'version' => env('API_VERSION', '0.0.1'),
+        'version' => env('API_VERSION', '1.0.0'),
 
         /*
          * Description rendered on the home page of the API documentation (`/docs/api`).
          */
-        'description' => '',
+        'description' => 'Third-Party Insurance System API - Provides endpoints for insurance companies to manage policies, verify clients, and handle invoices.',
     ],
 
     /*
@@ -39,7 +39,7 @@ return [
         /*
          * Define the title of the documentation's website. App name is used when this config is `null`.
          */
-        'title' => null,
+        'title' => 'Third-Party Insurance API',
 
         /*
          * Define the theme of the documentation. Available options are `light`, `dark`, and `system`.
@@ -129,7 +129,7 @@ return [
 
     'middleware' => [
         'web',
-        RestrictedDocsAccess::class,
+        // RestrictedDocsAccess::class, // Commented out to allow access in development
     ],
 
     'extensions' => [],

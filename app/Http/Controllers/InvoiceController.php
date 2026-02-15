@@ -44,7 +44,8 @@ class InvoiceController extends Controller
         if (isset($result['success']) && !$result['success']) {
             return view('invoices.index', [
                 'invoices' => collect([]),
-                'error' => $result['message'] ?? 'Failed to fetch invoices from Kashtre. Please check the logs for more details.'
+                'error' => $result['message'] ?? 'Failed to fetch invoices from Kashtre. Please check the logs for more details.',
+                'debug' => $result['debug'] ?? null,
             ]);
         }
         

@@ -27,7 +27,28 @@
 
     @if(isset($error))
         <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-            {{ $error }}
+            <div class="flex items-start">
+                <svg class="w-5 h-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <p class="font-medium">{{ $error }}</p>
+                    @if(isset($debug) && config('app.debug'))
+                        <p class="text-sm mt-2 opacity-75">
+                            <strong>URL:</strong> {{ $debug['url'] ?? 'N/A' }}<br>
+                            <strong>Status:</strong> {{ $debug['status'] ?? 'N/A' }}
+                        </p>
+                    @endif
+                    <p class="text-sm mt-2">
+                        Please check:
+                        <ul class="list-disc list-inside mt-1 ml-4">
+                            <li>That the Kashtre API endpoint exists and is accessible</li>
+                            <li>That your insurance company ID is correct</li>
+                            <li>Check the application logs for more details</li>
+                        </ul>
+                    </p>
+                </div>
+            </div>
         </div>
     @endif
 
