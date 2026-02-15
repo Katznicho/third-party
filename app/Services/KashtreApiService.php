@@ -80,7 +80,7 @@ class KashtreApiService
                 'ERROR_RESPONSE' => $errorBody,
                 'RESPONSE_BODY_PREVIEW' => substr($responseBody, 0, 1000),
                 'FULL_RESPONSE_BODY' => $responseBody,
-                'RESPONSE_HEADERS' => $response->headers()->all(),
+                'RESPONSE_HEADERS' => $response->headers(),
             ]);
             
             Log::error('Failed to fetch invoices from Kashtre', [
