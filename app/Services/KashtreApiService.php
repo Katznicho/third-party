@@ -132,10 +132,69 @@ class KashtreApiService
     public function markInvoiceAsPaid($invoiceId, $insuranceCompanyId, $data = [])
     {
         try {
-            $response = Http::timeout(30)
-                ->post("{$this->baseUrl}/api/v1/invoices/{$invoiceId}/mark-paid", array_merge([
-                    'insurance_company_id' => $insuranceCompanyId,
-                ], $data));
+            $baseUrl = rtrim($this->baseUrl, '/');
+            $url = "{$baseUrl}/api/v1/invoices/{$invoiceId}/mark-paid";
+            
+            $payload = array_merge([
+                'insurance_company_id' => $insuranceCompanyId,
+            ], $data);
+            
+            // Ensure payment_method is included
+            if (!isset($payload['payment_method'])) {
+                $payload['payment_method'] = 'bank_transfer'; // Default
+            }
+            
+            // Handle proof of payment file upload
+            $multipart = [];
+            $hasFile = false;
+            
+            if (isset($payload['proof_of_payment_path']) && $payload['proof_of_payment_path']) {
+                $filePath = storage_path('app/public/' . $payload['proof_of_payment_path']);
+                if (file_exists($filePath)) {
+                    $hasFile = true;
+                    $multipart[] = [
+                        'name' => 'proof_of_payment',
+                        'contents' => fopen($filePath, 'r'),
+                        'filename' => basename($filePath),
+                    ];
+                    unset($payload['proof_of_payment_path']); // Remove from JSON payload
+                }
+            }
+            
+            // Add other fields as multipart
+            foreach ($payload as $key => $value) {
+                if ($key !== 'proof_of_payment') {
+                    $multipart[] = [
+                        'name' => $key,
+                        'contents' => $value,
+                    ];
+                }
+            }
+            
+            Log::info('KashtreApiService: Marking invoice as paid', [
+                'url' => $url,
+                'invoice_id' => $invoiceId,
+                'insurance_company_id' => $insuranceCompanyId,
+                'payment_method' => $payload['payment_method'] ?? 'not set',
+                'has_proof_of_payment' => $hasFile,
+            ]);
+            
+            $http = Http::timeout(60); // Longer timeout for file uploads
+            
+            if ($hasFile) {
+                // Use multipart for file upload
+                $response = $http->asMultipart()
+                    ->acceptJson()
+                    ->post($url, $multipart);
+            } else {
+                // Use JSON for regular requests
+                $response = $http->acceptJson()
+                    ->withHeaders([
+                        'Accept' => 'application/json',
+                        'Content-Type' => 'application/json',
+                    ])
+                    ->post($url, $payload);
+            }
 
             if ($response->successful()) {
                 return $response->json();
@@ -146,6 +205,7 @@ class KashtreApiService
                 'insurance_company_id' => $insuranceCompanyId,
                 'status' => $response->status(),
                 'error' => $response->json(),
+                'response_body' => $response->body(),
             ]);
 
             return [
@@ -157,6 +217,7 @@ class KashtreApiService
                 'invoice_id' => $invoiceId,
                 'insurance_company_id' => $insuranceCompanyId,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [

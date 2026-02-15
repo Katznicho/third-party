@@ -261,7 +261,7 @@
     <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
         <div class="mt-3">
             <h3 class="text-lg font-medium text-gray-900 mb-4">Clear Payment</h3>
-            <form id="markPaidForm" method="POST">
+            <form id="markPaidForm" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Invoice Number</label>
@@ -270,6 +270,28 @@
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Amount</label>
                     <input type="text" id="modalAmount" readonly class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                    <input type="hidden" id="modalAmountValue" name="amount">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Payment Method <span class="text-red-500">*</span></label>
+                    <select name="payment_method" id="paymentMethod" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Payment Method</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="mobile_money">Mobile Money</option>
+                        <option value="cash">Cash</option>
+                    </select>
+                </div>
+                <div class="mb-4" id="mobileMoneyFields" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number <span class="text-red-500">*</span></label>
+                    <input type="text" name="phone_number" id="phoneNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="256XXXXXXXXX">
+                    <p class="text-xs text-gray-500 mt-1">Enter phone number in format: 256XXXXXXXXX</p>
+                    <p class="text-xs text-blue-600 mt-1">✓ Payment will be processed automatically via mobile money</p>
+                </div>
+                <div class="mb-4" id="proofOfPaymentFields" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Proof of Payment <span class="text-red-500">*</span></label>
+                    <input type="file" name="proof_of_payment" id="proofOfPayment" accept="image/*,.pdf,.doc,.docx" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Upload receipt, screenshot, or document (Image, PDF, or Word)</p>
+                    <p class="text-xs text-yellow-600 mt-1">⚠ Payment will be reviewed before being marked as paid</p>
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Payment Reference</label>
@@ -287,7 +309,7 @@
                     <button type="button" onclick="closeMarkPaidModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
                         Cancel
                     </button>
-                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    <button type="submit" id="submitPaymentBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
                         Clear Payment
                     </button>
                 </div>
@@ -301,8 +323,47 @@ function showMarkPaidModal(invoiceId, invoiceNumber, amount) {
     document.getElementById('markPaidForm').action = `/invoices/${invoiceId}/mark-paid`;
     document.getElementById('modalInvoiceNumber').value = invoiceNumber;
     document.getElementById('modalAmount').value = 'UGX ' + amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('modalAmountValue').value = amount;
     document.getElementById('markPaidModal').classList.remove('hidden');
+    
+    // Reset form
+    document.getElementById('paymentMethod').value = '';
+    document.getElementById('phoneNumber').value = '';
+    document.getElementById('proofOfPayment').value = '';
+    document.getElementById('mobileMoneyFields').style.display = 'none';
+    document.getElementById('proofOfPaymentFields').style.display = 'none';
 }
+
+// Show/hide fields based on payment method
+document.addEventListener('DOMContentLoaded', function() {
+    const paymentMethod = document.getElementById('paymentMethod');
+    const mobileMoneyFields = document.getElementById('mobileMoneyFields');
+    const proofOfPaymentFields = document.getElementById('proofOfPaymentFields');
+    const phoneNumber = document.getElementById('phoneNumber');
+    const proofOfPayment = document.getElementById('proofOfPayment');
+    
+    if (paymentMethod) {
+        paymentMethod.addEventListener('change', function() {
+            const method = this.value;
+            
+            // Reset all fields
+            mobileMoneyFields.style.display = 'none';
+            proofOfPaymentFields.style.display = 'none';
+            phoneNumber.removeAttribute('required');
+            proofOfPayment.removeAttribute('required');
+            phoneNumber.value = '';
+            proofOfPayment.value = '';
+            
+            if (method === 'mobile_money') {
+                mobileMoneyFields.style.display = 'block';
+                phoneNumber.setAttribute('required', 'required');
+            } else if (method === 'bank_transfer' || method === 'cash') {
+                proofOfPaymentFields.style.display = 'block';
+                proofOfPayment.setAttribute('required', 'required');
+            }
+        });
+    }
+});
 
 function closeMarkPaidModal() {
     document.getElementById('markPaidModal').classList.add('hidden');

@@ -14,9 +14,14 @@ class PaymentController extends Controller
     {
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         
+        // Get payments that belong to policies of this insurance company
+        // Also include payments from Kashtre invoices (created by current user, so they're for this insurance company)
         $payments = Payment::with(['invoice', 'policy', 'client'])
-            ->whereHas('policy', function($query) use ($insuranceCompanyId) {
-                $query->where('insurance_company_id', $insuranceCompanyId);
+            ->where(function($query) use ($insuranceCompanyId) {
+                $query->whereHas('policy', function($q) use ($insuranceCompanyId) {
+                    $q->where('insurance_company_id', $insuranceCompanyId);
+                })
+                ->orWhere('processed_by', auth()->id()); // Payments created by current user (from Kashtre invoices)
             })
             ->latest()
             ->paginate(15);

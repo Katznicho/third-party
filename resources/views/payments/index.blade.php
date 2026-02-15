@@ -43,13 +43,24 @@
                                 <div class="text-sm font-medium text-slate-900">{{ $payment->payment_reference }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-slate-900">{{ $payment->invoice->invoice_number ?? 'N/A' }}</div>
+                                <div class="text-sm text-slate-900">
+                                    @if($payment->invoice)
+                                        {{ $payment->invoice->invoice_number }}
+                                    @elseif($payment->payment_metadata && isset($payment->payment_metadata['invoice_number']))
+                                        {{ $payment->payment_metadata['invoice_number'] ?? $payment->payment_metadata['invoice_number'] ?? 'N/A' }}
+                                        <span class="text-xs text-blue-600">(Kashtre)</span>
+                                    @else
+                                        N/A
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-slate-900">{{ $payment->policy->policy_number ?? 'N/A' }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-slate-500">{{ $payment->client->full_name ?? 'N/A' }}</div>
+                                <div class="text-sm text-slate-500">
+                                    {{ $payment->client->full_name ?? ($payment->payment_metadata['client_name'] ?? 'N/A') }}
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
                                 {{ number_format($payment->amount ?? 0, 2) }}
