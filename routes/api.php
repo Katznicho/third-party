@@ -43,6 +43,9 @@ Route::prefix('v1')->group(function () {
     // Get insurance company by code (public, for client registration)
     Route::get('/businesses/by-code/{code}', [BusinessController::class, 'getByCode'])->name('api.businesses.by-code');
     
+    // Get insurance company by ID with settings (public, for client registration)
+    Route::get('/businesses/{id}/settings', [BusinessController::class, 'getSettings'])->name('api.businesses.settings');
+    
     // Create business connection (public, for client registration)
     Route::post('/businesses/connections', [BusinessController::class, 'createConnection'])->name('api.businesses.connections.create');
     

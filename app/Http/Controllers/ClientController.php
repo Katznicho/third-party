@@ -67,6 +67,10 @@ class ClientController extends Controller
             'coinsurance_contributes_to_deductible' => 'nullable|boolean',
             'telemedicine_only' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
+            'services_category' => 'required|in:dental,optical,outpatient,inpatient,maternity,funeral',
+            'payment_methods' => 'required|array|min:1',
+            'payment_methods.*' => 'required|string|in:insurance,mobile_money,cash,credit',
+            'insurance_company_id' => 'nullable|exists:insurance_companies,id',
         ];
         
         // Dynamic rules based on required fields
@@ -149,6 +153,19 @@ class ClientController extends Controller
         $validated['has_deductible'] = $request->boolean('has_deductible');
         $validated['telemedicine_only'] = $request->boolean('telemedicine_only');
         $validated['is_active'] = $request->boolean('is_active');
+
+        // Handle payment methods - validate insurance_company_id if insurance is selected
+        $paymentMethods = $validated['payment_methods'] ?? [];
+        if (in_array('insurance', $paymentMethods)) {
+            // Validate insurance company
+            if (empty($validated['insurance_company_id'])) {
+                return redirect()->back()
+                    ->withErrors(['insurance_company_id' => 'Insurance company is required when insurance payment method is selected.'])
+                    ->withInput();
+            }
+        } else {
+            $validated['insurance_company_id'] = null;
+        }
 
         // Set principal_member_id to null if not dependent
         if ($validated['type'] === 'principal') {

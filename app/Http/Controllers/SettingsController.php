@@ -109,40 +109,34 @@ class SettingsController extends Controller
         }
 
         $validated = $request->validate([
-            'enable_name_dob_verification' => 'nullable|boolean',
-            'enable_id_passport_verification' => 'nullable|boolean',
-            'enable_phone_verification' => 'nullable|boolean',
-            'enable_email_verification' => 'nullable|boolean',
+            'require_physical_id' => 'nullable|boolean',
+            'enable_method_1' => 'nullable|boolean',
+            'enable_method_2' => 'nullable|boolean',
+            'enable_method_3' => 'nullable|boolean',
+            'enable_method_4' => 'nullable|boolean',
             'name_mismatch_action' => 'required|in:auto_reject,flag_for_review',
             'dob_mismatch_action' => 'required|in:auto_reject,flag_for_review',
             'id_mismatch_action' => 'required|in:auto_reject,flag_for_review',
             'name_similarity_threshold' => 'required|integer|min:0|max:100',
             'dob_tolerance_days' => 'required|integer|min:0|max:365',
-            'enable_visit_verification' => 'nullable|boolean',
-            'visit_verification_validity_days' => 'required|integer|min:1|max:365',
-            'email_verification_action' => 'required|in:auto_accept,flag_for_review,auto_reject',
-            'phone_verification_action' => 'required|in:auto_accept,flag_for_review,auto_reject',
-            'id_passport_verification_action' => 'required|in:auto_accept,flag_for_review,auto_reject',
-            'visit_verification_action' => 'required|in:auto_accept,flag_for_review,auto_reject',
+            'phone_otp_expiry_minutes' => 'required|integer|min:1|max:60',
+            'email_otp_expiry_minutes' => 'required|integer|min:1|max:60',
         ]);
 
         $insuranceCompany = $user->insuranceCompany;
         $insuranceCompany->update([
-            'enable_name_dob_verification' => $request->boolean('enable_name_dob_verification', false),
-            'enable_id_passport_verification' => $request->boolean('enable_id_passport_verification', false),
-            'enable_phone_verification' => $request->boolean('enable_phone_verification', false),
-            'enable_email_verification' => $request->boolean('enable_email_verification', false),
+            'require_physical_id' => $request->boolean('require_physical_id', true),
+            'enable_method_1' => $request->boolean('enable_method_1', true),
+            'enable_method_2' => $request->boolean('enable_method_2', false),
+            'enable_method_3' => $request->boolean('enable_method_3', false),
+            'enable_method_4' => $request->boolean('enable_method_4', false),
             'name_mismatch_action' => $validated['name_mismatch_action'],
             'dob_mismatch_action' => $validated['dob_mismatch_action'],
             'id_mismatch_action' => $validated['id_mismatch_action'],
             'name_similarity_threshold' => $validated['name_similarity_threshold'],
             'dob_tolerance_days' => $validated['dob_tolerance_days'],
-            'enable_visit_verification' => $request->boolean('enable_visit_verification', false),
-            'visit_verification_validity_days' => $validated['visit_verification_validity_days'],
-            'email_verification_action' => $validated['email_verification_action'],
-            'phone_verification_action' => $validated['phone_verification_action'],
-            'id_passport_verification_action' => $validated['id_passport_verification_action'],
-            'visit_verification_action' => $validated['visit_verification_action'],
+            'phone_otp_expiry_minutes' => $validated['phone_otp_expiry_minutes'],
+            'email_otp_expiry_minutes' => $validated['email_otp_expiry_minutes'],
         ]);
 
         return redirect()->route('settings.index')

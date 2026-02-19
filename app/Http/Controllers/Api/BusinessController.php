@@ -207,6 +207,13 @@ class BusinessController extends Controller
                     'website' => $insuranceCompany->website,
                     'description' => $insuranceCompany->description,
                     'is_active' => $insuranceCompany->is_active,
+                    'verification_settings' => [
+                        'require_physical_id' => $insuranceCompany->require_physical_id ?? true,
+                        'enable_method_1' => $insuranceCompany->enable_method_1 ?? true,
+                        'enable_method_2' => $insuranceCompany->enable_method_2 ?? false,
+                        'enable_method_3' => $insuranceCompany->enable_method_3 ?? false,
+                        'enable_method_4' => $insuranceCompany->enable_method_4 ?? false,
+                    ],
                 ],
             ]);
         }
@@ -214,6 +221,46 @@ class BusinessController extends Controller
         return response()->json([
             'success' => false,
             'message' => 'Business not found.',
+            'data' => null,
+        ], 404);
+    }
+
+    /**
+     * Get insurance company settings by ID
+     *
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getSettings($id)
+    {
+        $insuranceCompany = InsuranceCompany::find($id);
+
+        if ($insuranceCompany) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Insurance company settings retrieved successfully',
+                'data' => [
+                    'id' => $insuranceCompany->id,
+                    'name' => $insuranceCompany->name,
+                    'code' => $insuranceCompany->code,
+                    'verification_settings' => [
+                        'require_physical_id' => $insuranceCompany->require_physical_id ?? true,
+                        'enable_method_1' => $insuranceCompany->enable_method_1 ?? true,
+                        'enable_method_2' => $insuranceCompany->enable_method_2 ?? false,
+                        'enable_method_3' => $insuranceCompany->enable_method_3 ?? false,
+                        'enable_method_4' => $insuranceCompany->enable_method_4 ?? false,
+                        'name_similarity_threshold' => $insuranceCompany->name_similarity_threshold ?? 80,
+                        'dob_tolerance_days' => $insuranceCompany->dob_tolerance_days ?? 0,
+                        'phone_otp_expiry_minutes' => $insuranceCompany->phone_otp_expiry_minutes ?? 5,
+                        'email_otp_expiry_minutes' => $insuranceCompany->email_otp_expiry_minutes ?? 10,
+                    ],
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Insurance company not found.',
             'data' => null,
         ], 404);
     }
@@ -506,6 +553,13 @@ class BusinessController extends Controller
                         'head_office_address' => $insuranceCompany->head_office_address,
                         'postal_address' => $insuranceCompany->postal_address,
                         'website' => $insuranceCompany->website,
+                    ],
+                    'verification_settings' => [
+                        'require_physical_id' => $insuranceCompany->require_physical_id ?? true,
+                        'enable_method_1' => $insuranceCompany->enable_method_1 ?? true,
+                        'enable_method_2' => $insuranceCompany->enable_method_2 ?? false,
+                        'enable_method_3' => $insuranceCompany->enable_method_3 ?? false,
+                        'enable_method_4' => $insuranceCompany->enable_method_4 ?? false,
                     ],
                 ],
             ]);

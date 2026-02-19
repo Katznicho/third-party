@@ -378,186 +378,211 @@
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <h2 class="text-xl font-bold text-slate-900 mb-4">Identity Verification Settings</h2>
                     <p class="text-sm text-slate-600 mb-6">
-                        Configure alternative verification methods when policy numbers don't work. These settings allow you to verify clients using name, date of birth, ID/Passport, phone, or email when the policy number verification fails.
+                        Configure verification methods. You can choose which methods to enable and whether Physical National ID is required. Two-step verification is recommended for security.
                     </p>
 
                     <form action="{{ route('settings.update-verification') }}" method="POST" class="space-y-6">
                         @csrf
                         @method('PUT')
 
-                        <!-- Alternative Verification Methods -->
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-semibold text-slate-800 mb-3">Alternative Verification Methods</h3>
-                            
-                            <div class="space-y-3">
-                                <label class="flex items-start">
-                                    <input 
-                                        type="checkbox" 
-                                        name="enable_name_dob_verification" 
-                                        value="1"
-                                        {{ old('enable_name_dob_verification', $insuranceCompany->enable_name_dob_verification ?? false) ? 'checked' : '' }}
-                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
-                                    >
-                                    <div class="ml-3">
-                                        <span class="block text-sm font-medium text-slate-700">Enable Name & Date of Birth Verification</span>
-                                        <p class="text-xs text-slate-500 mt-1">Allow verification using client's full name and date of birth when policy number is unavailable.</p>
-                                    </div>
-                                </label>
-
-                                <label class="flex items-start">
-                                    <input 
-                                        type="checkbox" 
-                                        name="enable_id_passport_verification" 
-                                        value="1"
-                                        {{ old('enable_id_passport_verification', $insuranceCompany->enable_id_passport_verification ?? false) ? 'checked' : '' }}
-                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
-                                    >
-                                    <div class="ml-3">
-                                        <span class="block text-sm font-medium text-slate-700">Enable ID/Passport Verification</span>
-                                        <p class="text-xs text-slate-500 mt-1">Allow verification using client's ID or Passport number.</p>
-                                    </div>
-                                </label>
-
-                                <label class="flex items-start">
-                                    <input 
-                                        type="checkbox" 
-                                        name="enable_phone_verification" 
-                                        value="1"
-                                        {{ old('enable_phone_verification', $insuranceCompany->enable_phone_verification ?? false) ? 'checked' : '' }}
-                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
-                                    >
-                                    <div class="ml-3">
-                                        <span class="block text-sm font-medium text-slate-700">Enable Phone Verification</span>
-                                        <p class="text-xs text-slate-500 mt-1">Allow verification using client's registered phone number.</p>
-                                    </div>
-                                </label>
-
-                                <label class="flex items-start">
-                                    <input 
-                                        type="checkbox" 
-                                        name="enable_email_verification" 
-                                        value="1"
-                                        {{ old('enable_email_verification', $insuranceCompany->enable_email_verification ?? false) ? 'checked' : '' }}
-                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
-                                    >
-                                    <div class="ml-3">
-                                        <span class="block text-sm font-medium text-slate-700">Enable Email Verification</span>
-                                        <p class="text-xs text-slate-500 mt-1">Allow verification using client's registered email address.</p>
-                                    </div>
-                                </label>
-
-                                <label class="flex items-start">
-                                    <input 
-                                        type="checkbox" 
-                                        name="enable_visit_verification" 
-                                        value="1"
-                                        {{ old('enable_visit_verification', $insuranceCompany->enable_visit_verification ?? false) ? 'checked' : '' }}
-                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
-                                    >
-                                    <div class="ml-3">
-                                        <span class="block text-sm font-medium text-slate-700">Enable Visit-Based Verification</span>
-                                        <p class="text-xs text-slate-500 mt-1">Allow verification using visit ID. Once verified for a visit, the verification remains valid for the specified period.</p>
-                                    </div>
-                                </label>
+                        <!-- Physical ID Requirement -->
+                        <div class="border border-slate-200 rounded-lg p-5 bg-blue-50">
+                            <div class="flex items-start">
+                                <input 
+                                    type="checkbox" 
+                                    name="require_physical_id" 
+                                    id="require_physical_id"
+                                    value="1"
+                                    {{ old('require_physical_id', $insuranceCompany->require_physical_id ?? true) ? 'checked' : '' }}
+                                    class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
+                                >
+                                <div class="ml-3 flex-1">
+                                    <label for="require_physical_id" class="block text-base font-semibold text-slate-900 cursor-pointer">
+                                        Require Physical National ID Verification
+                                    </label>
+                                    <p class="text-sm text-slate-600 mt-1">
+                                        When enabled, all verification methods will require Physical National ID as Step 1. When disabled, methods can be used without Physical ID requirement.
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Alternative Verification Method Actions -->
+                        <!-- Verification Methods -->
+                        <div class="space-y-6">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-3">Verification Methods</h3>
+                            <p class="text-sm text-slate-600 mb-4">Select which verification methods to enable for your insurance company.</p>
+                            
+                            <!-- Method 1: Physical ID + Policy # + Matching Details -->
+                            <div class="border border-slate-200 rounded-lg p-5 bg-slate-50">
+                                <div class="flex items-start mb-3">
+                                    <input 
+                                        type="checkbox" 
+                                        name="enable_method_1" 
+                                        id="enable_method_1"
+                                        value="1"
+                                        {{ old('enable_method_1', $insuranceCompany->enable_method_1 ?? true) ? 'checked' : '' }}
+                                        class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
+                                    >
+                                    <div class="ml-3 flex-1">
+                                        <label for="enable_method_1" class="block text-base font-semibold text-slate-900 cursor-pointer">
+                                            Method 1: Policy Number + Matching Details
+                                        </label>
+                                        <p class="text-sm text-slate-600 mt-1">
+                                            Requires: Policy Number + matching name, date of birth, and other details. <span id="method1-physical-id-note" class="font-medium">Physical National ID is also required if enabled above.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div class="ml-8 space-y-3 mt-4" id="method1-steps">
+                                    <div class="bg-white rounded p-3 border border-slate-200" id="method1-step1-physical-id" style="display: none;">
+                                        <p class="text-xs font-medium text-slate-700 mb-2">Step 1: Physical National ID</p>
+                                        <p class="text-xs text-slate-600">Client must provide their physical national ID/Passport for verification.</p>
+                                    </div>
+                                    <div class="bg-white rounded p-3 border border-slate-200">
+                                        <p class="text-xs font-medium text-slate-700 mb-2" id="method1-step-label">Step <span id="method1-step-num">1</span>: Policy Number + Matching Details</p>
+                                        <p class="text-xs text-slate-600">Client must provide policy number and matching details (name, date of birth, etc.) that match the policy records.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Method 2: Physical ID + Phone OTP -->
+                            <div class="border border-slate-200 rounded-lg p-5 bg-slate-50">
+                                <div class="flex items-start mb-3">
+                                    <input 
+                                        type="checkbox" 
+                                        name="enable_method_2" 
+                                        id="enable_method_2"
+                                        value="1"
+                                        {{ old('enable_method_2', $insuranceCompany->enable_method_2 ?? false) ? 'checked' : '' }}
+                                        class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
+                                    >
+                                    <div class="ml-3 flex-1">
+                                        <label for="enable_method_2" class="block text-base font-semibold text-slate-900 cursor-pointer">
+                                            Method 2: Phone OTP
+                                        </label>
+                                        <p class="text-sm text-slate-600 mt-1">
+                                            Requires: Phone OTP sent to registered phone number. <span id="method2-physical-id-note" class="font-medium">Physical National ID is also required if enabled above.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div class="ml-8 space-y-3 mt-4" id="method2-steps">
+                                    <div class="bg-white rounded p-3 border border-slate-200" id="method2-step1-physical-id" style="display: none;">
+                                        <p class="text-xs font-medium text-slate-700 mb-2">Step 1: Physical National ID</p>
+                                        <p class="text-xs text-slate-600">Client must provide their physical national ID/Passport for verification.</p>
+                                    </div>
+                                    <div class="bg-white rounded p-3 border border-slate-200">
+                                        <p class="text-xs font-medium text-slate-700 mb-2" id="method2-step-label">Step <span id="method2-step-num">1</span>: Phone OTP</p>
+                                        <p class="text-xs text-slate-600">An OTP code is sent to the client's registered phone number. Client must enter the correct OTP to complete verification.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Method 3: Physical ID + Email + OTP -->
+                            <div class="border border-slate-200 rounded-lg p-5 bg-slate-50">
+                                <div class="flex items-start mb-3">
+                                    <input 
+                                        type="checkbox" 
+                                        name="enable_method_3" 
+                                        id="enable_method_3"
+                                        value="1"
+                                        {{ old('enable_method_3', $insuranceCompany->enable_method_3 ?? false) ? 'checked' : '' }}
+                                        class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
+                                    >
+                                    <div class="ml-3 flex-1">
+                                        <label for="enable_method_3" class="block text-base font-semibold text-slate-900 cursor-pointer">
+                                            Method 3: Email + OTP
+                                        </label>
+                                        <p class="text-sm text-slate-600 mt-1">
+                                            Requires: Email OTP sent to registered email address. <span id="method3-physical-id-note" class="font-medium">Physical National ID is also required if enabled above.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div class="ml-8 space-y-3 mt-4" id="method3-steps">
+                                    <div class="bg-white rounded p-3 border border-slate-200" id="method3-step1-physical-id" style="display: none;">
+                                        <p class="text-xs font-medium text-slate-700 mb-2">Step 1: Physical National ID</p>
+                                        <p class="text-xs text-slate-600">Client must provide their physical national ID/Passport for verification.</p>
+                                    </div>
+                                    <div class="bg-white rounded p-3 border border-slate-200">
+                                        <p class="text-xs font-medium text-slate-700 mb-2" id="method3-step-label">Step <span id="method3-step-num">1</span>: Email + OTP</p>
+                                        <p class="text-xs text-slate-600">An OTP code is sent to the client's registered email address. Client must enter the correct OTP to complete verification.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Method 4: Physical ID + Name + Date of Birth -->
+                            <div class="border border-slate-200 rounded-lg p-5 bg-slate-50">
+                                <div class="flex items-start mb-3">
+                                    <input 
+                                        type="checkbox" 
+                                        name="enable_method_4" 
+                                        id="enable_method_4"
+                                        value="1"
+                                        {{ old('enable_method_4', $insuranceCompany->enable_method_4 ?? false) ? 'checked' : '' }}
+                                        class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded mt-1"
+                                    >
+                                    <div class="ml-3 flex-1">
+                                        <label for="enable_method_4" class="block text-base font-semibold text-slate-900 cursor-pointer">
+                                            Method 4: Name + Date of Birth
+                                        </label>
+                                        <p class="text-sm text-slate-600 mt-1">
+                                            Requires: Name and Date of Birth matching policy records. <span id="method4-physical-id-note" class="font-medium">Physical National ID is also required if enabled above.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div class="ml-8 space-y-3 mt-4" id="method4-steps">
+                                    <div class="bg-white rounded p-3 border border-slate-200" id="method4-step1-physical-id" style="display: none;">
+                                        <p class="text-xs font-medium text-slate-700 mb-2">Step 1: Physical National ID</p>
+                                        <p class="text-xs text-slate-600">Client must provide their physical national ID/Passport for verification.</p>
+                                    </div>
+                                    <div class="bg-white rounded p-3 border border-slate-200">
+                                        <p class="text-xs font-medium text-slate-700 mb-2" id="method4-step-label">Step <span id="method4-step-num">1</span>: Name + Date of Birth</p>
+                                        <p class="text-xs text-slate-600">Client must provide their full name and date of birth that match the policy records. Name similarity and DOB tolerance settings apply.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Method 2 & 3 Settings -->
                         <div class="space-y-4 pt-4 border-t border-slate-200">
-                            <h3 class="text-lg font-semibold text-slate-800 mb-3">Alternative Verification Method Actions</h3>
-                            <p class="text-sm text-slate-600 mb-4">Configure what happens when clients are verified using alternative methods (Email, Phone, ID/Passport, Visit ID).</p>
+                            <h3 class="text-lg font-semibold text-slate-800 mb-3">OTP Settings (Methods 2 & 3)</h3>
+                            <p class="text-sm text-slate-600 mb-4">Configure OTP settings for Phone and Email verification methods.</p>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label for="email_verification_action" class="block text-sm font-medium text-slate-700 mb-2">
-                                        Email Verification Action
+                                    <label for="phone_otp_expiry_minutes" class="block text-sm font-medium text-slate-700 mb-2">
+                                        Phone OTP Expiry (Minutes)
                                     </label>
-                                    <select 
-                                        name="email_verification_action" 
-                                        id="email_verification_action"
+                                    <input 
+                                        type="number" 
+                                        name="phone_otp_expiry_minutes" 
+                                        id="phone_otp_expiry_minutes"
+                                        value="{{ old('phone_otp_expiry_minutes', $insuranceCompany->phone_otp_expiry_minutes ?? 10) }}"
+                                        min="1"
+                                        max="60"
                                         class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     >
-                                        <option value="auto_accept" {{ old('email_verification_action', $insuranceCompany->email_verification_action ?? 'auto_accept') === 'auto_accept' ? 'selected' : '' }}>
-                                            Auto Accept
-                                        </option>
-                                        <option value="flag_for_review" {{ old('email_verification_action', $insuranceCompany->email_verification_action ?? 'auto_accept') === 'flag_for_review' ? 'selected' : '' }}>
-                                            Flag for Review
-                                        </option>
-                                        <option value="auto_reject" {{ old('email_verification_action', $insuranceCompany->email_verification_action ?? 'auto_accept') === 'auto_reject' ? 'selected' : '' }}>
-                                            Auto Reject
-                                        </option>
-                                    </select>
-                                    <p class="text-xs text-slate-500 mt-1">Action when client is verified using email</p>
+                                    <p class="text-xs text-slate-500 mt-1">How long the phone OTP remains valid (1-60 minutes)</p>
                                 </div>
 
                                 <div>
-                                    <label for="phone_verification_action" class="block text-sm font-medium text-slate-700 mb-2">
-                                        Phone Verification Action
+                                    <label for="email_otp_expiry_minutes" class="block text-sm font-medium text-slate-700 mb-2">
+                                        Email OTP Expiry (Minutes)
                                     </label>
-                                    <select 
-                                        name="phone_verification_action" 
-                                        id="phone_verification_action"
+                                    <input 
+                                        type="number" 
+                                        name="email_otp_expiry_minutes" 
+                                        id="email_otp_expiry_minutes"
+                                        value="{{ old('email_otp_expiry_minutes', $insuranceCompany->email_otp_expiry_minutes ?? 15) }}"
+                                        min="1"
+                                        max="60"
                                         class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     >
-                                        <option value="auto_accept" {{ old('phone_verification_action', $insuranceCompany->phone_verification_action ?? 'auto_accept') === 'auto_accept' ? 'selected' : '' }}>
-                                            Auto Accept
-                                        </option>
-                                        <option value="flag_for_review" {{ old('phone_verification_action', $insuranceCompany->phone_verification_action ?? 'auto_accept') === 'flag_for_review' ? 'selected' : '' }}>
-                                            Flag for Review
-                                        </option>
-                                        <option value="auto_reject" {{ old('phone_verification_action', $insuranceCompany->phone_verification_action ?? 'auto_accept') === 'auto_reject' ? 'selected' : '' }}>
-                                            Auto Reject
-                                        </option>
-                                    </select>
-                                    <p class="text-xs text-slate-500 mt-1">Action when client is verified using phone</p>
-                                </div>
-
-                                <div>
-                                    <label for="id_passport_verification_action" class="block text-sm font-medium text-slate-700 mb-2">
-                                        ID/Passport Verification Action
-                                    </label>
-                                    <select 
-                                        name="id_passport_verification_action" 
-                                        id="id_passport_verification_action"
-                                        class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    >
-                                        <option value="auto_accept" {{ old('id_passport_verification_action', $insuranceCompany->id_passport_verification_action ?? 'auto_accept') === 'auto_accept' ? 'selected' : '' }}>
-                                            Auto Accept
-                                        </option>
-                                        <option value="flag_for_review" {{ old('id_passport_verification_action', $insuranceCompany->id_passport_verification_action ?? 'auto_accept') === 'flag_for_review' ? 'selected' : '' }}>
-                                            Flag for Review
-                                        </option>
-                                        <option value="auto_reject" {{ old('id_passport_verification_action', $insuranceCompany->id_passport_verification_action ?? 'auto_accept') === 'auto_reject' ? 'selected' : '' }}>
-                                            Auto Reject
-                                        </option>
-                                    </select>
-                                    <p class="text-xs text-slate-500 mt-1">Action when client is verified using ID/Passport</p>
-                                </div>
-
-                                <div>
-                                    <label for="visit_verification_action" class="block text-sm font-medium text-slate-700 mb-2">
-                                        Visit ID Verification Action
-                                    </label>
-                                    <select 
-                                        name="visit_verification_action" 
-                                        id="visit_verification_action"
-                                        class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    >
-                                        <option value="auto_accept" {{ old('visit_verification_action', $insuranceCompany->visit_verification_action ?? 'auto_accept') === 'auto_accept' ? 'selected' : '' }}>
-                                            Auto Accept
-                                        </option>
-                                        <option value="flag_for_review" {{ old('visit_verification_action', $insuranceCompany->visit_verification_action ?? 'auto_accept') === 'flag_for_review' ? 'selected' : '' }}>
-                                            Flag for Review
-                                        </option>
-                                        <option value="auto_reject" {{ old('visit_verification_action', $insuranceCompany->visit_verification_action ?? 'auto_accept') === 'auto_reject' ? 'selected' : '' }}>
-                                            Auto Reject
-                                        </option>
-                                    </select>
-                                    <p class="text-xs text-slate-500 mt-1">Action when client is verified using visit ID</p>
+                                    <p class="text-xs text-slate-500 mt-1">How long the email OTP remains valid (1-60 minutes)</p>
                                 </div>
                             </div>
                         </div>
@@ -565,7 +590,7 @@
                         <!-- Mismatch Handling Rules -->
                         <div class="space-y-4 pt-4 border-t border-slate-200">
                             <h3 class="text-lg font-semibold text-slate-800 mb-3">Mismatch Handling Rules</h3>
-                            <p class="text-sm text-slate-600 mb-4">Configure how to handle mismatches between provided information and policy records (for Name & DOB verification).</p>
+                            <p class="text-sm text-slate-600 mb-4">Configure how to handle mismatches between provided information and policy records. These settings apply when name, date of birth, or ID/Passport verification is required in any method.</p>
                             
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
@@ -633,8 +658,9 @@
                         <!-- Verification Tolerance Settings -->
                         <div class="space-y-4 pt-4 border-t border-slate-200">
                             <h3 class="text-lg font-semibold text-slate-800 mb-3">Verification Tolerance Settings</h3>
+                            <p class="text-sm text-slate-600 mb-4">Configure tolerance settings for name and date of birth matching. These settings can be used across all verification methods when name or date of birth verification is required.</p>
                             
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label for="name_similarity_threshold" class="block text-sm font-medium text-slate-700 mb-2">
                                         Name Similarity Threshold (%)
@@ -649,7 +675,7 @@
                                         class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     >
-                                    <p class="text-xs text-slate-500 mt-1">Minimum similarity percentage for name matching (0-100)</p>
+                                    <p class="text-xs text-slate-500 mt-1">Minimum similarity percentage for name matching (0-100). Used when name verification is required in any method.</p>
                                 </div>
 
                                 <div>
@@ -666,24 +692,7 @@
                                         class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     >
-                                    <p class="text-xs text-slate-500 mt-1">Days tolerance for date of birth matching</p>
-                                </div>
-
-                                <div>
-                                    <label for="visit_verification_validity_days" class="block text-sm font-medium text-slate-700 mb-2">
-                                        Visit Verification Validity (Days)
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        name="visit_verification_validity_days" 
-                                        id="visit_verification_validity_days"
-                                        value="{{ old('visit_verification_validity_days', $insuranceCompany->visit_verification_validity_days ?? 30) }}"
-                                        min="1"
-                                        max="365"
-                                        class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    >
-                                    <p class="text-xs text-slate-500 mt-1">Days a visit verification remains valid</p>
+                                    <p class="text-xs text-slate-500 mt-1">Days tolerance for date of birth matching. Used when date of birth verification is required in any method.</p>
                                 </div>
                             </div>
                         </div>
@@ -692,12 +701,15 @@
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <h3 class="text-sm font-semibold text-blue-900 mb-2">How it works:</h3>
                             <ul class="text-xs text-blue-800 space-y-1 list-disc list-inside">
-                                <li>When policy number verification fails, the system will attempt alternative verification methods if enabled.</li>
-                                <li><strong>Auto Accept:</strong> Verification is automatically accepted.</li>
-                                <li><strong>Flag for Review:</strong> Verification is flagged for manual review by insurance company staff.</li>
-                                <li><strong>Auto Reject:</strong> Verification is automatically rejected.</li>
+                                <li><strong>Physical ID Requirement:</strong> You can choose whether Physical National ID is required for all methods. When enabled, it becomes Step 1 for all verification methods.</li>
+                                <li><strong>Method 1:</strong> Policy Number + matching details (name, DOB, etc.) + Physical ID (if required)</li>
+                                <li><strong>Method 2:</strong> Phone OTP sent to registered phone number + Physical ID (if required)</li>
+                                <li><strong>Method 3:</strong> Email OTP sent to registered email address + Physical ID (if required)</li>
+                                <li><strong>Method 4:</strong> Name + Date of Birth matching policy records + Physical ID (if required)</li>
+                                <li><strong>Flag for Review:</strong> Verification is flagged for manual review by insurance company staff when mismatches occur.</li>
+                                <li><strong>Auto Reject:</strong> Verification is automatically rejected when mismatches exceed tolerance levels.</li>
                                 <li>Name similarity uses fuzzy matching to handle minor spelling differences.</li>
-                                <li>Visit-based verification allows clients to be verified once per visit and reuse that verification for subsequent transactions.</li>
+                                <li>OTP codes expire after the configured time period for security.</li>
                             </ul>
                         </div>
 
@@ -982,6 +994,38 @@
     // Initialize first tab on page load
     document.addEventListener('DOMContentLoaded', function() {
         switchTab('policy-number');
+        
+        // Handle Physical ID requirement toggle
+        const requirePhysicalIdCheckbox = document.getElementById('require_physical_id');
+        if (requirePhysicalIdCheckbox) {
+            function updatePhysicalIdSteps() {
+                const isRequired = requirePhysicalIdCheckbox.checked;
+                
+                // Update all method step displays
+                for (let i = 1; i <= 4; i++) {
+                    const physicalIdStep = document.getElementById(`method${i}-step1-physical-id`);
+                    const stepNum = document.getElementById(`method${i}-step-num`);
+                    const physicalIdNote = document.getElementById(`method${i}-physical-id-note`);
+                    
+                    if (physicalIdStep) {
+                        physicalIdStep.style.display = isRequired ? 'block' : 'none';
+                    }
+                    
+                    if (stepNum) {
+                        stepNum.textContent = isRequired ? '2' : '1';
+                    }
+                    
+                    if (physicalIdNote) {
+                        physicalIdNote.textContent = isRequired 
+                            ? 'Physical National ID is also required if enabled above.' 
+                            : 'Physical National ID is optional and can be enabled above.';
+                    }
+                }
+            }
+            
+            requirePhysicalIdCheckbox.addEventListener('change', updatePhysicalIdSteps);
+            updatePhysicalIdSteps(); // Initialize on page load
+        }
         
         // Update preview on input change
         const formatInput = document.getElementById('policy_number_format');
