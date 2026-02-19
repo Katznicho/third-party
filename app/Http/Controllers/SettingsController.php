@@ -142,4 +142,35 @@ class SettingsController extends Controller
         return redirect()->route('settings.index')
             ->with('success', 'Identity verification settings updated successfully.');
     }
+
+    /**
+     * Update authorization settings
+     */
+    public function updateAuthorizationSettings(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $validated = $request->validate([
+            'enable_auto_authorization' => 'nullable|boolean',
+            'auto_approve_max_amount' => 'nullable|numeric|min:0',
+            'auto_reject_min_amount' => 'nullable|numeric|min:0',
+            'require_manual_review_above_amount' => 'nullable|boolean',
+            'manual_review_threshold_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        $insuranceCompany = $user->insuranceCompany;
+        $insuranceCompany->update([
+            'enable_auto_authorization' => $request->boolean('enable_auto_authorization', true),
+            'auto_approve_max_amount' => $validated['auto_approve_max_amount'] ?? null,
+            'auto_reject_min_amount' => $validated['auto_reject_min_amount'] ?? null,
+            'require_manual_review_above_amount' => $request->boolean('require_manual_review_above_amount', true),
+            'manual_review_threshold_amount' => $validated['manual_review_threshold_amount'] ?? null,
+        ]);
+
+        return redirect()->route('settings.index')
+            ->with('success', 'Authorization settings updated successfully.');
+    }
 }

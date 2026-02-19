@@ -31,6 +31,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Service Category</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Authorization</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Request Date</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -58,21 +59,48 @@
                                     $statusColors = [
                                         'pending' => 'bg-yellow-100 text-yellow-800',
                                         'approved' => 'bg-green-100 text-green-800',
+                                        'partially_approved' => 'bg-blue-100 text-blue-800',
+                                        'rejected' => 'bg-red-100 text-red-800',
                                         'denied' => 'bg-red-100 text-red-800',
                                         'expired' => 'bg-slate-100 text-slate-800',
                                     ];
                                     $statusColor = $statusColors[$preAuth->status ?? 'pending'] ?? 'bg-slate-100 text-slate-800';
                                 @endphp
                                 <span class="px-2 py-1 text-xs font-medium rounded-full {{ $statusColor }}">
-                                    {{ ucfirst($preAuth->status ?? 'Pending') }}
+                                    {{ ucfirst(str_replace('_', ' ', $preAuth->status ?? 'pending')) }}
                                 </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @if($preAuth->authorization_method)
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full {{ $preAuth->authorization_method === 'automatic' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800' }}">
+                                        {{ ucfirst($preAuth->authorization_method) }}
+                                    </span>
+                                @else
+                                    <span class="text-xs text-slate-400">—</span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                 {{ $preAuth->request_date ? $preAuth->request_date->format('M d, Y') : 'N/A' }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{{ route('pre-authorizations.show', $preAuth) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
-                                <a href="{{ route('pre-authorizations.edit', $preAuth) }}" class="text-slate-600 hover:text-slate-900">Edit</a>
+                                @if($preAuth->status === 'pending')
+                                    <form action="{{ route('authorization-review.approve', $preAuth) }}" method="POST" class="inline mr-2">
+                                        @csrf
+                                        <button type="submit" onclick="return confirm('Approve this pre-authorization for UGX {{ number_format($preAuth->requested_amount, 2) }}?');" 
+                                                class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition">
+                                            Approve
+                                        </button>
+                                    </form>
+                                    <form action="{{ route('authorization-review.reject', $preAuth) }}" method="POST" class="inline mr-2">
+                                        @csrf
+                                        <input type="hidden" name="rejection_reason" value="Rejected via quick action">
+                                        <button type="submit" onclick="return confirm('Reject this pre-authorization?');" 
+                                                class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition">
+                                            Reject
+                                        </button>
+                                    </form>
+                                @endif
+                                <a href="{{ route('pre-authorizations.show', $preAuth) }}" class="text-blue-600 hover:text-blue-900">View</a>
                             </td>
                         </tr>
                     @endforeach

@@ -41,6 +41,8 @@ class PreAuthorization extends Model
         'visit_end_date',
         'triggered_by_trigger_id',
         'trigger_reason',
+        'authorization_method',
+        'authorization_rule_id',
     ];
 
     protected function casts(): array
@@ -125,6 +127,16 @@ class PreAuthorization extends Model
     public function paymentResponsibilities(): HasMany
     {
         return $this->hasMany(PaymentResponsibility::class);
+    }
+
+    public function authorizationRule(): BelongsTo
+    {
+        return $this->belongsTo(AuthorizationRule::class);
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuthorizationAuditLog::class);
     }
 
     public function isPending(): bool

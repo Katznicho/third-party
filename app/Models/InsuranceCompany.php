@@ -42,6 +42,12 @@ class InsuranceCompany extends Model
         'dob_tolerance_days',
         'phone_otp_expiry_minutes',
         'email_otp_expiry_minutes',
+        // Authorization settings
+        'enable_auto_authorization',
+        'auto_approve_max_amount',
+        'auto_reject_min_amount',
+        'require_manual_review_above_amount',
+        'manual_review_threshold_amount',
         // Legacy fields (kept for backward compatibility)
         'enable_name_dob_verification',
         'enable_id_passport_verification',
@@ -74,6 +80,12 @@ class InsuranceCompany extends Model
             'dob_tolerance_days' => 'integer',
             'phone_otp_expiry_minutes' => 'integer',
             'email_otp_expiry_minutes' => 'integer',
+            // Authorization settings
+            'enable_auto_authorization' => 'boolean',
+            'auto_approve_max_amount' => 'decimal:2',
+            'auto_reject_min_amount' => 'decimal:2',
+            'require_manual_review_above_amount' => 'boolean',
+            'manual_review_threshold_amount' => 'decimal:2',
             // Legacy fields (kept for backward compatibility)
             'enable_name_dob_verification' => 'boolean',
             'enable_id_passport_verification' => 'boolean',

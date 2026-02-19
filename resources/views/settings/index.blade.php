@@ -64,6 +64,13 @@
                 >
                     Coverage & Pre-Auth
                 </button>
+                <button 
+                    onclick="switchTab('authorization')"
+                    id="tab-authorization"
+                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                >
+                    Authorization
+                </button>
             </nav>
         </div>
 
@@ -1077,4 +1084,132 @@
         }
     });
 </script>
+
+            <!-- Authorization Settings Tab -->
+            <div id="content-authorization" class="tab-content" style="display: none;">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-xl font-bold text-slate-900 mb-4">Authorization Settings</h2>
+                    <p class="text-sm text-slate-600 mb-6">
+                        Configure automatic authorization, rejection, and manual review thresholds for pre-authorizations.
+                    </p>
+
+                    <form action="{{ route('settings.update-authorization') }}" method="POST" class="space-y-6">
+                        @csrf
+                        @method('PUT')
+
+                        <!-- Enable Auto-Authorization -->
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                            <div>
+                                <label class="text-sm font-medium text-slate-900">Enable Automatic Authorization</label>
+                                <p class="text-xs text-slate-600 mt-1">Automatically approve or reject pre-authorizations based on amount thresholds</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="enable_auto_authorization" value="1" 
+                                    {{ old('enable_auto_authorization', $insuranceCompany->enable_auto_authorization ?? true) ? 'checked' : '' }}
+                                    class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Auto-Approve Maximum Amount -->
+                        <div>
+                            <label for="auto_approve_max_amount" class="block text-sm font-medium text-slate-700 mb-2">
+                                Auto-Approve Maximum Amount (UGX)
+                            </label>
+                            <input 
+                                type="number" 
+                                name="auto_approve_max_amount" 
+                                id="auto_approve_max_amount" 
+                                value="{{ old('auto_approve_max_amount', $insuranceCompany->auto_approve_max_amount ?? '') }}"
+                                step="0.01"
+                                min="0"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="e.g., 500000"
+                            >
+                            <p class="text-xs text-slate-500 mt-2">
+                                Pre-authorizations with amounts ≤ this value will be automatically approved. Leave empty to disable auto-approval.
+                            </p>
+                        </div>
+
+                        <!-- Auto-Reject Minimum Amount -->
+                        <div>
+                            <label for="auto_reject_min_amount" class="block text-sm font-medium text-slate-700 mb-2">
+                                Auto-Reject Minimum Amount (UGX)
+                            </label>
+                            <input 
+                                type="number" 
+                                name="auto_reject_min_amount" 
+                                id="auto_reject_min_amount" 
+                                value="{{ old('auto_reject_min_amount', $insuranceCompany->auto_reject_min_amount ?? '') }}"
+                                step="0.01"
+                                min="0"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="e.g., 5000000"
+                            >
+                            <p class="text-xs text-slate-500 mt-2">
+                                Pre-authorizations with amounts ≥ this value will be automatically rejected. Leave empty to disable auto-rejection.
+                            </p>
+                        </div>
+
+                        <!-- Require Manual Review Above Amount -->
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                            <div>
+                                <label class="text-sm font-medium text-slate-900">Require Manual Review Above Threshold</label>
+                                <p class="text-xs text-slate-600 mt-1">Flag pre-authorizations above a certain amount for manual review</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="require_manual_review_above_amount" value="1" 
+                                    {{ old('require_manual_review_above_amount', $insuranceCompany->require_manual_review_above_amount ?? true) ? 'checked' : '' }}
+                                    class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Manual Review Threshold Amount -->
+                        <div>
+                            <label for="manual_review_threshold_amount" class="block text-sm font-medium text-slate-700 mb-2">
+                                Manual Review Threshold Amount (UGX)
+                            </label>
+                            <input 
+                                type="number" 
+                                name="manual_review_threshold_amount" 
+                                id="manual_review_threshold_amount" 
+                                value="{{ old('manual_review_threshold_amount', $insuranceCompany->manual_review_threshold_amount ?? '') }}"
+                                step="0.01"
+                                min="0"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="e.g., 1000000"
+                            >
+                            <p class="text-xs text-slate-500 mt-2">
+                                Pre-authorizations with amounts > this value will be flagged for manual review. Leave empty to disable.
+                            </p>
+                        </div>
+
+                        <!-- Info Box -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex">
+                                <svg class="w-5 h-5 text-blue-600 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div class="text-sm text-blue-800">
+                                    <p class="font-semibold mb-1">How Authorization Works:</p>
+                                    <ul class="list-disc list-inside space-y-1 text-xs">
+                                        <li>If amount ≤ Auto-Approve Max: <strong>Automatically Approved</strong></li>
+                                        <li>If amount ≥ Auto-Reject Min: <strong>Automatically Rejected</strong></li>
+                                        <li>If amount > Manual Review Threshold: <strong>Flagged for Manual Review</strong></li>
+                                        <li>Otherwise: <strong>Flagged for Manual Review</strong></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                Save Authorization Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 @endsection

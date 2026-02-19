@@ -77,6 +77,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/deductible-contribution', [\App\Http\Controllers\SettingsController::class, 'updateDeductibleContributionSettings'])->name('settings.update-deductible-contribution');
     Route::put('/settings/required-client-fields', [\App\Http\Controllers\SettingsController::class, 'updateRequiredClientFields'])->name('settings.update-required-client-fields');
     Route::put('/settings/verification', [\App\Http\Controllers\SettingsController::class, 'updateVerificationSettings'])->name('settings.update-verification');
+    Route::put('/settings/authorization', [\App\Http\Controllers\SettingsController::class, 'updateAuthorizationSettings'])->name('settings.update-authorization');
     
     // Coverage Decision Matrix
     Route::resource('settings/coverage-decision-matrix', \App\Http\Controllers\CoverageDecisionMatrixController::class)->names([
@@ -93,4 +94,16 @@ Route::middleware('auth')->group(function () {
         'update' => 'settings.pre-authorization-triggers.update',
         'destroy' => 'settings.pre-authorization-triggers.destroy',
     ]);
+    
+    // Authorization Rules
+    Route::resource('authorization-rules', \App\Http\Controllers\AuthorizationRuleController::class);
+    
+    // Authorization Review
+    Route::prefix('authorization-review')->name('authorization-review.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AuthorizationReviewController::class, 'index'])->name('index');
+        Route::get('/{preAuthorization}', [\App\Http\Controllers\AuthorizationReviewController::class, 'show'])->name('show');
+        Route::post('/{preAuthorization}/approve', [\App\Http\Controllers\AuthorizationReviewController::class, 'approve'])->name('approve');
+        Route::post('/{preAuthorization}/reject', [\App\Http\Controllers\AuthorizationReviewController::class, 'reject'])->name('reject');
+        Route::post('/{preAuthorization}/reprocess', [\App\Http\Controllers\AuthorizationReviewController::class, 'reprocess'])->name('reprocess');
+    });
 });

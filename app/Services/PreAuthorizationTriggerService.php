@@ -120,12 +120,63 @@ class PreAuthorizationTriggerService
             'trigger_reason' => $this->mapTriggerTypeToReason($trigger->trigger_type),
         ]);
 
+        // Process through simple authorization service
+        try {
+            $authService = app(\App\Services\SimpleAuthorizationService::class);
+            $result = $authService->process($preAuth);
+            
+            // Update pre-authorization based on authorization service result
+            $authStatus = match($result['decision']) {
+                'auto_approved' => 'approved',
+                'auto_rejected' => 'rejected',
+                default => 'pending', // flagged_for_review
+            };
+            
+            // Authorization service result takes precedence
+            if ($authStatus === 'approved') {
+                $preAuth->update([
+                    'status' => 'approved',
+                    'approved_amount' => $result['approved_amount'],
+                    'approval_date' => now()->toDateString(),
+                    'authorization_method' => 'automatic',
+                ]);
+                if (!$preAuth->approval_id) {
+                    $preAuth->generateApprovalId();
+                }
+            } elseif ($authStatus === 'rejected') {
+                $preAuth->update([
+                    'status' => 'rejected',
+                    'approved_amount' => 0,
+                    'rejection_reason' => $result['reason'] ?? 'Automatically rejected',
+                    'authorization_method' => 'automatic',
+                ]);
+            } else {
+                // Flagged for review - keep as pending
+                $preAuth->update([
+                    'status' => 'pending',
+                    'authorization_method' => 'automatic',
+                ]);
+            }
+            
+            Log::info('Pre-authorization processed through authorization service', [
+                'pre_authorization_id' => $preAuth->id,
+                'decision' => $result['decision'],
+                'final_status' => $preAuth->status,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to process pre-authorization through authorization service', [
+                'pre_authorization_id' => $preAuth->id,
+                'error' => $e->getMessage(),
+            ]);
+            // Continue with original status if authorization service fails
+        }
+
         Log::info('Pre-authorization auto-created', [
             'pre_authorization_id' => $preAuth->id,
             'authorization_number' => $authorizationNumber,
             'trigger_id' => $trigger->id,
             'trigger_name' => $trigger->trigger_name,
-            'status' => $status,
+            'status' => $preAuth->status,
         ]);
 
         return $preAuth;
