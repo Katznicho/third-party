@@ -51,6 +51,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/invoices', [\App\Http\Controllers\InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('/invoices/{invoiceId}', [\App\Http\Controllers\InvoiceController::class, 'show'])->name('invoices.show');
     Route::post('/invoices/{invoiceId}/mark-paid', [\App\Http\Controllers\InvoiceController::class, 'markAsPaid'])->name('invoices.mark-paid');
+    Route::post('/invoices/bulk-pay', [\App\Http\Controllers\InvoiceController::class, 'bulkPay'])->name('invoices.bulk-pay');
     Route::post('/invoices/{invoice}/generate-pdf', [\App\Http\Controllers\InvoiceController::class, 'generatePdf'])->name('invoices.generate-pdf');
     
     // Payments

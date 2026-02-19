@@ -116,6 +116,145 @@
         </div>
     @endif
 
+    <!-- Bulk Payment Panel (Fixed at bottom when invoices are selected) -->
+    <div id="bulkPaymentPanel" class="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-blue-500 shadow-2xl z-50 transform translate-y-full transition-transform duration-300 ease-in-out" style="max-height: 80vh; overflow-y: auto;">
+        <div class="max-w-7xl mx-auto px-6 py-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-4">
+                    <h3 class="text-lg font-bold text-slate-900">
+                        <svg class="w-6 h-6 inline mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Bulk Payment Processing
+                    </h3>
+                    <span id="selectedCount" class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded-full">0 invoices selected</span>
+                </div>
+                <button onclick="closeBulkPaymentPanel()" class="text-slate-500 hover:text-slate-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Selected Invoices Summary -->
+                <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <h4 class="text-sm font-semibold text-slate-700 mb-3">Selected Invoices</h4>
+                    <div id="selectedInvoicesList" class="space-y-2 max-h-48 overflow-y-auto">
+                        <p class="text-sm text-slate-500 text-center py-4">No invoices selected</p>
+                    </div>
+                </div>
+
+                <!-- Payment Details Form -->
+                <div class="bg-white rounded-lg p-4 border border-slate-200">
+                    <h4 class="text-sm font-semibold text-slate-700 mb-4">Payment Information</h4>
+                    <form id="bulkPaymentForm" method="POST" action="{{ route('invoices.bulk-pay') }}" enctype="multipart/form-data">
+                        @csrf
+                        <input type="hidden" name="invoice_ids" id="bulkInvoiceIds">
+                        
+                        <div class="space-y-4">
+                            <!-- Total Amount -->
+                            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-200">
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Total Amount</label>
+                                <div class="text-2xl font-bold text-blue-700" id="bulkTotalAmount">UGX 0.00</div>
+                                <input type="hidden" name="total_amount" id="bulkTotalAmountValue" value="0">
+                            </div>
+
+                            <!-- Payment Method -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">
+                                    Payment Method <span class="text-red-500">*</span>
+                                </label>
+                                <select name="payment_method" id="bulkPaymentMethod" required 
+                                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Select Payment Method</option>
+                                    <option value="mobile_money">Mobile Money</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="cash">Cash</option>
+                                </select>
+                            </div>
+
+                            <!-- Mobile Money Phone Number -->
+                            <div id="bulkMobileMoneyFields" style="display: none;">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">
+                                    Phone Number <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" name="phone_number" id="bulkPhoneNumber" 
+                                       placeholder="256XXXXXXXXX"
+                                       class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <p class="text-xs text-slate-500 mt-1">Enter phone number in format: 256XXXXXXXXX</p>
+                                <p class="text-xs text-blue-600 mt-1 font-medium">
+                                    ✓ Payment reference will be generated automatically
+                                </p>
+                            </div>
+
+                            <!-- Payment Reference (for non-mobile money) -->
+                            <div id="bulkPaymentReferenceFields" style="display: none;">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">
+                                    Payment Reference <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex space-x-2">
+                                    <input type="text" name="payment_reference" id="bulkPaymentReference" 
+                                           placeholder="Enter payment reference"
+                                           class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <button type="button" onclick="generateReference()" 
+                                            class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">
+                                        Generate
+                                    </button>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Enter or generate a payment reference number</p>
+                            </div>
+
+                            <!-- Hidden field for mobile money reference -->
+                            <input type="hidden" name="payment_reference" id="bulkMobileMoneyReference">
+
+                            <!-- Proof of Payment (for bank transfer and cash) -->
+                            <div id="bulkProofOfPaymentFields" style="display: none;">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">
+                                    Proof of Payment <span class="text-red-500">*</span>
+                                </label>
+                                <input type="file" name="proof_of_payment" id="bulkProofOfPayment" 
+                                       accept="image/*,.pdf,.doc,.docx"
+                                       class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <p class="text-xs text-slate-500 mt-1">Upload receipt, screenshot, or document (Image, PDF, or Word)</p>
+                            </div>
+
+                            <!-- Payment Date -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Payment Date</label>
+                                <input type="date" name="payment_date" value="{{ date('Y-m-d') }}" 
+                                       class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+
+                            <!-- Notes -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Notes</label>
+                                <textarea name="notes" rows="3" 
+                                          placeholder="Optional notes about this bulk payment"
+                                          class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="flex space-x-3 pt-4">
+                                <button type="button" onclick="closeBulkPaymentPanel()" 
+                                        class="flex-1 px-4 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors font-medium">
+                                    Cancel
+                                </button>
+                                <button type="submit" id="bulkPaymentSubmitBtn" 
+                                        class="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors font-medium shadow-lg">
+                                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Process Payment
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Invoices Table -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         @if($invoices->count() > 0)
@@ -123,6 +262,9 @@
                 <table class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-gradient-to-r from-slate-50 to-slate-100">
                         <tr>
+                            <th class="px-6 py-4 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200 w-12">
+                                <input type="checkbox" id="selectAllInvoices" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer">
+                            </th>
                             <th class="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200">Invoice #</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200">Client</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200">Business</th>
@@ -135,14 +277,30 @@
                     </thead>
                     <tbody id="invoicesTableBody" class="bg-white divide-y divide-slate-200">
                         @foreach($invoices as $invoice)
-                            <tr class="invoice-row hover:bg-blue-50 transition-colors duration-150" 
+                            @php
+                                $canSelect = ($invoice['payment_status'] !== 'paid' && $invoice['balance_due'] > 0);
+                            @endphp
+                            <tr class="invoice-row hover:bg-blue-50 transition-colors duration-150 {{ !$canSelect ? 'opacity-60' : '' }}" 
                                 data-invoice-number="{{ strtolower($invoice['invoice_number'] ?? '') }}"
                                 data-client-name="{{ strtolower($invoice['client_name'] ?? '') }}"
                                 data-client-phone="{{ strtolower($invoice['client_phone'] ?? '') }}"
                                 data-business-name="{{ strtolower($invoice['business_name'] ?? '') }}"
                                 data-payment-status="{{ $invoice['payment_status'] ?? '' }}"
                                 data-invoice-date="{{ \Carbon\Carbon::parse($invoice['created_at'])->format('Y-m-d') }}"
+                                data-invoice-id="{{ $invoice['id'] }}"
+                                data-balance-due="{{ $invoice['balance_due'] }}"
                             >
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                @if($canSelect)
+                                    <input type="checkbox" 
+                                           class="invoice-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer" 
+                                           value="{{ $invoice['id'] }}"
+                                           data-amount="{{ $invoice['balance_due'] }}"
+                                           data-invoice-number="{{ $invoice['invoice_number'] }}">
+                                @else
+                                    <span class="text-slate-400">—</span>
+                                @endif
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-semibold text-slate-900">{{ $invoice['invoice_number'] }}</div>
                             </td>
@@ -466,6 +624,194 @@ window.onclick = function(event) {
     const modal = document.getElementById('markPaidModal');
     if (event.target == modal) {
         closeMarkPaidModal();
+    }
+}
+
+// Bulk Payment Functionality
+let selectedInvoices = new Map();
+
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAllInvoices');
+    const invoiceCheckboxes = document.querySelectorAll('.invoice-checkbox');
+    const bulkPaymentMethod = document.getElementById('bulkPaymentMethod');
+    
+    // Select All functionality
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            invoiceCheckboxes.forEach(checkbox => {
+                if (!checkbox.disabled) {
+                    checkbox.checked = this.checked;
+                    handleInvoiceSelection(checkbox);
+                }
+            });
+        });
+    }
+    
+    // Individual checkbox selection
+    invoiceCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            handleInvoiceSelection(this);
+            updateSelectAllState();
+        });
+    });
+    
+    // Payment method change handler
+    if (bulkPaymentMethod) {
+        bulkPaymentMethod.addEventListener('change', function() {
+            const method = this.value;
+            const mobileMoneyFields = document.getElementById('bulkMobileMoneyFields');
+            const paymentReferenceFields = document.getElementById('bulkPaymentReferenceFields');
+            const proofOfPaymentFields = document.getElementById('bulkProofOfPaymentFields');
+            const phoneNumber = document.getElementById('bulkPhoneNumber');
+            const paymentReference = document.getElementById('bulkPaymentReference');
+            const proofOfPayment = document.getElementById('bulkProofOfPayment');
+            
+            // Reset all fields
+            mobileMoneyFields.style.display = 'none';
+            paymentReferenceFields.style.display = 'none';
+            proofOfPaymentFields.style.display = 'none';
+            phoneNumber.removeAttribute('required');
+            paymentReference.removeAttribute('required');
+            proofOfPayment.removeAttribute('required');
+            phoneNumber.value = '';
+            paymentReference.value = '';
+            proofOfPayment.value = '';
+            
+            if (method === 'mobile_money') {
+                mobileMoneyFields.style.display = 'block';
+                phoneNumber.setAttribute('required', 'required');
+                // Hide manual reference field and show auto-generated one
+                const mobileMoneyRef = document.getElementById('bulkMobileMoneyReference');
+                if (mobileMoneyRef) mobileMoneyRef.removeAttribute('disabled');
+                // Auto-generate reference for mobile money
+                generateMobileMoneyReference();
+            } else if (method === 'bank_transfer' || method === 'cash') {
+                paymentReferenceFields.style.display = 'block';
+                proofOfPaymentFields.style.display = 'block';
+                paymentReference.setAttribute('required', 'required');
+                proofOfPayment.setAttribute('required', 'required');
+                // Disable mobile money reference field
+                const mobileMoneyRef = document.getElementById('bulkMobileMoneyReference');
+                if (mobileMoneyRef) {
+                    mobileMoneyRef.setAttribute('disabled', 'disabled');
+                    mobileMoneyRef.value = '';
+                }
+            }
+        });
+    }
+    
+    // Form submission handler
+    const bulkPaymentForm = document.getElementById('bulkPaymentForm');
+    if (bulkPaymentForm) {
+        bulkPaymentForm.addEventListener('submit', function(e) {
+            if (selectedInvoices.size === 0) {
+                e.preventDefault();
+                alert('Please select at least one invoice to pay.');
+                return false;
+            }
+            
+            // Set invoice IDs
+            document.getElementById('bulkInvoiceIds').value = Array.from(selectedInvoices.keys()).join(',');
+        });
+    }
+});
+
+function handleInvoiceSelection(checkbox) {
+    const invoiceId = checkbox.value;
+    const invoiceNumber = checkbox.dataset.invoiceNumber;
+    const amount = parseFloat(checkbox.dataset.amount || 0);
+    
+    if (checkbox.checked) {
+        selectedInvoices.set(invoiceId, {
+            invoiceNumber: invoiceNumber,
+            amount: amount
+        });
+    } else {
+        selectedInvoices.delete(invoiceId);
+    }
+    
+    updateBulkPaymentPanel();
+}
+
+function updateSelectAllState() {
+    const selectAllCheckbox = document.getElementById('selectAllInvoices');
+    const invoiceCheckboxes = document.querySelectorAll('.invoice-checkbox:not(:disabled)');
+    const checkedCount = Array.from(invoiceCheckboxes).filter(cb => cb.checked).length;
+    
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = checkedCount === invoiceCheckboxes.length && invoiceCheckboxes.length > 0;
+        selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < invoiceCheckboxes.length;
+    }
+}
+
+function updateBulkPaymentPanel() {
+    const bulkPaymentPanel = document.getElementById('bulkPaymentPanel');
+    const selectedCount = document.getElementById('selectedCount');
+    const selectedInvoicesList = document.getElementById('selectedInvoicesList');
+    const bulkTotalAmount = document.getElementById('bulkTotalAmount');
+    const bulkTotalAmountValue = document.getElementById('bulkTotalAmountValue');
+    
+    if (selectedInvoices.size === 0) {
+        bulkPaymentPanel.classList.add('translate-y-full');
+        return;
+    }
+    
+    // Show panel
+    bulkPaymentPanel.classList.remove('translate-y-full');
+    
+    // Update count
+    selectedCount.textContent = `${selectedInvoices.size} invoice${selectedInvoices.size !== 1 ? 's' : ''} selected`;
+    
+    // Calculate total
+    let total = 0;
+    selectedInvoicesList.innerHTML = '';
+    
+    selectedInvoices.forEach((invoice, invoiceId) => {
+        total += invoice.amount;
+        const invoiceItem = document.createElement('div');
+        invoiceItem.className = 'flex items-center justify-between text-sm bg-white p-2 rounded border border-slate-200';
+        invoiceItem.innerHTML = `
+            <span class="font-medium text-slate-700">${invoice.invoiceNumber}</span>
+            <span class="font-semibold text-slate-900">UGX ${invoice.amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+        `;
+        selectedInvoicesList.appendChild(invoiceItem);
+    });
+    
+    // Update total
+    bulkTotalAmount.textContent = `UGX ${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    bulkTotalAmountValue.value = total;
+}
+
+function closeBulkPaymentPanel() {
+    const bulkPaymentPanel = document.getElementById('bulkPaymentPanel');
+    bulkPaymentPanel.classList.add('translate-y-full');
+    
+    // Uncheck all
+    document.querySelectorAll('.invoice-checkbox').forEach(cb => cb.checked = false);
+    const selectAllCheckbox = document.getElementById('selectAllInvoices');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    
+    selectedInvoices.clear();
+    updateBulkPaymentPanel();
+}
+
+function generateReference() {
+    const prefix = 'BULK-';
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const reference = prefix + timestamp + '-' + random;
+    document.getElementById('bulkPaymentReference').value = reference;
+}
+
+function generateMobileMoneyReference() {
+    const prefix = 'MM-BULK-';
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const reference = prefix + timestamp + '-' + random;
+    // Store in the hidden field for mobile money
+    const hiddenField = document.getElementById('bulkMobileMoneyReference');
+    if (hiddenField) {
+        hiddenField.value = reference;
     }
 }
 </script>

@@ -618,4 +618,147 @@ class InvoiceController extends Controller
             throw $e;
         }
     }
+
+    /**
+     * Process bulk payment for multiple invoices
+     */
+    public function bulkPay(Request $request)
+    {
+        try {
+            Log::info('=== bulkPay METHOD CALLED ===', [
+                'user_id' => auth()->id(),
+                'request_data' => $request->all(),
+            ]);
+
+            $validated = $request->validate([
+                'invoice_ids' => 'required|string',
+                'payment_method' => 'required|in:bank_transfer,mobile_money,cash',
+                'payment_reference' => 'nullable|string|max:255',
+                'payment_date' => 'nullable|date',
+                'notes' => 'nullable|string',
+                'phone_number' => 'required_if:payment_method,mobile_money|nullable|string|max:20',
+                'proof_of_payment' => 'required_if:payment_method,bank_transfer,cash|file|mimes:jpg,jpeg,png,pdf,doc,docx|max:10240',
+                'total_amount' => 'required|numeric|min:0',
+            ]);
+
+            $insuranceCompanyId = auth()->user()->insurance_company_id;
+            
+            if (!$insuranceCompanyId) {
+                return back()->with('error', 'No insurance company associated with your account.');
+            }
+
+            // Parse invoice IDs
+            $invoiceIds = array_filter(explode(',', $validated['invoice_ids']));
+            
+            if (empty($invoiceIds)) {
+                return back()->with('error', 'No invoices selected for payment.');
+            }
+
+            Log::info('Processing bulk payment', [
+                'invoice_count' => count($invoiceIds),
+                'total_amount' => $validated['total_amount'],
+                'payment_method' => $validated['payment_method'],
+            ]);
+
+            $successCount = 0;
+            $failedInvoices = [];
+            $proofOfPaymentPath = null;
+
+            // Handle proof of payment upload
+            if ($request->hasFile('proof_of_payment')) {
+                $file = $request->file('proof_of_payment');
+                $proofOfPaymentPath = $file->store('proofs-of-payment', 'public');
+            }
+
+            // Generate payment reference for mobile money if not provided
+            if ($validated['payment_method'] === 'mobile_money' && empty($validated['payment_reference'])) {
+                $validated['payment_reference'] = 'MM-BULK-' . strtoupper(Str::random(8)) . '-' . time();
+            }
+
+            // Process each invoice
+            foreach ($invoiceIds as $invoiceId) {
+                try {
+                    // Get invoice details
+                    $invoiceDetails = $this->kashtreApi->getInvoiceDetails($invoiceId);
+                    
+                    if (!$invoiceDetails['success'] || !$invoiceDetails['data']) {
+                        $failedInvoices[] = ['id' => $invoiceId, 'reason' => 'Failed to fetch invoice details'];
+                        continue;
+                    }
+
+                    $invoice = $invoiceDetails['data']['invoice'] ?? [];
+                    $balanceDue = $invoice['balance_due'] ?? $invoice['total_amount'] ?? 0;
+
+                    // Create payment record for this invoice
+                    $paymentData = $validated;
+                    $paymentData['amount'] = $balanceDue;
+                    $paymentData['proof_of_payment_path'] = $proofOfPaymentPath;
+
+                    $payment = $this->createPaymentRecord($invoiceId, $invoiceDetails, $paymentData, 'pending', null);
+                    
+                    // Process payment if mobile money
+                    if ($validated['payment_method'] === 'mobile_money' && !empty($validated['phone_number'])) {
+                        // Process mobile money payment
+                        $yoApi = new \App\Payments\YoAPI();
+                        $transactionResult = $yoApi->deposit($validated['phone_number'], $balanceDue, $validated['payment_reference']);
+                        
+                        if ($transactionResult['Status'] === 'OK' && isset($transactionResult['TransactionReference'])) {
+                            // Update payment with transaction reference
+                            $payment->update([
+                                'transaction_id' => $transactionResult['TransactionReference'],
+                                'status' => 'completed',
+                            ]);
+
+                            // Mark invoice as paid in Kashtre
+                            $markPaidResult = $this->kashtreApi->markInvoiceAsPaid($invoiceId, [
+                                'payment_method' => $validated['payment_method'],
+                                'amount' => $balanceDue,
+                                'payment_reference' => $validated['payment_reference'],
+                                'transaction_id' => $transactionResult['TransactionReference'],
+                                'payment_date' => $validated['payment_date'] ?? now()->toDateString(),
+                            ]);
+
+                            if ($markPaidResult['success']) {
+                                $successCount++;
+                            } else {
+                                $failedInvoices[] = ['id' => $invoiceId, 'reason' => 'Failed to mark invoice as paid in Kashtre'];
+                            }
+                        } else {
+                            $failedInvoices[] = ['id' => $invoiceId, 'reason' => 'Mobile money payment failed: ' . ($transactionResult['StatusMessage'] ?? 'Unknown error')];
+                        }
+                    } else {
+                        // For bank transfer and cash, just create the payment record
+                        // Invoice will be marked as paid after review
+                        $successCount++;
+                    }
+
+                } catch (\Exception $e) {
+                    Log::error('Failed to process invoice in bulk payment', [
+                        'invoice_id' => $invoiceId,
+                        'error' => $e->getMessage(),
+                    ]);
+                    $failedInvoices[] = ['id' => $invoiceId, 'reason' => $e->getMessage()];
+                }
+            }
+
+            if ($successCount > 0) {
+                $message = "Successfully processed payment for {$successCount} invoice(s).";
+                if (!empty($failedInvoices)) {
+                    $message .= " Failed: " . count($failedInvoices) . " invoice(s).";
+                }
+                return back()->with('success', $message);
+            } else {
+                return back()->with('error', 'Failed to process any invoices. Please check the logs for details.');
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            Log::error('Bulk payment error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->with('error', 'An error occurred while processing bulk payment: ' . $e->getMessage());
+        }
+    }
 }
