@@ -196,6 +196,35 @@
                             <p class="text-xs text-blue-600 mt-2">This is a preview. Actual policy numbers will be generated when creating new policies.</p>
                         </div>
 
+                        <!-- Payment Responsibility Collection Setting -->
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
+                            <h3 class="text-sm font-semibold text-yellow-900 mb-3">Payment Responsibility Collection</h3>
+                            <p class="text-xs text-yellow-700 mb-4">Configure when clients should pay their deductible, co-pay, and co-insurance amounts.</p>
+                            
+                            <div>
+                                <label for="payment_responsibility_collection" class="block text-sm font-medium text-slate-700 mb-2">
+                                    Collection Timing
+                                </label>
+                                <select 
+                                    name="payment_responsibility_collection" 
+                                    id="payment_responsibility_collection" 
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="immediate" {{ old('payment_responsibility_collection', $insuranceCompany->payment_responsibility_collection ?? 'immediate') === 'immediate' ? 'selected' : '' }}>
+                                        Immediate - Collect at time of service
+                                    </option>
+                                    <option value="later" {{ old('payment_responsibility_collection', $insuranceCompany->payment_responsibility_collection ?? 'immediate') === 'later' ? 'selected' : '' }}>
+                                        Later - Collect after service is provided
+                                    </option>
+                                </select>
+                                <p class="text-xs text-slate-500 mt-2">
+                                    <strong>Immediate:</strong> Clients must pay deductible, co-pay, and co-insurance before or at the time of service.<br>
+                                    <strong>Later:</strong> Clients can receive services first and pay their portion later (e.g., on invoice).
+                                </p>
+                            </div>
+                        </div>
+
                         <!-- Form Actions -->
                         <div class="flex justify-end pt-4 border-t border-slate-200">
                             <button 

@@ -52,6 +52,7 @@ class InsuranceCompany extends Model
         'auto_reject_min_amount',
         'require_manual_review_above_amount',
         'manual_review_threshold_amount',
+        'payment_responsibility_collection',
         // Legacy fields (kept for backward compatibility)
         'enable_name_dob_verification',
         'enable_id_passport_verification',

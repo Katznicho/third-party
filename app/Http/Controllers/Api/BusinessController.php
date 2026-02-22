@@ -233,9 +233,9 @@ class BusinessController extends Controller
      */
     public function getSettings($id)
     {
-        $insuranceCompany = InsuranceCompany::find($id);
-
-        if ($insuranceCompany) {
+        try {
+            $insuranceCompany = InsuranceCompany::findOrFail($id);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Insurance company settings retrieved successfully',
@@ -243,6 +243,7 @@ class BusinessController extends Controller
                     'id' => $insuranceCompany->id,
                     'name' => $insuranceCompany->name,
                     'code' => $insuranceCompany->code,
+                    'payment_responsibility_collection' => $insuranceCompany->payment_responsibility_collection ?? 'immediate',
                     'verification_settings' => [
                         'require_physical_id' => $insuranceCompany->require_physical_id ?? true,
                         'enable_method_1' => $insuranceCompany->enable_method_1 ?? true,
@@ -256,13 +257,13 @@ class BusinessController extends Controller
                     ],
                 ],
             ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insurance company not found.',
+                'data' => null,
+            ], 404);
         }
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Insurance company not found.',
-            'data' => null,
-        ], 404);
     }
 
     /**

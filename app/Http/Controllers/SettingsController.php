@@ -37,6 +37,7 @@ class SettingsController extends Controller
             'policy_number_random_length' => 'required|integer|min:3|max:12',
             'policy_number_random_type' => 'required|in:alphanumeric,numeric,alphabetic',
             'policy_number_company_code_length' => 'required|integer|min:1|max:8',
+            'payment_responsibility_collection' => 'nullable|in:immediate,later',
         ]);
 
         $insuranceCompany = $user->insuranceCompany;
