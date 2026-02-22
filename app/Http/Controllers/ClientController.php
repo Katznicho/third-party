@@ -9,6 +9,7 @@ use App\Models\Plan;
 use App\Models\InsuranceCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class ClientController extends Controller
 {
@@ -67,9 +68,6 @@ class ClientController extends Controller
             'coinsurance_contributes_to_deductible' => 'nullable|boolean',
             'telemedicine_only' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
-            'services_category' => 'required|in:dental,optical,outpatient,inpatient,maternity,funeral',
-            'payment_methods' => 'required|array|min:1',
-            'payment_methods.*' => 'required|string|in:insurance,mobile_money,cash,credit',
             'insurance_company_id' => 'nullable|exists:insurance_companies,id',
         ];
         
@@ -141,37 +139,39 @@ class ClientController extends Controller
      */
     public function store(Request $request)
     {
-        $user = auth()->user();
-        $insuranceCompany = $user->insuranceCompany;
-        if (!$insuranceCompany) {
-            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
-        }
+        try {
+            Log::info('Client creation started', [
+                'user_id' => auth()->id(),
+                'request_data_keys' => array_keys($request->all())
+            ]);
 
-        $validated = $request->validate($this->buildValidationRules($insuranceCompany));
+            $user = auth()->user();
+            $insuranceCompany = $user->insuranceCompany;
+            if (!$insuranceCompany) {
+                Log::error('Client creation failed: No insurance company', ['user_id' => $user->id]);
+                return redirect()->back()->with('error', 'You must be associated with an insurance company.')->withInput();
+            }
+
+            $validationRules = $this->buildValidationRules($insuranceCompany);
+            Log::debug('Validation rules', ['rules_count' => count($validationRules)]);
+
+            $validated = $request->validate($validationRules);
+            Log::info('Validation passed', ['validated_keys' => array_keys($validated)]);
 
         // Handle checkboxes
         $validated['has_deductible'] = $request->boolean('has_deductible');
         $validated['telemedicine_only'] = $request->boolean('telemedicine_only');
         $validated['is_active'] = $request->boolean('is_active');
 
-        // Handle payment methods - validate insurance_company_id if insurance is selected
-        $paymentMethods = $validated['payment_methods'] ?? [];
-        if (in_array('insurance', $paymentMethods)) {
-            // Validate insurance company
-            if (empty($validated['insurance_company_id'])) {
-                return redirect()->back()
-                    ->withErrors(['insurance_company_id' => 'Insurance company is required when insurance payment method is selected.'])
-                    ->withInput();
-            }
-        } else {
-            $validated['insurance_company_id'] = null;
-        }
-
         // Set principal_member_id to null if not dependent
         if ($validated['type'] === 'principal') {
             $validated['principal_member_id'] = null;
             $validated['relation_to_principal'] = null;
         }
+
+        // Remove fields that don't exist in the database (services_category and payment_methods)
+        unset($validated['services_category']);
+        unset($validated['payment_methods']);
 
         $client = Client::create($validated);
         $policyNumber = null;
@@ -485,9 +485,37 @@ class ClientController extends Controller
             $successMessage .= ' WARNING: This client has responses that trigger exclusion list criteria.';
         }
 
+        Log::info('Client created successfully', [
+            'client_id' => $client->id,
+            'policy_number' => $policyNumber,
+            'has_exclusions' => $hasExclusions
+        ]);
+
         return redirect()->route('clients.index')
             ->with('success', $successMessage)
             ->with('has_exclusions', $hasExclusions);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Client creation validation failed', [
+                'errors' => $e->errors(),
+                'request_data' => $request->except(['password', '_token'])
+            ]);
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput();
+        } catch (\Exception $e) {
+            Log::error('Client creation failed with exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'request_data' => $request->except(['password', '_token'])
+            ]);
+            
+            return redirect()->back()
+                ->with('error', 'An error occurred while creating the client: ' . $e->getMessage())
+                ->withInput();
+        }
     }
 
     /**

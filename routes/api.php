@@ -68,6 +68,21 @@ Route::prefix('v1')->group(function () {
     Route::post('/clients/search-and-send-otp-email', [ClientVerificationController::class, 'searchAndSendOtpByEmail'])->name('api.clients.search-and-send-otp-email');
     Route::post('/clients/verify-otp-email', [ClientVerificationController::class, 'verifyOtpByEmail'])->name('api.clients.verify-otp-email');
     
+    // Error logging (public, for client-side error reporting)
+    Route::post('/log-error', function (\Illuminate\Http\Request $request) {
+        \Illuminate\Support\Facades\Log::error('Client-side error', [
+            'error' => $request->input('error'),
+            'message' => $request->input('message'),
+            'stack' => $request->input('stack'),
+            'url' => $request->input('url'),
+            'user_agent' => $request->userAgent(),
+            'ip' => $request->ip(),
+            'additional_data' => $request->except(['error', 'message', 'stack', 'url'])
+        ]);
+        
+        return response()->json(['success' => true, 'message' => 'Error logged']);
+    })->name('api.log-error');
+    
     // Protected routes (require API token)
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/businesses/{id}', [BusinessController::class, 'show'])->name('api.businesses.show');

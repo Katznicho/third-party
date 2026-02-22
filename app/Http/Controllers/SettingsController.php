@@ -42,7 +42,8 @@ class SettingsController extends Controller
         $insuranceCompany = $user->insuranceCompany;
         $insuranceCompany->update($validated);
 
-        return redirect()->route('settings.index')
+        $tab = $request->input('current_tab', 'policy-number');
+        return redirect()->route('settings.index', ['tab' => $tab])
             ->with('success', 'Policy number generation settings updated successfully.');
     }
 
@@ -67,7 +68,8 @@ class SettingsController extends Controller
             'coinsurance_contributes_to_deductible' => $request->boolean('coinsurance_contributes_to_deductible', false),
         ]);
 
-        return redirect()->route('settings.index')
+        $tab = $request->input('current_tab', 'deductible');
+        return redirect()->route('settings.index', ['tab' => $tab])
             ->with('success', 'Deductible contribution settings updated successfully.');
     }
 
@@ -94,7 +96,8 @@ class SettingsController extends Controller
             'required_client_fields' => $requiredFields,
         ]);
 
-        return redirect()->route('settings.index')
+        $tab = $request->input('current_tab', 'client-fields');
+        return redirect()->route('settings.index', ['tab' => $tab])
             ->with('success', 'Required client fields settings updated successfully.');
     }
 
@@ -139,7 +142,8 @@ class SettingsController extends Controller
             'email_otp_expiry_minutes' => $validated['email_otp_expiry_minutes'],
         ]);
 
-        return redirect()->route('settings.index')
+        $tab = $request->input('current_tab', 'verification');
+        return redirect()->route('settings.index', ['tab' => $tab])
             ->with('success', 'Identity verification settings updated successfully.');
     }
 
@@ -170,7 +174,8 @@ class SettingsController extends Controller
             'manual_review_threshold_amount' => $validated['manual_review_threshold_amount'] ?? null,
         ]);
 
-        return redirect()->route('settings.index')
+        $tab = $request->input('current_tab', 'authorization');
+        return redirect()->route('settings.index', ['tab' => $tab])
             ->with('success', 'Authorization settings updated successfully.');
     }
 }

@@ -4,6 +4,53 @@
         @method('PUT')
     @endif
 
+    <!-- Error and Success Messages -->
+    @if(session('error'))
+        <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-red-600 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div class="flex-1">
+                    <h4 class="text-sm font-semibold text-red-800 mb-1">Error</h4>
+                    <p class="text-sm text-red-700">{{ session('error') }}</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if(session('success'))
+        <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-green-600 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div class="flex-1">
+                    <h4 class="text-sm font-semibold text-green-800 mb-1">Success</h4>
+                    <p class="text-sm text-green-700">{{ session('success') }}</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-red-600 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div class="flex-1">
+                    <h4 class="text-sm font-semibold text-red-800 mb-2">Please fix the following errors:</h4>
+                    <ul class="list-disc list-inside space-y-1">
+                        @foreach($errors->all() as $error)
+                            <li class="text-sm text-red-700">{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Header Section -->
     <div class="text-center border-b border-slate-300 pb-4 mb-6">
         <h1 class="text-2xl font-bold text-slate-900 mb-2">HEALTH INSURANCE APPLICATION FORM</h1>
@@ -1076,80 +1123,6 @@
             </p>
         </div>
 
-        <!-- Premium Calculation Display -->
-        <div id="premium-calculation" class="mt-6 border-2 border-blue-500 rounded-lg p-6 bg-blue-50" style="display: none;">
-            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-5m-6 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                Premium Calculation
-            </h3>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label for="number_of_dependents" class="block text-sm font-medium text-slate-700 mb-2">Number of Dependents</label>
-                    <input type="number" name="number_of_dependents" id="number_of_dependents" value="{{ old('number_of_dependents', 0) }}" min="0" max="20" readonly class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed">
-                    <p class="text-xs text-slate-500 mt-1">Automatically calculated based on dependents entered below</p>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg p-4 border border-slate-200">
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium text-slate-700">Base Premium (Principal Member):</span>
-                        <span class="text-sm font-bold text-slate-900" id="base-premium">UGX 0.00</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium text-slate-700">
-                            Dependents Premium (<span id="dependents-count">0</span> dependents):
-                            <span id="dependents-tier-info" class="text-xs text-slate-500 ml-2"></span>
-                        </span>
-                        <span class="text-sm font-bold text-slate-900" id="dependents-premium">UGX 0.00</span>
-                    </div>
-                    <div class="border-t border-slate-300 pt-3 flex justify-between items-center">
-                        <span class="text-base font-semibold text-slate-900">Subtotal Premium:</span>
-                        <span class="text-base font-bold text-blue-600" id="subtotal-premium">UGX 0.00</span>
-                    </div>
-                    <div id="premium-adjustments-container" style="display: none;">
-                        <div class="border-t border-slate-300 pt-3 mt-3">
-                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Medical Question Adjustments:</h4>
-                            <div id="premium-adjustments-list" class="space-y-1"></div>
-                        </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium text-slate-700">Insurance Training Levy:</span>
-                        <span class="text-sm font-bold text-slate-900" id="training-levy">UGX 0.00</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-medium text-slate-700">Stamp Duty:</span>
-                        <span class="text-sm font-bold text-slate-900" id="stamp-duty">UGX 35,000.00</span>
-                    </div>
-                    <div id="deductible-adjustments-container" style="display: none;">
-                        <div class="border-t border-slate-300 pt-3 mt-3">
-                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Deductible Adjustments:</h4>
-                            <div id="deductible-adjustments-list" class="space-y-1"></div>
-                        </div>
-                    </div>
-                    <div id="coverage-limit-adjustments-container" style="display: none;">
-                        <div class="border-t border-slate-300 pt-3 mt-3">
-                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Coverage Limit Adjustments:</h4>
-                            <div id="coverage-limit-adjustments-list" class="space-y-1"></div>
-                            <p class="text-xs text-slate-500 mt-2">These adjustments affect annual/lifetime coverage limits and are noted for underwriter review.</p>
-                        </div>
-                    </div>
-                    <div class="border-t-2 border-blue-500 pt-3 flex justify-between items-center bg-blue-50 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
-                        <span class="text-lg font-bold text-slate-900">Total Premium Due:</span>
-                        <span class="text-xl font-bold text-blue-600" id="total-premium-due">UGX 0.00</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p class="text-xs text-yellow-800">
-                    <strong>Note:</strong> This is an estimated premium calculation. Final amounts may vary based on additional factors.
-                </p>
-            </div>
-        </div>
     </div>
 
     <!-- CONFIDENTIAL MEDICAL HISTORY Section -->
@@ -1267,515 +1240,102 @@
         </div>
     </div>
 
-    <!-- Service & Payment Information Section -->
-    <div class="border border-slate-300 rounded-lg p-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-        <div class="flex items-center mb-4">
-            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <h2 class="text-xl font-bold">Service & Payment Information</h2>
-        </div>
-
-        <div class="bg-white rounded-lg p-6 space-y-6">
-            <!-- Services Category -->
-            <div>
-                <label for="services_category" class="block text-sm font-medium text-slate-700 mb-2">
-                    Services Category <span class="text-red-500">*</span>
-                </label>
-                <select 
-                    name="services_category" 
-                    id="services_category" 
-                    required
-                    class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                >
-                    <option value="">Select Category</option>
-                    <option value="dental" {{ old('services_category', $client->services_category ?? '') == 'dental' ? 'selected' : '' }}>Dental</option>
-                    <option value="optical" {{ old('services_category', $client->services_category ?? '') == 'optical' ? 'selected' : '' }}>Optical</option>
-                    <option value="outpatient" {{ old('services_category', $client->services_category ?? '') == 'outpatient' ? 'selected' : '' }}>Outpatient</option>
-                    <option value="inpatient" {{ old('services_category', $client->services_category ?? '') == 'inpatient' ? 'selected' : '' }}>Inpatient</option>
-                    <option value="maternity" {{ old('services_category', $client->services_category ?? '') == 'maternity' ? 'selected' : '' }}>Maternity</option>
-                    <option value="funeral" {{ old('services_category', $client->services_category ?? '') == 'funeral' ? 'selected' : '' }}>Funeral</option>
-                </select>
-                @error('services_category')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <!-- Payment Methods -->
-            <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                    Payment Methods <span class="text-red-500">*</span>
-                </label>
-                <p class="text-xs text-slate-600 mb-3">Select all payment methods this client can use in order of preference.</p>
-                
-                <div class="space-y-3" id="payment_methods_container">
-                    @php
-                        $paymentMethods = old('payment_methods', $client->payment_methods ?? []);
-                        $paymentMethodOrder = ['insurance' => 1, 'mobile_money' => 2, 'cash' => 3, 'credit' => 4];
-                        $availableMethods = [
-                            'insurance' => ['label' => 'Insurance', 'icon' => 'shield-check'],
-                            'mobile_money' => ['label' => 'MM (Mobile Money)', 'icon' => 'device-mobile'],
-                        ];
-                        // Sort by order
-                        uksort($availableMethods, function($a, $b) use ($paymentMethodOrder) {
-                            return ($paymentMethodOrder[$a] ?? 999) <=> ($paymentMethodOrder[$b] ?? 999);
-                        });
-                        $methodIndex = 1;
-                    @endphp
-                    
-                    @foreach($availableMethods as $method => $config)
-                        <label class="flex items-center p-3 border-2 border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors {{ in_array($method, $paymentMethods) ? 'border-blue-500 bg-blue-50' : '' }}">
-                            <input 
-                                type="checkbox" 
-                                name="payment_methods[]" 
-                                value="{{ $method }}"
-                                {{ in_array($method, $paymentMethods) ? 'checked' : '' }}
-                                class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-                                data-method="{{ $method }}"
-                            >
-                            <div class="ml-3 flex items-center flex-1">
-                                <span class="text-sm font-medium text-slate-700 mr-2">{{ $methodIndex }}.</span>
-                                <svg class="w-5 h-5 mr-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    @if($config['icon'] == 'shield-check')
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                    @else
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                    @endif
-                                </svg>
-                                <span class="text-sm font-medium text-slate-700">{{ $config['label'] }}</span>
-                            </div>
-                        </label>
-                        @php $methodIndex++; @endphp
-                    @endforeach
-                </div>
-                
-                <div class="flex gap-2 mt-3">
-                    <button type="button" onclick="selectAllPaymentMethods()" class="text-xs text-blue-600 hover:text-blue-800 underline">Select All</button>
-                    <button type="button" onclick="clearAllPaymentMethods()" class="text-xs text-blue-600 hover:text-blue-800 underline">Clear All</button>
-                </div>
-                
-                @error('payment_methods')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <!-- Insurance Company Information (Conditional) -->
-            <div id="insurance_company_section" class="bg-green-50 border border-green-200 rounded-lg p-4" style="display: none;">
-                <h3 class="text-sm font-semibold text-green-900 mb-3">Insurance Company Information</h3>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label for="insurance_company_id" class="block text-sm font-medium text-slate-700 mb-2">
-                            Select Insurance Company <span class="text-red-500">*</span>
-                        </label>
-                        <select 
-                            name="insurance_company_id" 
-                            id="insurance_company_id"
-                            class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                        >
-                            <option value="">-- Select Insurance Company --</option>
-                            @php
-                                $insuranceCompanies = \App\Models\InsuranceCompany::where('is_active', true)->orderBy('name')->get();
-                            @endphp
-                            @foreach($insuranceCompanies as $company)
-                                <option value="{{ $company->id }}" data-code="{{ $company->code }}" {{ old('insurance_company_id', $client->insurance_company_id ?? '') == $company->id ? 'selected' : '' }}>
-                                    {{ $company->name }} @if($company->code)({{ $company->code }})@endif
-                                </option>
-                            @endforeach
-                        </select>
-                        <p class="text-xs text-slate-500 mt-1">Select the insurance company connected to this entity.</p>
-                        @error('insurance_company_id')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div>
-                        <label for="policy_number" class="block text-sm font-medium text-slate-700 mb-2">
-                            Policy Number <span class="text-red-500">*</span>
-                        </label>
-                        <div class="flex gap-2">
-                            <input 
-                                type="text" 
-                                name="policy_number" 
-                                id="policy_number"
-                                value="{{ old('policy_number', $client->policy_number ?? '') }}"
-                                placeholder="Enter client's policy number"
-                                class="flex-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                            >
-                            <button 
-                                type="button" 
-                                id="verify_policy_btn"
-                                onclick="verifyPolicyNumber()"
-                                class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150 font-medium"
-                            >
-                                Verify
-                            </button>
-                        </div>
-                        <p class="text-xs text-slate-500 mt-1">Enter the client's policy number to confirm they exist in the insurance system.</p>
-                        <div id="policy_verification_status" class="mt-2"></div>
-                        @error('policy_number')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Alternative Verification Methods (shown when policy verification fails) -->
-                    <div id="alternative_verification_section" class="hidden border-t border-green-300 pt-4 mt-4">
-                        <p class="text-sm font-medium text-green-900 mb-3">Policy number not found. Please use an alternative verification method:</p>
-                        
-                        <!-- Method 1: Name + DOB (Method 4 in settings) -->
-                        <div id="method1_verification" class="mb-4 p-3 bg-white rounded border border-green-200" data-method="method_4">
-                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Method 1: Name + Date of Birth</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs text-slate-600 mb-1">Full Name</label>
-                                    <input type="text" id="alt_verification_name" class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs text-slate-600 mb-1">Date of Birth</label>
-                                    <input type="date" id="alt_verification_dob" class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
-                                </div>
-                            </div>
-                            <button type="button" onclick="verifyWithNameDob()" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                                Verify with Name + DOB
-                            </button>
-                        </div>
-
-                        <!-- Method 2: Phone OTP (Method 2 in settings) -->
-                        <div id="method2_verification" class="mb-4 p-3 bg-white rounded border border-green-200" data-method="method_2">
-                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Method 2: Phone OTP</h4>
-                            <div class="space-y-2">
-                                <input type="text" id="alt_verification_phone" placeholder="Phone Number" class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
-                                <button type="button" onclick="sendPhoneOtpForVerification()" class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                                    Send OTP
-                                </button>
-                                <div id="phone_otp_input_container" class="hidden">
-                                    <input type="text" id="alt_verification_phone_otp" placeholder="Enter OTP" class="w-full px-3 py-2 border border-slate-300 rounded text-sm mb-2">
-                                    <button type="button" onclick="verifyPhoneOtpForVerification()" class="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">
-                                        Verify OTP
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Method 3: Email OTP (Method 3 in settings) -->
-                        <div id="method3_verification" class="mb-4 p-3 bg-white rounded border border-green-200" data-method="method_3">
-                            <h4 class="text-sm font-semibold text-slate-700 mb-2">Method 3: Email OTP</h4>
-                            <div class="space-y-2">
-                                <input type="email" id="alt_verification_email" placeholder="Email Address" class="w-full px-3 py-2 border border-slate-300 rounded text-sm">
-                                <button type="button" onclick="sendEmailOtpForVerification()" class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                                    Send OTP
-                                </button>
-                                <div id="email_otp_input_container" class="hidden">
-                                    <input type="text" id="alt_verification_email_otp" placeholder="Enter OTP" class="w-full px-3 py-2 border border-slate-300 rounded text-sm mb-2">
-                                    <button type="button" onclick="verifyEmailOtpForVerification()" class="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">
-                                        Verify OTP
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Hidden fields for type -->
     <input type="hidden" name="type" value="principal">
     <input type="hidden" name="is_active" value="1">
-    <input type="hidden" id="policy_verified" name="policy_verified" value="0">
 
     <!-- Form Actions -->
-    <div class="flex justify-end gap-4 pt-4 border-t border-slate-200">
-        <a href="{{ route('clients.index') }}" class="px-6 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition duration-150">
-            Cancel
-        </a>
-        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
-            {{ $method === 'PUT' ? 'Update' : 'Submit' }} Application
+    <div class="flex justify-between items-center pt-4 border-t border-slate-200">
+        <button type="button" onclick="autoGenerateForm()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150">
+            🔄 Auto Generate (Test)
         </button>
+        <div class="flex gap-4">
+            <a href="{{ route('clients.index') }}" class="px-6 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition duration-150">
+                Cancel
+            </a>
+            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                {{ $method === 'PUT' ? 'Update' : 'Submit' }} Application
+            </button>
+        </div>
+    </div>
+
+    <!-- Premium Calculation Display (shown below submit button) -->
+    <div id="premium-calculation" class="mt-6 border-2 border-blue-500 rounded-lg p-6 bg-blue-50" style="display: none;">
+        <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-5m-6 5h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Premium Calculation
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="number_of_dependents" class="block text-sm font-medium text-slate-700 mb-2">Number of Dependents</label>
+                <input type="number" name="number_of_dependents" id="number_of_dependents" value="{{ old('number_of_dependents', 0) }}" min="0" max="20" readonly class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed">
+                <p class="text-xs text-slate-500 mt-1">Automatically calculated based on dependents entered above</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg p-4 border border-slate-200">
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-slate-700">Base Premium (Principal Member):</span>
+                    <span class="text-sm font-bold text-slate-900" id="base-premium">UGX 0.00</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-slate-700">
+                        Dependents Premium (<span id="dependents-count">0</span> dependents):
+                        <span id="dependents-tier-info" class="text-xs text-slate-500 ml-2"></span>
+                    </span>
+                    <span class="text-sm font-bold text-slate-900" id="dependents-premium">UGX 0.00</span>
+                </div>
+                <div class="border-t border-slate-300 pt-3 flex justify-between items-center">
+                    <span class="text-base font-semibold text-slate-900">Subtotal Premium:</span>
+                    <span class="text-base font-bold text-blue-600" id="subtotal-premium">UGX 0.00</span>
+                </div>
+                <div id="premium-adjustments-container" style="display: none;">
+                    <div class="border-t border-slate-300 pt-3 mt-3">
+                        <h4 class="text-sm font-semibold text-slate-700 mb-2">Medical Question Adjustments:</h4>
+                        <div id="premium-adjustments-list" class="space-y-1"></div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-slate-700">Insurance Training Levy:</span>
+                    <span class="text-sm font-bold text-slate-900" id="training-levy">UGX 0.00</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-slate-700">Stamp Duty:</span>
+                    <span class="text-sm font-bold text-slate-900" id="stamp-duty">UGX 35,000.00</span>
+                </div>
+                <div id="deductible-adjustments-container" style="display: none;">
+                    <div class="border-t border-slate-300 pt-3 mt-3">
+                        <h4 class="text-sm font-semibold text-slate-700 mb-2">Deductible Adjustments:</h4>
+                        <div id="deductible-adjustments-list" class="space-y-1"></div>
+                    </div>
+                </div>
+                <div id="coverage-limit-adjustments-container" style="display: none;">
+                    <div class="border-t border-slate-300 pt-3 mt-3">
+                        <h4 class="text-sm font-semibold text-slate-700 mb-2">Coverage Limit Adjustments:</h4>
+                        <div id="coverage-limit-adjustments-list" class="space-y-1"></div>
+                        <p class="text-xs text-slate-500 mt-2">These adjustments affect annual/lifetime coverage limits and are noted for underwriter review.</p>
+                    </div>
+                </div>
+                <div class="border-t-2 border-blue-500 pt-3 flex justify-between items-center bg-blue-50 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                    <span class="text-lg font-bold text-slate-900">Total Premium Due:</span>
+                    <span class="text-xl font-bold text-blue-600" id="total-premium-due">UGX 0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p class="text-xs text-yellow-800">
+                <strong>Note:</strong> This is an estimated premium calculation. Final amounts may vary based on additional factors.
+            </p>
+        </div>
     </div>
 </form>
 
 <script>
-    // Payment Methods Selection
-    function selectAllPaymentMethods() {
-        document.querySelectorAll('input[name="payment_methods[]"]').forEach(checkbox => {
-            checkbox.checked = true;
-        });
-        updateInsuranceCompanySection();
-    }
-
-    function clearAllPaymentMethods() {
-        document.querySelectorAll('input[name="payment_methods[]"]').forEach(checkbox => {
-            checkbox.checked = false;
-        });
-        updateInsuranceCompanySection();
-    }
-
-    function updateInsuranceCompanySection() {
-        const insuranceCheckbox = document.querySelector('input[name="payment_methods[]"][value="insurance"]');
-        const insuranceSection = document.getElementById('insurance_company_section');
-        const insuranceSelect = document.getElementById('insurance_company_id');
-        
-        if (insuranceCheckbox && insuranceCheckbox.checked) {
-            insuranceSection.style.display = 'block';
-            insuranceSelect.required = true;
-        } else {
-            insuranceSection.style.display = 'none';
-            insuranceSelect.required = false;
-            insuranceSelect.value = '';
-        }
-    }
-
-    // Policy Number Verification
-    async function verifyPolicyNumber() {
-        const insuranceCompanyId = document.getElementById('insurance_company_id').value;
-        const policyNumber = document.getElementById('policy_number').value.trim();
-        const btn = document.getElementById('verify_policy_btn');
-        const statusDiv = document.getElementById('policy_verification_status');
-        const altVerificationSection = document.getElementById('alternative_verification_section');
-
-        if (!insuranceCompanyId) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Please select an insurance company first.</p>';
-            return;
-        }
-
-        if (!policyNumber) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Please enter a policy number.</p>';
-            return;
-        }
-
-        btn.textContent = 'Verifying...';
-        btn.disabled = true;
-        statusDiv.innerHTML = '<p class="text-sm text-blue-600">Verifying policy number...</p>';
-
-        try {
-            const response = await fetch(`/api/v1/policies/verify/${insuranceCompanyId}/${policyNumber}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                }
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.exists) {
-                statusDiv.innerHTML = `<p class="text-sm text-green-600">✓ Policy verified successfully! Method: ${data.verification_method || 'Policy Number'}</p>`;
-                altVerificationSection.classList.add('hidden');
-                // Store verification status
-                document.getElementById('policy_verified').value = '1';
-            } else {
-                statusDiv.innerHTML = `<p class="text-sm text-yellow-600">Policy number not found. Please use an alternative verification method.</p>`;
-                altVerificationSection.classList.remove('hidden');
-                document.getElementById('policy_verified').value = '0';
-            }
-        } catch (error) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Verification failed. Please try again.</p>';
-            altVerificationSection.classList.remove('hidden');
-        } finally {
-            btn.textContent = 'Verify';
-            btn.disabled = false;
-        }
-    }
-
-    // Alternative Verification Methods
-    async function verifyWithNameDob() {
-        const insuranceCompanyId = document.getElementById('insurance_company_id').value;
-        const name = document.getElementById('alt_verification_name').value.trim();
-        const dob = document.getElementById('alt_verification_dob').value;
-        const statusDiv = document.getElementById('policy_verification_status');
-
-        if (!name || !dob) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Please enter both name and date of birth.</p>';
-            return;
-        }
-
-        statusDiv.innerHTML = '<p class="text-sm text-blue-600">Verifying with Name + DOB...</p>';
-
-        try {
-            const response = await fetch(`/api/v1/policies/verify/${insuranceCompanyId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                },
-                body: JSON.stringify({
-                    name: name,
-                    date_of_birth: dob
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.exists) {
-                statusDiv.innerHTML = `<p class="text-sm text-green-600">✓ Verified successfully! Method: ${data.verification_method || 'Name + DOB'}</p>`;
-                document.getElementById('policy_verified').value = '1';
-            } else {
-                statusDiv.innerHTML = `<p class="text-sm text-red-600">${data.message || 'Verification failed. Please try another method.'}</p>`;
-            }
-        } catch (error) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Verification failed. Please try again.</p>';
-        }
-    }
-
-    async function sendPhoneOtpForVerification() {
-        const phone = document.getElementById('alt_verification_phone').value.trim();
-        const statusDiv = document.getElementById('policy_verification_status');
-
-        if (!phone) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Please enter a phone number.</p>';
-            return;
-        }
-
-        statusDiv.innerHTML = '<p class="text-sm text-blue-600">Sending OTP...</p>';
-
-        try {
-            const response = await fetch('/api/v1/clients/search-and-send-otp', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                },
-                body: JSON.stringify({ phone: phone })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                statusDiv.innerHTML = '<p class="text-sm text-green-600">✓ OTP sent! Please check your SMS.</p>';
-                document.getElementById('phone_otp_input_container').classList.remove('hidden');
-            } else {
-                statusDiv.innerHTML = `<p class="text-sm text-red-600">${data.message || 'Failed to send OTP.'}</p>`;
-            }
-        } catch (error) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Failed to send OTP. Please try again.</p>';
-        }
-    }
-
-    async function verifyPhoneOtpForVerification() {
-        const phone = document.getElementById('alt_verification_phone').value.trim();
-        const otp = document.getElementById('alt_verification_phone_otp').value.trim();
-        const statusDiv = document.getElementById('policy_verification_status');
-
-        if (!otp) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Please enter the OTP.</p>';
-            return;
-        }
-
-        statusDiv.innerHTML = '<p class="text-sm text-blue-600">Verifying OTP...</p>';
-
-        try {
-            const response = await fetch('/api/v1/clients/verify-otp', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                },
-                body: JSON.stringify({ phone: phone, otp: otp })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                statusDiv.innerHTML = '<p class="text-sm text-green-600">✓ Phone verified successfully!</p>';
-                document.getElementById('policy_verified').value = '1';
-            } else {
-                statusDiv.innerHTML = `<p class="text-sm text-red-600">${data.message || 'OTP verification failed.'}</p>`;
-            }
-        } catch (error) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Verification failed. Please try again.</p>';
-        }
-    }
-
-    async function sendEmailOtpForVerification() {
-        const email = document.getElementById('alt_verification_email').value.trim();
-        const statusDiv = document.getElementById('policy_verification_status');
-
-        if (!email) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Please enter an email address.</p>';
-            return;
-        }
-
-        statusDiv.innerHTML = '<p class="text-sm text-blue-600">Sending OTP...</p>';
-
-        try {
-            const response = await fetch('/api/v1/clients/search-and-send-otp-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                },
-                body: JSON.stringify({ email: email })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                statusDiv.innerHTML = '<p class="text-sm text-green-600">✓ OTP sent! Please check your email.</p>';
-                document.getElementById('email_otp_input_container').classList.remove('hidden');
-            } else {
-                statusDiv.innerHTML = `<p class="text-sm text-red-600">${data.message || 'Failed to send OTP.'}</p>`;
-            }
-        } catch (error) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Failed to send OTP. Please try again.</p>';
-        }
-    }
-
-    async function verifyEmailOtpForVerification() {
-        const email = document.getElementById('alt_verification_email').value.trim();
-        const otp = document.getElementById('alt_verification_email_otp').value.trim();
-        const statusDiv = document.getElementById('policy_verification_status');
-
-        if (!otp) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Please enter the OTP.</p>';
-            return;
-        }
-
-        statusDiv.innerHTML = '<p class="text-sm text-blue-600">Verifying OTP...</p>';
-
-        try {
-            const response = await fetch('/api/v1/clients/verify-otp-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                },
-                body: JSON.stringify({ email: email, otp: otp })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                statusDiv.innerHTML = '<p class="text-sm text-green-600">✓ Email verified successfully!</p>';
-                document.getElementById('policy_verified').value = '1';
-            } else {
-                statusDiv.innerHTML = `<p class="text-sm text-red-600">${data.message || 'OTP verification failed.'}</p>`;
-            }
-        } catch (error) {
-            statusDiv.innerHTML = '<p class="text-sm text-red-600">Verification failed. Please try again.</p>';
-        }
-    }
-
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        // Add event listeners to payment method checkboxes
-        document.querySelectorAll('input[name="payment_methods[]"]').forEach(checkbox => {
-            checkbox.addEventListener('change', updateInsuranceCompanySection);
-        });
-        
-        // Initialize insurance company section visibility
-        updateInsuranceCompanySection();
-
-        // Add event listener to insurance company select to clear policy number when changed
-        const insuranceSelect = document.getElementById('insurance_company_id');
-        if (insuranceSelect) {
-            insuranceSelect.addEventListener('change', function() {
-                document.getElementById('policy_number').value = '';
-                document.getElementById('policy_verification_status').innerHTML = '';
-                document.getElementById('alternative_verification_section').classList.add('hidden');
-            });
-        }
-    });
 
     // Pass plan data to JavaScript
     window.plansData = @json($plansData);
@@ -1785,6 +1345,164 @@
     
     let dependantCount = 1;
     let medicationCount = 1;
+
+    // Auto-generate form with test data
+    function autoGenerateForm() {
+        if (!confirm('This will fill all form fields with test data. Continue?')) {
+            return;
+        }
+
+        // Principal Member Details
+        const testData = {
+            // Personal Information
+            first_name: 'JOHN',
+            surname: 'DOE',
+            other_names: 'MICHAEL',
+            date_of_birth: '1985-05-15',
+            gender: 'male',
+            marital_status: 'married',
+            id_passport_no: 'CM123456789',
+            nationality: 'Ugandan',
+            
+            // Contact Information
+            cell_phone: '+256701234567',
+            email: 'john.doe@example.com',
+            postal_address: 'P.O. Box 12345, Kampala',
+            physical_address: 'Plot 45, Nakawa Road, Kampala',
+            
+            // Next of Kin
+            next_of_kin_name: 'JANE DOE',
+            next_of_kin_relationship: 'spouse',
+            next_of_kin_cell_phone: '+256702345678',
+            next_of_kin_email: 'jane.doe@example.com',
+            next_of_kin_post_address: 'P.O. Box 12345, Kampala',
+            next_of_kin_physical_address: 'Plot 45, Nakawa Road, Kampala',
+            
+            // Employment
+            occupation: 'Software Engineer',
+            employer_name: 'Tech Solutions Ltd',
+            employer_address: 'Plot 100, Industrial Area, Kampala',
+            
+            // Plan and Benefits
+            plan_id: null, // Will select first available plan
+            copay_amount: '20000',
+            copay_max_limit: '200000',
+            coinsurance_percentage: '10',
+            deductible_amount: '100000',
+            
+            // Declaration
+            desired_start_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+            agent_broker_name: 'Test Agent'
+        };
+
+        // Fill text inputs
+        Object.keys(testData).forEach(key => {
+            if (testData[key] !== null) {
+                const field = document.getElementById(key) || document.querySelector(`input[name="${key}"]`) || document.querySelector(`select[name="${key}"]`);
+                if (field) {
+                    if (field.type === 'radio') {
+                        const radio = document.querySelector(`input[name="${key}"][value="${testData[key]}"]`);
+                        if (radio) radio.checked = true;
+                    } else if (field.type === 'checkbox') {
+                        field.checked = testData[key] === '1' || testData[key] === true;
+                    } else {
+                        field.value = testData[key];
+                        // Trigger change event for fields that need it
+                        field.dispatchEvent(new Event('change', { bubbles: true }));
+                        field.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            }
+        });
+
+        // Select first available plan
+        const firstPlan = document.querySelector('input[name="plan_id"]');
+        if (firstPlan) {
+            firstPlan.checked = true;
+            firstPlan.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // Wait a bit then select benefits
+            setTimeout(() => {
+                // Select inpatient (required) and a few other benefits
+                const benefitCheckboxes = document.querySelectorAll('.benefit-checkbox:not(:disabled)');
+                benefitCheckboxes.forEach((checkbox, index) => {
+                    if (index < 3) { // Select first 3 available benefits
+                        checkbox.checked = true;
+                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            }, 100);
+        }
+
+        // Add a test dependant
+        setTimeout(() => {
+            const addDependantBtn = document.getElementById('add-dependant-btn');
+            if (addDependantBtn && addDependantBtn.style.display !== 'none') {
+                addDependant();
+                
+                // Fill dependant data
+                setTimeout(() => {
+                    const dependantSections = document.querySelectorAll('.dependant-section');
+                    if (dependantSections.length > 0) {
+                        const firstDependant = dependantSections[dependantSections.length - 1];
+                        const firstNameInput = firstDependant.querySelector('input[name*="[first_name]"]');
+                        const surnameInput = firstDependant.querySelector('input[name*="[surname]"]');
+                        const dobInput = firstDependant.querySelector('input[name*="[date_of_birth]"]');
+                        const genderSelect = firstDependant.querySelector('select[name*="[gender]"]');
+                        
+                        if (firstNameInput) {
+                            firstNameInput.value = 'MARY';
+                            firstNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        if (surnameInput) {
+                            surnameInput.value = 'DOE';
+                            surnameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        if (dobInput) {
+                            dobInput.value = '2010-03-20';
+                            dobInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                        if (genderSelect) {
+                            genderSelect.value = 'female';
+                            genderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                }, 100);
+            }
+        }, 200);
+
+        // Set deductible to YES
+        setTimeout(() => {
+            const deductibleYes = document.querySelector('input[name="has_deductible"][value="1"]');
+            if (deductibleYes) {
+                deductibleYes.checked = true;
+                deductibleYes.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 300);
+
+        // Answer medical questions (set all to "no" for simplicity)
+        setTimeout(() => {
+            document.querySelectorAll('.question-response[type="radio"][value="no"]').forEach(radio => {
+                radio.checked = true;
+                radio.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }, 350);
+
+        // Trigger premium calculation
+        setTimeout(() => {
+            if (typeof calculatePremium === 'function') {
+                calculatePremium();
+            }
+            if (typeof updateDependentsCount === 'function') {
+                updateDependentsCount();
+            }
+        }, 400);
+
+        // Scroll to top to show filled form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        alert('Form auto-filled with test data! Review and click "Submit Application" when ready.');
+    }
 
     // Count valid dependants (those with at least first name or surname filled)
     function countValidDependants() {
@@ -1897,12 +1615,37 @@
     }
 
     // Show/hide deductible amount field
-    document.querySelectorAll('input[name="has_deductible"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const field = document.getElementById('deductible-amount-field');
-            field.style.display = this.value === '1' ? 'block' : 'none';
+    function setupDeductibleToggle() {
+        document.querySelectorAll('input[name="has_deductible"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const field = document.getElementById('deductible-amount-field');
+                const input = document.getElementById('deductible_amount');
+                if (field) {
+                    field.style.display = this.value === '1' ? 'block' : 'none';
+                    // Enable/disable the input field
+                    if (input) {
+                        input.disabled = this.value !== '1';
+                        if (this.value === '1') {
+                            input.focus();
+                        }
+                    }
+                }
+            });
         });
-    });
+        
+        // Initialize the field state on page load
+        const checkedRadio = document.querySelector('input[name="has_deductible"]:checked');
+        if (checkedRadio) {
+            const field = document.getElementById('deductible-amount-field');
+            const input = document.getElementById('deductible_amount');
+            if (field) {
+                field.style.display = checkedRadio.value === '1' ? 'block' : 'none';
+            }
+            if (input) {
+                input.disabled = checkedRadio.value !== '1';
+            }
+        }
+    }
 
     // Show/hide telemedicine details
     document.querySelectorAll('input[name="telemedicine_only"]').forEach(radio => {
@@ -1937,40 +1680,160 @@
         }
     });
 
-    // Before form submission, convert medication tables to JSON
+    // Before form submission, convert medication tables to JSON and handle errors
     document.querySelector('form')?.addEventListener('submit', function(e) {
-        // Find all medication tables and convert to JSON
-        document.querySelectorAll('[id^="medication-tbody-"]').forEach(tbody => {
-            const questionId = tbody.id.replace('medication-tbody-', '');
-            const rows = tbody.querySelectorAll('tr');
-            const medications = [];
+        // Store original button text outside try-catch for use in catch block
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton ? submitButton.textContent : 'Submit';
+        
+        try {
+            console.log('Form submission started');
             
-            rows.forEach(row => {
-                const inputs = row.querySelectorAll('input');
-                if (inputs.length >= 4) {
-                    medications.push({
-                        applicant_name: inputs[0].value,
-                        medication: inputs[1].value,
-                        diagnosis: inputs[2].value,
-                        date_started: inputs[3].value
-                    });
-                }
-            });
-            
-            // Store as JSON in hidden field or update the additional_info field
-            const additionalInfoField = document.querySelector(`input[name="medical_questions[${questionId}][additional_info]"], textarea[name="medical_questions[${questionId}][additional_info]"]`);
-            if (additionalInfoField && medications.length > 0) {
-                // Create hidden input to store JSON
-                let hiddenInput = document.querySelector(`input[name="medical_questions[${questionId}][additional_info_json]"]`);
-                if (!hiddenInput) {
-                    hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = `medical_questions[${questionId}][additional_info]`;
-                    additionalInfoField.parentNode.appendChild(hiddenInput);
-                }
-                hiddenInput.value = JSON.stringify(medications);
+            // Show loading state
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Submitting...';
             }
-        });
+            
+            // Remove any existing error messages
+            const existingError = document.getElementById('form-submission-error');
+            if (existingError) {
+                existingError.remove();
+            }
+            
+            // Find all medication tables and convert to JSON
+            try {
+                document.querySelectorAll('[id^="medication-tbody-"]').forEach(tbody => {
+                    try {
+                        const questionId = tbody.id.replace('medication-tbody-', '');
+                        const rows = tbody.querySelectorAll('tr');
+                        const medications = [];
+                        
+                        rows.forEach(row => {
+                            const inputs = row.querySelectorAll('input');
+                            if (inputs.length >= 4) {
+                                medications.push({
+                                    applicant_name: inputs[0].value,
+                                    medication: inputs[1].value,
+                                    diagnosis: inputs[2].value,
+                                    date_started: inputs[3].value
+                                });
+                            }
+                        });
+                        
+                        // Store as JSON in hidden field or update the additional_info field
+                        const additionalInfoField = document.querySelector(`input[name="medical_questions[${questionId}][additional_info]"], textarea[name="medical_questions[${questionId}][additional_info]"]`);
+                        if (additionalInfoField && medications.length > 0) {
+                            // Create hidden input to store JSON
+                            let hiddenInput = document.querySelector(`input[name="medical_questions[${questionId}][additional_info_json]"]`);
+                            if (!hiddenInput) {
+                                hiddenInput = document.createElement('input');
+                                hiddenInput.type = 'hidden';
+                                hiddenInput.name = `medical_questions[${questionId}][additional_info]`;
+                                additionalInfoField.parentNode.appendChild(hiddenInput);
+                            }
+                            hiddenInput.value = JSON.stringify(medications);
+                        }
+                    } catch (medError) {
+                        console.error('Error processing medication table:', medError);
+                        // Log to server if possible
+                        if (window.fetch) {
+                            fetch('/api/v1/log-error', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                                },
+                                body: JSON.stringify({
+                                    error: 'Medication table processing error',
+                                    message: medError.message,
+                                    stack: medError.stack,
+                                    questionId: tbody.id
+                                })
+                            }).catch(err => console.error('Failed to log error:', err));
+                        }
+                    }
+                });
+            } catch (medTableError) {
+                console.error('Error processing medication tables:', medTableError);
+                throw medTableError;
+            }
+            
+            console.log('Form validation passed, submitting...');
+            
+            // Log form data for debugging
+            const formData = new FormData(this);
+            const formDataObj = {};
+            for (let [key, value] of formData.entries()) {
+                formDataObj[key] = value;
+            }
+            console.log('Form data being submitted:', formDataObj);
+            
+            // Allow form to submit normally - don't prevent default
+            // The form will submit to the server
+            
+        } catch (error) {
+            console.error('Form submission error:', error);
+            
+            // Log error to server
+            if (window.fetch) {
+                fetch('/api/v1/log-error', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify({
+                        error: 'Form submission error',
+                        message: error.message,
+                        stack: error.stack,
+                        url: window.location.href
+                    })
+                }).catch(err => console.error('Failed to log error to server:', err));
+            }
+            
+            // Prevent form submission
+            e.preventDefault();
+            
+            // Show error message to user
+            const form = document.querySelector('form');
+            let errorDiv = document.getElementById('form-submission-error');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.id = 'form-submission-error';
+                errorDiv.className = 'mt-4 p-4 bg-red-50 border border-red-200 rounded-lg';
+                form.insertBefore(errorDiv, form.firstChild);
+            }
+            
+            errorDiv.innerHTML = `
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-red-600 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-semibold text-red-800 mb-1">Error Submitting Form</h4>
+                        <p class="text-sm text-red-700 mb-2">${error.message || 'An unexpected error occurred. Please try again.'}</p>
+                        <p class="text-xs text-red-600">Error details have been logged. If this problem persists, please contact support.</p>
+                    </div>
+                    <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-600 hover:text-red-800">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            // Scroll to error
+            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // Re-enable submit button
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = originalButtonText;
+            }
+            
+            return false;
+        }
     });
 
     // Enable/disable benefit checkboxes based on plan selection
@@ -2264,6 +2127,10 @@
         document.getElementById('base-premium').textContent = formatCurrency(basePremium);
         document.getElementById('dependents-count').textContent = numberOfDependents;
         document.getElementById('dependents-premium').textContent = formatCurrency(dependentsPremium);
+        document.getElementById('subtotal-premium').textContent = formatCurrency(subtotalPremium);
+        document.getElementById('training-levy').textContent = formatCurrency(trainingLevy);
+        document.getElementById('stamp-duty').textContent = formatCurrency(stampDuty);
+        document.getElementById('total-premium-due').textContent = formatCurrency(totalPremiumDue);
         
         // Hide tier info if no dependents
         if (numberOfDependents === 0) {
@@ -2273,10 +2140,75 @@
                 tierInfoEl.style.display = 'none';
             }
         }
+        
+        // Display premium adjustments
+        const premiumAdjustmentsContainer = document.getElementById('premium-adjustments-container');
+        const premiumAdjustmentsListEl = document.getElementById('premium-adjustments-list');
+        if (premiumAdjustmentsList && premiumAdjustmentsList.length > 0) {
+            if (premiumAdjustmentsContainer) premiumAdjustmentsContainer.style.display = 'block';
+            if (premiumAdjustmentsListEl) {
+                premiumAdjustmentsListEl.innerHTML = premiumAdjustmentsList.map(adj => {
+                    const sign = adj.isPositive ? '+' : '';
+                    const color = adj.isPositive ? 'text-red-600' : 'text-green-600';
+                    return `<div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-600">${adj.description}:</span>
+                        <span class="font-semibold ${color}">${sign}${formatCurrency(adj.amount)}</span>
+                    </div>`;
+                }).join('');
+            }
+        } else {
+            if (premiumAdjustmentsContainer) premiumAdjustmentsContainer.style.display = 'none';
+            if (premiumAdjustmentsListEl) premiumAdjustmentsListEl.innerHTML = '';
+        }
+        
+        // Display deductible adjustments
+        const deductibleAdjustmentsContainer = document.getElementById('deductible-adjustments-container');
+        const deductibleAdjustmentsListEl = document.getElementById('deductible-adjustments-list');
+        if (deductibleAdjustmentsList && deductibleAdjustmentsList.length > 0) {
+            if (deductibleAdjustmentsContainer) deductibleAdjustmentsContainer.style.display = 'block';
+            if (deductibleAdjustmentsListEl) {
+                deductibleAdjustmentsListEl.innerHTML = deductibleAdjustmentsList.map(adj => {
+                    const sign = adj.isPositive ? '+' : '';
+                    const color = adj.isPositive ? 'text-red-600' : 'text-green-600';
+                    return `<div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-600">${adj.description}:</span>
+                        <span class="font-semibold ${color}">${sign}${formatCurrency(adj.amount)}</span>
+                    </div>`;
+                }).join('');
+            }
+        } else {
+            if (deductibleAdjustmentsContainer) deductibleAdjustmentsContainer.style.display = 'none';
+            if (deductibleAdjustmentsListEl) deductibleAdjustmentsListEl.innerHTML = '';
+        }
+        
+        // Display coverage limit adjustments
+        const coverageLimitAdjustmentsContainer = document.getElementById('coverage-limit-adjustments-container');
+        const coverageLimitAdjustmentsListEl = document.getElementById('coverage-limit-adjustments-list');
+        if (coverageLimitAdjustmentsList && coverageLimitAdjustmentsList.length > 0) {
+            if (coverageLimitAdjustmentsContainer) coverageLimitAdjustmentsContainer.style.display = 'block';
+            if (coverageLimitAdjustmentsListEl) {
+                coverageLimitAdjustmentsListEl.innerHTML = coverageLimitAdjustmentsList.map(adj => {
+                    const amountDisplay = adj.isPercentage 
+                        ? `${adj.amount}%` 
+                        : formatCurrency(adj.amount);
+                    const sign = adj.isPositive ? '+' : '';
+                    return `<div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-600">${adj.description}:</span>
+                        <span class="font-semibold text-orange-600">${sign}${amountDisplay}</span>
+                    </div>`;
+                }).join('');
+            }
+        } else {
+            if (coverageLimitAdjustmentsContainer) coverageLimitAdjustmentsContainer.style.display = 'none';
+            if (coverageLimitAdjustmentsListEl) coverageLimitAdjustmentsListEl.innerHTML = '';
+        }
     }
     
     // Initialize: Add event listeners to existing dependant inputs for auto-calculation
     document.addEventListener('DOMContentLoaded', function() {
+        // Setup deductible toggle
+        setupDeductibleToggle();
+        
         // Add event listeners to all existing dependant inputs
         const dependantInputs = document.querySelectorAll('#dependants-container input, #dependants-container select');
         dependantInputs.forEach(input => {
@@ -2286,67 +2218,26 @@
         
         // Initial count calculation
         updateDependentsCount();
-        document.getElementById('subtotal-premium').textContent = formatCurrency(subtotalPremium);
-        document.getElementById('training-levy').textContent = formatCurrency(trainingLevy);
-        document.getElementById('stamp-duty').textContent = formatCurrency(stampDuty);
-        document.getElementById('total-premium-due').textContent = formatCurrency(totalPremiumDue);
         
-        // Display premium adjustments
-        const premiumAdjustmentsContainer = document.getElementById('premium-adjustments-container');
-        const premiumAdjustmentsListEl = document.getElementById('premium-adjustments-list');
-        if (premiumAdjustmentsList.length > 0) {
-            premiumAdjustmentsContainer.style.display = 'block';
-            premiumAdjustmentsListEl.innerHTML = premiumAdjustmentsList.map(adj => {
-                const sign = adj.isPositive ? '+' : '';
-                const color = adj.isPositive ? 'text-red-600' : 'text-green-600';
-                return `<div class="flex justify-between items-center text-xs">
-                    <span class="text-slate-600">${adj.description}:</span>
-                    <span class="font-semibold ${color}">${sign}${formatCurrency(adj.amount)}</span>
-                </div>`;
-            }).join('');
-        } else {
-            premiumAdjustmentsContainer.style.display = 'none';
-            premiumAdjustmentsListEl.innerHTML = '';
-        }
+        // Add event listeners for premium calculation
+        document.querySelectorAll('input[name="plan_id"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                calculatePremium();
+            });
+        });
         
-        // Display deductible adjustments
-        const deductibleAdjustmentsContainer = document.getElementById('deductible-adjustments-container');
-        const deductibleAdjustmentsListEl = document.getElementById('deductible-adjustments-list');
-        if (deductibleAdjustmentsList.length > 0) {
-            deductibleAdjustmentsContainer.style.display = 'block';
-            deductibleAdjustmentsListEl.innerHTML = deductibleAdjustmentsList.map(adj => {
-                const sign = adj.isPositive ? '+' : '';
-                const color = adj.isPositive ? 'text-red-600' : 'text-green-600';
-                return `<div class="flex justify-between items-center text-xs">
-                    <span class="text-slate-600">${adj.description}:</span>
-                    <span class="font-semibold ${color}">${sign}${formatCurrency(adj.amount)}</span>
-                </div>`;
-            }).join('');
-        } else {
-            deductibleAdjustmentsContainer.style.display = 'none';
-            deductibleAdjustmentsListEl.innerHTML = '';
-        }
+        document.querySelectorAll('.benefit-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                calculatePremium();
+            });
+        });
         
-        // Display coverage limit adjustments
-        const coverageLimitAdjustmentsContainer = document.getElementById('coverage-limit-adjustments-container');
-        const coverageLimitAdjustmentsListEl = document.getElementById('coverage-limit-adjustments-list');
-        if (coverageLimitAdjustmentsList.length > 0) {
-            coverageLimitAdjustmentsContainer.style.display = 'block';
-            coverageLimitAdjustmentsListEl.innerHTML = coverageLimitAdjustmentsList.map(adj => {
-                const amountDisplay = adj.isPercentage 
-                    ? `${adj.amount}%` 
-                    : formatCurrency(adj.amount);
-                const sign = adj.isPositive ? '+' : '';
-                return `<div class="flex justify-between items-center text-xs">
-                    <span class="text-slate-600">${adj.description}:</span>
-                    <span class="font-semibold text-orange-600">${sign}${amountDisplay}</span>
-                </div>`;
-            }).join('');
-        } else {
-            coverageLimitAdjustmentsContainer.style.display = 'none';
-            coverageLimitAdjustmentsListEl.innerHTML = '';
+        // Calculate premium on page load if plan is already selected
+        // This will update all premium-related displays
+        if (document.querySelector('input[name="plan_id"]:checked')) {
+            calculatePremium();
         }
-    }
+    });
     
     // Format currency
     function formatCurrency(amount) {
@@ -2355,492 +2246,4 @@
             maximumFractionDigits: 2
         });
     }
-    
-    // Add event listeners for premium calculation
-    document.querySelectorAll('input[name="plan_id"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            calculatePremium();
-        });
-    });
-    
-    document.querySelectorAll('.benefit-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            calculatePremium();
-        });
-    });
-    
-    // Calculate on page load if plan is already selected
-    if (document.querySelector('input[name="plan_id"]:checked')) {
-        calculatePremium();
-    }
-    
-    // Initialize: Add event listeners to existing dependant inputs for auto-calculation
-    // Add event listeners to all existing dependant inputs
-    const dependantInputs = document.querySelectorAll('#dependants-container input, #dependants-container select');
-    dependantInputs.forEach(input => {
-        input.addEventListener('input', updateDependentsCount);
-        input.addEventListener('change', updateDependentsCount);
-    });
-    
-    // Initial count calculation
-    updateDependentsCount();
-</script>
-        const container = document.getElementById('phone_otp_container');
-        
-        if (!phone) {
-            showAlert({
-                icon: 'warning',
-                title: 'Phone Number Required',
-                text: 'Please enter a phone number first',
-                confirmButtonColor: '#3b82f6'
-            });
-            return;
-        }
-        
-        btn.disabled = true;
-        btn.textContent = 'Sending...';
-        messageEl.textContent = '';
-        messageEl.className = 'mt-1 text-sm';
-        
-        try {
-            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
-            const response = await fetch('/api/v1/clients/search-and-send-otp', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ phone: phone })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                container.classList.remove('hidden');
-                messageEl.textContent = '✓ OTP sent to your phone. Please check your SMS.';
-                messageEl.className = 'mt-1 text-sm text-green-600';
-                document.getElementById('phone_otp').focus();
-            } else {
-                // Client not found - show SweetAlert to ask for registered phone number
-                const { value: registeredPhone } = await showAlert({
-                    icon: 'info',
-                    title: 'Phone Number Not Found',
-                    html: `
-                        <p class="mb-4">No client found with the phone number: <strong>${phone}</strong></p>
-                        <p class="text-sm text-gray-600 mb-4">Please enter the phone number you registered with your insurance company:</p>
-                    `,
-                    input: 'tel',
-                    inputLabel: 'Registered Phone Number',
-                    inputPlaceholder: 'Enter your registered phone number',
-                    inputAttributes: {
-                        'aria-label': 'Enter your registered phone number'
-                    },
-                    showCancelButton: true,
-                    confirmButtonText: 'Send OTP',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#3b82f6',
-                    cancelButtonColor: '#6b7280',
-                    inputValidator: (value) => {
-                        if (!value) {
-                            return 'Please enter a phone number';
-                        }
-                        if (value.length < 9) {
-                            return 'Please enter a valid phone number';
-                        }
-                    }
-                });
-                
-                if (registeredPhone) {
-                    // Update the phone input field
-                    document.getElementById('cell_phone').value = registeredPhone;
-                    // Retry with the registered phone number
-                    await sendPhoneOtpWithNumber(registeredPhone);
-                } else {
-                    messageEl.textContent = 'Verification cancelled.';
-                    messageEl.className = 'mt-1 text-sm text-gray-600';
-                }
-            }
-        } catch (error) {
-            messageEl.textContent = 'Error: ' + error.message;
-            messageEl.className = 'mt-1 text-sm text-red-600';
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Verify';
-        }
-    }
-    
-    // Helper function to send OTP with a specific phone number
-    async function sendPhoneOtpWithNumber(phone) {
-        const btn = document.getElementById('verify_phone_btn');
-        const messageEl = document.getElementById('phone_otp_message');
-        const container = document.getElementById('phone_otp_container');
-        
-        btn.disabled = true;
-        btn.textContent = 'Sending...';
-        messageEl.textContent = '';
-        messageEl.className = 'mt-1 text-sm';
-        
-        try {
-            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
-            const response = await fetch('/api/v1/clients/search-and-send-otp', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ phone: phone })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                container.classList.remove('hidden');
-                messageEl.textContent = '✓ OTP sent to your phone. Please check your SMS.';
-                messageEl.className = 'mt-1 text-sm text-green-600';
-                document.getElementById('phone_otp').focus();
-            } else {
-                showAlert({
-                    icon: 'error',
-                    title: 'Verification Failed',
-                    text: data.message || 'Failed to send OTP. Please check the phone number and try again.',
-                    confirmButtonColor: '#3b82f6'
-                });
-                messageEl.textContent = data.message || 'Failed to send OTP.';
-                messageEl.className = 'mt-1 text-sm text-red-600';
-            }
-        } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'An error occurred: ' + error.message,
-                confirmButtonColor: '#3b82f6'
-            });
-            messageEl.textContent = 'Error: ' + error.message;
-            messageEl.className = 'mt-1 text-sm text-red-600';
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Verify';
-        }
-    }
-    
-    async function verifyPhoneOtp() {
-        const phone = document.getElementById('cell_phone').value.trim();
-        const otp = document.getElementById('phone_otp').value.trim();
-        const btn = document.getElementById('verify_phone_otp_btn');
-        const messageEl = document.getElementById('phone_otp_message');
-        const verifiedInput = document.getElementById('phone_verified');
-        
-        if (!otp || otp.length !== 6) {
-            messageEl.textContent = 'Please enter a valid 6-digit OTP';
-            messageEl.className = 'mt-1 text-sm text-red-600';
-            return;
-        }
-        
-        btn.disabled = true;
-        btn.textContent = 'Verifying...';
-        
-        try {
-            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
-            const response = await fetch('/api/v1/clients/verify-otp', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ phone: phone, otp: otp })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                verifiedInput.value = '1';
-                messageEl.textContent = '✓ OTP verified successfully! Phone number confirmed.';
-                messageEl.className = 'mt-1 text-sm text-green-600';
-                document.getElementById('phone_otp_container').classList.add('opacity-75');
-                document.getElementById('phone_otp').disabled = true;
-                btn.disabled = true;
-                btn.textContent = 'Verified';
-                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-            } else {
-                messageEl.textContent = data.message || 'Invalid OTP. Please try again.';
-                messageEl.className = 'mt-1 text-sm text-red-600';
-                if (data.attempts_remaining !== undefined) {
-                    messageEl.textContent += ' (' + data.attempts_remaining + ' attempts remaining)';
-                }
-            }
-        } catch (error) {
-            messageEl.textContent = 'Error: ' + error.message;
-            messageEl.className = 'mt-1 text-sm text-red-600';
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Verify OTP';
-        }
-    }
-    
-    // Email OTP Functions
-    async function sendEmailOtp() {
-        const email = document.getElementById('email').value.trim();
-        const btn = document.getElementById('verify_email_btn');
-        const messageEl = document.getElementById('email_otp_message');
-        const container = document.getElementById('email_otp_container');
-        
-        if (!email) {
-            showAlert({
-                icon: 'warning',
-                title: 'Email Required',
-                text: 'Please enter an email address first',
-                confirmButtonColor: '#3b82f6'
-            });
-            return;
-        }
-        
-        // Basic email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            showAlert({
-                icon: 'warning',
-                title: 'Invalid Email',
-                text: 'Please enter a valid email address',
-                confirmButtonColor: '#3b82f6'
-            });
-            return;
-        }
-        
-        btn.disabled = true;
-        btn.textContent = 'Sending...';
-        messageEl.textContent = '';
-        messageEl.className = 'mt-1 text-sm';
-        
-        try {
-            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
-            const response = await fetch('/api/v1/clients/search-and-send-otp-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ email: email })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                container.classList.remove('hidden');
-                messageEl.textContent = '✓ OTP sent to your email. Please check your inbox.';
-                messageEl.className = 'mt-1 text-sm text-green-600';
-                document.getElementById('email_otp').focus();
-            } else {
-                // Client not found - show SweetAlert to ask for registered email
-                const { value: registeredEmail } = await showAlert({
-                    icon: 'info',
-                    title: 'Email Not Found',
-                    html: `
-                        <p class="mb-4">No client found with the email: <strong>${email}</strong></p>
-                        <p class="text-sm text-gray-600 mb-4">Please enter the email address you registered with your insurance company:</p>
-                    `,
-                    input: 'email',
-                    inputLabel: 'Registered Email Address',
-                    inputPlaceholder: 'Enter your registered email address',
-                    inputAttributes: {
-                        'aria-label': 'Enter your registered email address'
-                    },
-                    showCancelButton: true,
-                    confirmButtonText: 'Send OTP',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#3b82f6',
-                    cancelButtonColor: '#6b7280',
-                    inputValidator: (value) => {
-                        if (!value) {
-                            return 'Please enter an email address';
-                        }
-                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-                            return 'Please enter a valid email address';
-                        }
-                    }
-                });
-                
-                if (registeredEmail) {
-                    // Update the email input field
-                    document.getElementById('email').value = registeredEmail;
-                    // Retry with the registered email
-                    await sendEmailOtpWithAddress(registeredEmail);
-                } else {
-                    messageEl.textContent = 'Verification cancelled.';
-                    messageEl.className = 'mt-1 text-sm text-gray-600';
-                }
-            }
-        } catch (error) {
-            messageEl.textContent = 'Error: ' + error.message;
-            messageEl.className = 'mt-1 text-sm text-red-600';
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Verify';
-        }
-    }
-    
-    // Helper function to send OTP with a specific email address
-    async function sendEmailOtpWithAddress(email) {
-        const btn = document.getElementById('verify_email_btn');
-        const messageEl = document.getElementById('email_otp_message');
-        const container = document.getElementById('email_otp_container');
-        
-        btn.disabled = true;
-        btn.textContent = 'Sending...';
-        messageEl.textContent = '';
-        messageEl.className = 'mt-1 text-sm';
-        
-        try {
-            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
-            const response = await fetch('/api/v1/clients/search-and-send-otp-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ email: email })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                container.classList.remove('hidden');
-                messageEl.textContent = '✓ OTP sent to your email. Please check your inbox.';
-                messageEl.className = 'mt-1 text-sm text-green-600';
-                document.getElementById('email_otp').focus();
-            } else {
-                showAlert({
-                    icon: 'error',
-                    title: 'Verification Failed',
-                    text: data.message || 'Failed to send OTP. Please check the email address and try again.',
-                    confirmButtonColor: '#3b82f6'
-                });
-                messageEl.textContent = data.message || 'Failed to send OTP.';
-                messageEl.className = 'mt-1 text-sm text-red-600';
-            }
-        } catch (error) {
-            showAlert({
-                icon: 'error',
-                title: 'Error',
-                text: 'An error occurred: ' + error.message,
-                confirmButtonColor: '#3b82f6'
-            });
-            messageEl.textContent = 'Error: ' + error.message;
-            messageEl.className = 'mt-1 text-sm text-red-600';
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Verify';
-        }
-    }
-    
-    async function verifyEmailOtp() {
-        const email = document.getElementById('email').value.trim();
-        const otp = document.getElementById('email_otp').value.trim();
-        const btn = document.getElementById('verify_email_otp_btn');
-        const messageEl = document.getElementById('email_otp_message');
-        const verifiedInput = document.getElementById('email_verified');
-        
-        if (!otp || otp.length !== 6) {
-            messageEl.textContent = 'Please enter a valid 6-digit OTP';
-            messageEl.className = 'mt-1 text-sm text-red-600';
-            return;
-        }
-        
-        btn.disabled = true;
-        btn.textContent = 'Verifying...';
-        
-        try {
-            const csrfToken = document.querySelector('input[name="_token"]')?.value || '';
-            const response = await fetch('/api/v1/clients/verify-otp-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ email: email, otp: otp })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                verifiedInput.value = '1';
-                messageEl.textContent = '✓ OTP verified successfully! Email address confirmed.';
-                messageEl.className = 'mt-1 text-sm text-green-600';
-                document.getElementById('email_otp_container').classList.add('opacity-75');
-                document.getElementById('email_otp').disabled = true;
-                btn.disabled = true;
-                btn.textContent = 'Verified';
-                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-            } else {
-                messageEl.textContent = data.message || 'Invalid OTP. Please try again.';
-                messageEl.className = 'mt-1 text-sm text-red-600';
-                if (data.attempts_remaining !== undefined) {
-                    messageEl.textContent += ' (' + data.attempts_remaining + ' attempts remaining)';
-                }
-            }
-        } catch (error) {
-            messageEl.textContent = 'Error: ' + error.message;
-            messageEl.className = 'mt-1 text-sm text-red-600';
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Verify OTP';
-        }
-    }
-    
-    // Form submission validation - check if verification was started but not completed
-    document.querySelector('form').addEventListener('submit', function(e) {
-        const phoneOtpContainer = document.getElementById('phone_otp_container');
-        const emailOtpContainer = document.getElementById('email_otp_container');
-        const phoneVerified = document.getElementById('phone_verified')?.value === '1';
-        const emailVerified = document.getElementById('email_verified')?.value === '1';
-        
-        // Check if insurance payment method is selected
-        const insuranceCheckbox = document.querySelector('input[name="payment_methods[]"][value="insurance"]');
-        const insuranceSection = document.getElementById('insurance_company_section');
-        const policyVerified = document.getElementById('policy_verified')?.value === '1';
-        
-        if (insuranceCheckbox && insuranceCheckbox.checked && insuranceSection && insuranceSection.style.display !== 'none') {
-            if (!policyVerified) {
-                e.preventDefault();
-                alert('Please verify the policy number or use an alternative verification method before submitting the form.');
-                return false;
-            }
-        }
-        
-        // Only require verification if OTP container is visible (user started verification)
-        if (phoneOtpContainer && !phoneOtpContainer.classList.contains('hidden') && !phoneVerified) {
-            e.preventDefault();
-            alert('Please complete phone number verification before submitting the form.');
-            return false;
-        }
-        
-        if (emailOtpContainer && !emailOtpContainer.classList.contains('hidden') && !emailVerified) {
-            e.preventDefault();
-            alert('Please complete email verification before submitting the form.');
-            return false;
-        }
-    });
 </script>

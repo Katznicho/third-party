@@ -85,6 +85,7 @@
                     <form action="{{ route('settings.update-policy-number') }}" method="POST" class="space-y-6">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="current_tab" id="current_tab_policy-number" value="policy-number">
 
                         <!-- Policy Number Format -->
                         <div>
@@ -213,6 +214,7 @@
                     <form action="{{ route('settings.update-deductible-contribution') }}" method="POST" class="space-y-6">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="current_tab" id="current_tab_deductible" value="deductible">
 
                         <div class="space-y-4">
                             <!-- Copay Contribution -->
@@ -296,6 +298,7 @@
                     <form action="{{ route('settings.update-required-client-fields') }}" method="POST" class="space-y-6">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="current_tab" id="current_tab_client-fields" value="client-fields">
 
                         @php
                             $defaultFields = \App\Models\InsuranceCompany::getDefaultRequiredFields();
@@ -391,6 +394,7 @@
                     <form action="{{ route('settings.update-verification') }}" method="POST" class="space-y-6">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="current_tab" id="current_tab_verification" value="verification">
 
                         <!-- Physical ID Requirement -->
                         <div class="border border-slate-200 rounded-lg p-5 bg-blue-50">
@@ -702,6 +706,98 @@
                                     <p class="text-xs text-slate-500 mt-1">Days tolerance for date of birth matching. Used when date of birth verification is required in any method.</p>
                                 </div>
                             </div>
+
+                            <!-- Test/Demo Section -->
+                            <div class="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                                <h4 class="text-sm font-semibold text-slate-800 mb-3">🧪 Test Tolerance Settings</h4>
+                                <p class="text-xs text-slate-600 mb-4">Test how your tolerance settings work with sample names and dates.</p>
+                                
+                                <div class="space-y-4">
+                                    <!-- Name Similarity Test -->
+                                    <div class="bg-white p-4 rounded-lg border border-slate-200">
+                                        <h5 class="text-sm font-medium text-slate-700 mb-3">Name Similarity Test</h5>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                                            <div>
+                                                <label class="block text-xs text-slate-600 mb-1">Name 1 (Registered)</label>
+                                                <input 
+                                                    type="text" 
+                                                    id="test_name1" 
+                                                    placeholder="e.g., John Doe"
+                                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                >
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-600 mb-1">Name 2 (Provided)</label>
+                                                <div class="flex gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        id="test_name2" 
+                                                        placeholder="e.g., Jon Doe"
+                                                        class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                    <button 
+                                                        type="button" 
+                                                        onclick="generateRandomNames()"
+                                                        class="px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                                                        title="Generate random test names"
+                                                    >
+                                                        🎲
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onclick="testNameSimilarity()"
+                                            class="w-full px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                                        >
+                                            Test Name Similarity
+                                        </button>
+                                        <div id="name_test_result" class="mt-3 p-3 rounded-lg hidden"></div>
+                                    </div>
+
+                                    <!-- Date of Birth Tolerance Test -->
+                                    <div class="bg-white p-4 rounded-lg border border-slate-200">
+                                        <h5 class="text-sm font-medium text-slate-700 mb-3">Date of Birth Tolerance Test</h5>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                                            <div>
+                                                <label class="block text-xs text-slate-600 mb-1">Date 1 (Registered)</label>
+                                                <input 
+                                                    type="date" 
+                                                    id="test_dob1" 
+                                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                >
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-600 mb-1">Date 2 (Provided)</label>
+                                                <div class="flex gap-2">
+                                                    <input 
+                                                        type="date" 
+                                                        id="test_dob2" 
+                                                        class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                    <button 
+                                                        type="button" 
+                                                        onclick="generateRandomDates()"
+                                                        class="px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                                                        title="Generate random test dates"
+                                                    >
+                                                        🎲
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onclick="testDobTolerance()"
+                                            class="w-full px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                                        >
+                                            Test DOB Tolerance
+                                        </button>
+                                        <div id="dob_test_result" class="mt-3 p-3 rounded-lg hidden"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Info Box -->
@@ -996,11 +1092,27 @@
             selectedTab.classList.remove('border-transparent', 'text-slate-500');
             selectedTab.classList.add('border-blue-500', 'text-blue-600');
         }
+        
+        // Update all hidden tab inputs to reflect current tab
+        const allTabInputs = document.querySelectorAll('input[name="current_tab"]');
+        allTabInputs.forEach(input => {
+            input.value = tabName;
+        });
+        
+        // Update URL hash without reloading
+        if (history.pushState) {
+            history.pushState(null, null, '#' + tabName);
+        }
     }
     
     // Initialize first tab on page load
     document.addEventListener('DOMContentLoaded', function() {
-        switchTab('policy-number');
+        // Check for tab in URL hash or query parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabFromUrl = urlParams.get('tab') || window.location.hash.substring(1);
+        const initialTab = tabFromUrl || 'policy-number';
+        
+        switchTab(initialTab);
         
         // Handle Physical ID requirement toggle
         const requirePhysicalIdCheckbox = document.getElementById('require_physical_id');
@@ -1083,6 +1195,186 @@
             if (companyCodeLengthInput) companyCodeLengthInput.addEventListener('input', updatePreview);
         }
     });
+
+    // Calculate name similarity using Levenshtein distance (same algorithm as backend)
+    function calculateNameSimilarity(name1, name2) {
+        name1 = name1.toLowerCase().trim();
+        name2 = name2.toLowerCase().trim();
+        
+        if (name1 === name2) {
+            return 100;
+        }
+
+        const maxLength = Math.max(name1.length, name2.length);
+        if (maxLength === 0) {
+            return 0;
+        }
+
+        // Levenshtein distance calculation
+        const matrix = [];
+        for (let i = 0; i <= name2.length; i++) {
+            matrix[i] = [i];
+        }
+        for (let j = 0; j <= name1.length; j++) {
+            matrix[0][j] = j;
+        }
+
+        for (let i = 1; i <= name2.length; i++) {
+            for (let j = 1; j <= name1.length; j++) {
+                if (name2.charAt(i - 1) === name1.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j] + 1
+                    );
+                }
+            }
+        }
+
+        const distance = matrix[name2.length][name1.length];
+        const similarity = (1 - (distance / maxLength)) * 100;
+        
+        return Math.round(similarity);
+    }
+
+    // Test name similarity
+    function testNameSimilarity() {
+        const name1 = document.getElementById('test_name1').value.trim();
+        const name2 = document.getElementById('test_name2').value.trim();
+        const threshold = parseInt(document.getElementById('name_similarity_threshold').value) || 80;
+        const resultDiv = document.getElementById('name_test_result');
+
+        if (!name1 || !name2) {
+            resultDiv.className = 'mt-3 p-3 rounded-lg bg-yellow-50 border border-yellow-200';
+            resultDiv.innerHTML = '<p class="text-sm text-yellow-800">Please enter both names to test.</p>';
+            resultDiv.classList.remove('hidden');
+            return;
+        }
+
+        const similarity = calculateNameSimilarity(name1, name2);
+        const matches = similarity >= threshold;
+
+        resultDiv.className = matches 
+            ? 'mt-3 p-3 rounded-lg bg-green-50 border border-green-200' 
+            : 'mt-3 p-3 rounded-lg bg-red-50 border border-red-200';
+        
+        resultDiv.innerHTML = `
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium ${matches ? 'text-green-800' : 'text-red-800'}">
+                        Similarity: <strong>${similarity}%</strong>
+                    </span>
+                    <span class="px-2 py-1 text-xs font-semibold rounded ${matches ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}">
+                        ${matches ? '✓ MATCH' : '✗ NO MATCH'}
+                    </span>
+                </div>
+                <div class="text-xs ${matches ? 'text-green-700' : 'text-red-700'}">
+                    <p><strong>Threshold:</strong> ${threshold}%</p>
+                    <p><strong>Name 1 (Registered):</strong> "${name1}"</p>
+                    <p><strong>Name 2 (Provided):</strong> "${name2}"</p>
+                    ${!matches ? `<p class="mt-1"><strong>Reason:</strong> Similarity (${similarity}%) is below the threshold (${threshold}%)</p>` : ''}
+                </div>
+            </div>
+        `;
+        resultDiv.classList.remove('hidden');
+    }
+
+    // Test DOB tolerance
+    function testDobTolerance() {
+        const dob1 = document.getElementById('test_dob1').value;
+        const dob2 = document.getElementById('test_dob2').value;
+        const toleranceDays = parseInt(document.getElementById('dob_tolerance_days').value) || 0;
+        const resultDiv = document.getElementById('dob_test_result');
+
+        if (!dob1 || !dob2) {
+            resultDiv.className = 'mt-3 p-3 rounded-lg bg-yellow-50 border border-yellow-200';
+            resultDiv.innerHTML = '<p class="text-sm text-yellow-800">Please enter both dates to test.</p>';
+            resultDiv.classList.remove('hidden');
+            return;
+        }
+
+        const date1 = new Date(dob1);
+        const date2 = new Date(dob2);
+        const daysDiff = Math.abs(Math.floor((date2 - date1) / (1000 * 60 * 60 * 24)));
+        const matches = daysDiff <= toleranceDays;
+
+        resultDiv.className = matches 
+            ? 'mt-3 p-3 rounded-lg bg-green-50 border border-green-200' 
+            : 'mt-3 p-3 rounded-lg bg-red-50 border border-red-200';
+        
+        resultDiv.innerHTML = `
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium ${matches ? 'text-green-800' : 'text-red-800'}">
+                        Difference: <strong>${daysDiff} day${daysDiff !== 1 ? 's' : ''}</strong>
+                    </span>
+                    <span class="px-2 py-1 text-xs font-semibold rounded ${matches ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}">
+                        ${matches ? '✓ MATCH' : '✗ NO MATCH'}
+                    </span>
+                </div>
+                <div class="text-xs ${matches ? 'text-green-700' : 'text-red-700'}">
+                    <p><strong>Tolerance:</strong> ${toleranceDays} day${toleranceDays !== 1 ? 's' : ''}</p>
+                    <p><strong>Date 1 (Registered):</strong> ${new Date(dob1).toLocaleDateString()}</p>
+                    <p><strong>Date 2 (Provided):</strong> ${new Date(dob2).toLocaleDateString()}</p>
+                    ${!matches ? `<p class="mt-1"><strong>Reason:</strong> Difference (${daysDiff} days) exceeds tolerance (${toleranceDays} days)</p>` : ''}
+                </div>
+            </div>
+        `;
+        resultDiv.classList.remove('hidden');
+    }
+
+    // Generate random test names
+    function generateRandomNames() {
+        const firstNames = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emily', 'James', 'Mary', 'Robert', 'Patricia', 'William', 'Jennifer', 'Richard', 'Linda', 'Joseph', 'Elizabeth'];
+        const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Wilson', 'Anderson', 'Thomas', 'Taylor'];
+        
+        const name1 = firstNames[Math.floor(Math.random() * firstNames.length)] + ' ' + lastNames[Math.floor(Math.random() * lastNames.length)];
+        const name2 = firstNames[Math.floor(Math.random() * firstNames.length)] + ' ' + lastNames[Math.floor(Math.random() * lastNames.length)];
+        
+        // Sometimes make name2 similar to name1 for better testing
+        if (Math.random() > 0.5) {
+            // Make a variation of name1
+            const parts = name1.split(' ');
+            const variations = [
+                parts[0].substring(0, 3) + parts[0].substring(3).replace(/./g, '') + ' ' + parts[1], // Remove some letters
+                parts[0] + ' ' + parts[1].substring(0, 2) + parts[1].substring(2), // Slight variation
+                parts[0].charAt(0) + parts[0].substring(1).replace(/[aeiou]/gi, '') + ' ' + parts[1], // Remove vowels
+            ];
+            document.getElementById('test_name1').value = name1;
+            document.getElementById('test_name2').value = variations[Math.floor(Math.random() * variations.length)];
+        } else {
+            document.getElementById('test_name1').value = name1;
+            document.getElementById('test_name2').value = name2;
+        }
+    }
+
+    // Generate random test dates
+    function generateRandomDates() {
+        const today = new Date();
+        const baseDate = new Date(today.getFullYear() - 30, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
+        const toleranceDays = parseInt(document.getElementById('dob_tolerance_days').value) || 0;
+        
+        // Generate date1
+        const date1 = new Date(baseDate);
+        date1.setDate(date1.getDate() - Math.floor(Math.random() * 365));
+        
+        // Generate date2 - sometimes within tolerance, sometimes outside
+        const date2 = new Date(date1);
+        if (Math.random() > 0.5 && toleranceDays > 0) {
+            // Within tolerance
+            const offset = Math.floor(Math.random() * (toleranceDays * 2 + 1)) - toleranceDays;
+            date2.setDate(date2.getDate() + offset);
+        } else {
+            // Outside tolerance (or no tolerance set)
+            const offset = toleranceDays + Math.floor(Math.random() * 10) + 1;
+            date2.setDate(date2.getDate() + (Math.random() > 0.5 ? offset : -offset));
+        }
+        
+        document.getElementById('test_dob1').value = date1.toISOString().split('T')[0];
+        document.getElementById('test_dob2').value = date2.toISOString().split('T')[0];
+    }
 </script>
 
             <!-- Authorization Settings Tab -->
@@ -1096,6 +1388,7 @@
                     <form action="{{ route('settings.update-authorization') }}" method="POST" class="space-y-6">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="current_tab" id="current_tab_authorization" value="authorization">
 
                         <!-- Enable Auto-Authorization -->
                         <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">

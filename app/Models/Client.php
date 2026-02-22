@@ -53,8 +53,6 @@ class Client extends Model
         'deductible_amount',
         'telemedicine_only',
         'is_active',
-        'services_category',
-        'payment_methods',
         'insurance_company_id',
     ];
 
@@ -68,7 +66,6 @@ class Client extends Model
             'deductible_amount' => 'decimal:2',
             'telemedicine_only' => 'boolean',
             'is_active' => 'boolean',
-            'payment_methods' => 'array',
         ];
     }
 
