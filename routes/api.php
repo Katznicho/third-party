@@ -71,6 +71,9 @@ Route::prefix('v1')->group(function () {
     // Create client account (for Kashtre integration)
     Route::post('/clients/{clientId}/account', [\App\Http\Controllers\Api\ClientController::class, 'createAccount'])->name('api.clients.account.create');
     
+    // Create payment responsibility payment (for Kashtre integration)
+    Route::post('/payments/responsibility', [\App\Http\Controllers\Api\PaymentController::class, 'createPaymentResponsibility'])->name('api.payments.responsibility.create');
+    
     // Error logging (public, for client-side error reporting)
     Route::post('/log-error', function (\Illuminate\Http\Request $request) {
         \Illuminate\Support\Facades\Log::error('Client-side error', [
