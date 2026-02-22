@@ -32,9 +32,16 @@
                 <button 
                     onclick="switchTab('policy-number')"
                     id="tab-policy-number"
-                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-blue-500 text-blue-600"
+                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                 >
                     Policy Numbers
+                </button>
+                <button 
+                    onclick="switchTab('account-number')"
+                    id="tab-account-number"
+                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                >
+                    Account Numbers
                 </button>
                 <button 
                     onclick="switchTab('deductible')"
@@ -190,6 +197,124 @@
                         </div>
 
                         <!-- Form Actions -->
+                        <div class="flex justify-end pt-4 border-t border-slate-200">
+                            <button 
+                                type="submit" 
+                                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150"
+                            >
+                                Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Account Number Generation Tab -->
+            <div id="content-account-number" class="tab-content" style="display: none;">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-xl font-bold text-slate-900 mb-4">Account Number Generation</h2>
+                    <p class="text-sm text-slate-600 mb-6">Configure how account numbers are generated for client accounts. Account numbers must be exactly 12 digits.</p>
+
+                    <form action="{{ route('settings.update-account-number') }}" method="POST" class="space-y-6">
+                        @csrf
+                        @method('PUT')
+                        <input type="hidden" name="current_tab" id="current_tab_account-number" value="account-number">
+
+                        <!-- Account Number Format -->
+                        <div>
+                            <label for="account_number_format" class="block text-sm font-medium text-slate-700 mb-2">
+                                Account Number Format
+                            </label>
+                            <input 
+                                type="text" 
+                                name="account_number_format" 
+                                id="account_number_format" 
+                                value="{{ old('account_number_format', $insuranceCompany->account_number_format ?? '{COMPANY}{YEAR}{RANDOM}') }}"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="{COMPANY}{YEAR}{RANDOM}"
+                                required
+                            >
+                            <p class="text-xs text-slate-500 mt-2">
+                                Available placeholders: <code class="bg-slate-100 px-1 py-0.5 rounded">{COMPANY}</code>, 
+                                <code class="bg-slate-100 px-1 py-0.5 rounded">{YEAR}</code>, 
+                                <code class="bg-slate-100 px-1 py-0.5 rounded">{YEAR2}</code>, 
+                                <code class="bg-slate-100 px-1 py-0.5 rounded">{MONTH}</code>, 
+                                <code class="bg-slate-100 px-1 py-0.5 rounded">{DAY}</code>, 
+                                <code class="bg-slate-100 px-1 py-0.5 rounded">{RANDOM}</code>
+                            </p>
+                            <p class="text-xs text-slate-500 mt-1">
+                                <strong>Note:</strong> The final account number will be exactly 12 digits. Non-numeric characters will be removed, and the number will be padded or truncated to 12 digits.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Random Length -->
+                            <div>
+                                <label for="account_number_random_length" class="block text-sm font-medium text-slate-700 mb-2">
+                                    Random Part Length
+                                </label>
+                                <input 
+                                    type="number" 
+                                    name="account_number_random_length" 
+                                    id="account_number_random_length" 
+                                    value="{{ old('account_number_random_length', $insuranceCompany->account_number_random_length ?? 6) }}"
+                                    min="1"
+                                    max="12"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                <p class="text-xs text-slate-500 mt-1">Base length for random part (will be adjusted to ensure 12 digits total)</p>
+                            </div>
+
+                            <!-- Random Type -->
+                            <div>
+                                <label for="account_number_random_type" class="block text-sm font-medium text-slate-700 mb-2">
+                                    Random Part Type
+                                </label>
+                                <select 
+                                    name="account_number_random_type" 
+                                    id="account_number_random_type" 
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                    <option value="numeric" {{ old('account_number_random_type', $insuranceCompany->account_number_random_type ?? 'numeric') === 'numeric' ? 'selected' : '' }}>Numeric (0-9)</option>
+                                    <option value="alphanumeric" {{ old('account_number_random_type', $insuranceCompany->account_number_random_type ?? 'numeric') === 'alphanumeric' ? 'selected' : '' }}>Alphanumeric (A-Z, 0-9)</option>
+                                    <option value="alphabetic" {{ old('account_number_random_type', $insuranceCompany->account_number_random_type ?? 'numeric') === 'alphabetic' ? 'selected' : '' }}>Alphabetic (A-Z)</option>
+                                </select>
+                                <p class="text-xs text-slate-500 mt-1">Type of characters for random part</p>
+                            </div>
+
+                            <!-- Company Code Length -->
+                            <div>
+                                <label for="account_number_company_code_length" class="block text-sm font-medium text-slate-700 mb-2">
+                                    Company Code Length
+                                </label>
+                                <input 
+                                    type="number" 
+                                    name="account_number_company_code_length" 
+                                    id="account_number_company_code_length" 
+                                    value="{{ old('account_number_company_code_length', $insuranceCompany->account_number_company_code_length ?? 3) }}"
+                                    min="1"
+                                    max="8"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    required
+                                >
+                                <p class="text-xs text-slate-500 mt-1">Characters from company code to use</p>
+                            </div>
+                        </div>
+
+                        <!-- Preview -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Preview</label>
+                            <div class="flex items-center gap-3">
+                                <code class="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-mono" id="preview-account-number">
+                                    {{ strtoupper(substr($insuranceCompany->code ?? 'ACC', 0, 3)) }}{{ now()->format('Y') }}123456
+                                </code>
+                                <span class="text-xs text-slate-500">(12 digits)</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-2">This is a preview. Actual account numbers will be generated based on your settings.</p>
+                        </div>
+
                         <div class="flex justify-end pt-4 border-t border-slate-200">
                             <button 
                                 type="submit" 
@@ -1193,6 +1318,63 @@
             if (randomLengthInput) randomLengthInput.addEventListener('input', updatePreview);
             if (randomTypeInput) randomTypeInput.addEventListener('change', updatePreview);
             if (companyCodeLengthInput) companyCodeLengthInput.addEventListener('input', updatePreview);
+        }
+        
+        // Account number preview
+        const accountFormatInput = document.getElementById('account_number_format');
+        const accountRandomLengthInput = document.getElementById('account_number_random_length');
+        const accountRandomTypeInput = document.getElementById('account_number_random_type');
+        const accountCompanyCodeLengthInput = document.getElementById('account_number_company_code_length');
+        const accountPreviewElement = document.getElementById('preview-account-number');
+        
+        if (accountFormatInput && accountPreviewElement) {
+            const companyCode = '{{ strtoupper(substr($insuranceCompany->code ?? "ACC", 0, 3)) }}';
+            
+            function updateAccountPreview() {
+                const format = accountFormatInput.value || '{COMPANY}{YEAR}{RANDOM}';
+                const randomLength = parseInt(accountRandomLengthInput.value) || 6;
+                const randomType = accountRandomTypeInput.value || 'numeric';
+                const codeLength = parseInt(accountCompanyCodeLengthInput.value) || 3;
+                
+                // Generate random part
+                let randomPart = '';
+                let characters = '';
+                if (randomType === 'numeric') {
+                    characters = '0123456789';
+                } else if (randomType === 'alphabetic') {
+                    characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                } else {
+                    characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                }
+                
+                for (let i = 0; i < randomLength; i++) {
+                    randomPart += characters[Math.floor(Math.random() * characters.length)];
+                }
+                
+                // Replace placeholders
+                let preview = format;
+                preview = preview.replace(/{COMPANY}/g, companyCode.substring(0, codeLength));
+                preview = preview.replace(/{YEAR}/g, new Date().getFullYear());
+                preview = preview.replace(/{YEAR2}/g, String(new Date().getFullYear()).substring(2));
+                preview = preview.replace(/{MONTH}/g, String(new Date().getMonth() + 1).padStart(2, '0'));
+                preview = preview.replace(/{DAY}/g, String(new Date().getDate()).padStart(2, '0'));
+                preview = preview.replace(/{RANDOM}/g, randomPart);
+                
+                // Remove non-numeric and ensure 12 digits
+                preview = preview.replace(/[^0-9]/g, '');
+                if (preview.length < 12) {
+                    preview = preview.padEnd(12, '0');
+                } else if (preview.length > 12) {
+                    preview = preview.substring(0, 12);
+                }
+                
+                accountPreviewElement.textContent = preview;
+            }
+            
+            accountFormatInput.addEventListener('input', updateAccountPreview);
+            if (accountRandomLengthInput) accountRandomLengthInput.addEventListener('input', updateAccountPreview);
+            if (accountRandomTypeInput) accountRandomTypeInput.addEventListener('change', updateAccountPreview);
+            if (accountCompanyCodeLengthInput) accountCompanyCodeLengthInput.addEventListener('input', updateAccountPreview);
         }
     });
 

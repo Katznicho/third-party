@@ -178,4 +178,29 @@ class SettingsController extends Controller
         return redirect()->route('settings.index', ['tab' => $tab])
             ->with('success', 'Authorization settings updated successfully.');
     }
+
+    /**
+     * Update account number generation settings
+     */
+    public function updateAccountNumberSettings(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $validated = $request->validate([
+            'account_number_format' => 'required|string|max:255',
+            'account_number_random_length' => 'required|integer|min:1|max:12',
+            'account_number_random_type' => 'required|in:numeric,alphanumeric,alphabetic',
+            'account_number_company_code_length' => 'required|integer|min:1|max:8',
+        ]);
+
+        $insuranceCompany = $user->insuranceCompany;
+        $insuranceCompany->update($validated);
+
+        $tab = $request->input('current_tab', 'account-number');
+        return redirect()->route('settings.index', ['tab' => $tab])
+            ->with('success', 'Account number generation settings updated successfully.');
+    }
 }

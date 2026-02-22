@@ -69,7 +69,8 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <a href="{{ route('clients.show', $client) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
-                                <a href="{{ route('clients.edit', $client) }}" class="text-slate-600 hover:text-slate-900">Edit</a>
+                                <a href="{{ route('clients.edit', $client) }}" class="text-slate-600 hover:text-slate-900 mr-3">Edit</a>
+                                <a href="{{ route('clients.account-statement', $client) }}" class="text-green-600 hover:text-green-900">Account Statement</a>
                             </td>
                         </tr>
                     @endforeach

@@ -485,6 +485,37 @@ class ClientController extends Controller
             $successMessage .= ' WARNING: This client has responses that trigger exclusion list criteria.';
         }
 
+        // Create client account
+        try {
+            $accountNumber = \App\Models\ClientAccount::generateAccountNumber($insuranceCompany);
+            
+            \App\Models\ClientAccount::create([
+                'client_id' => $client->id,
+                'insurance_company_id' => $insuranceCompany->id,
+                'account_number' => $accountNumber,
+                'account_type' => $validated['type'] === 'principal' ? 'individual' : 'individual',
+                'status' => 'active',
+                'opening_balance' => 0,
+                'current_balance' => 0,
+                'total_debits' => 0,
+                'total_credits' => 0,
+                'available_balance' => 0,
+                'opened_date' => now(),
+                'auto_generate_statements' => true,
+                'statement_frequency' => 'monthly',
+            ]);
+            
+            Log::info('Client account created', [
+                'client_id' => $client->id,
+                'account_number' => $accountNumber
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to create client account', [
+                'client_id' => $client->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         Log::info('Client created successfully', [
             'client_id' => $client->id,
             'policy_number' => $policyNumber,
@@ -867,5 +898,110 @@ class ClientController extends Controller
 
         return redirect()->route('clients.index')
             ->with('success', 'Client deleted successfully.');
+    }
+
+    /**
+     * Show client account statement
+     */
+    public function accountStatement(Client $client)
+    {
+        $user = auth()->user();
+        $insuranceCompanyId = $user->insurance_company_id;
+        
+        if (!$user->insuranceCompany) {
+            return redirect()->route('dashboard')->with('error', 'You must be associated with an insurance company.');
+        }
+
+        // Check if client belongs to this insurance company (same logic as show method)
+        $hasPolicy = $client->policies()
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->exists();
+        
+        // Also check if client is a dependent of a principal with a policy
+        if (!$hasPolicy && $client->principalMember) {
+            $hasPolicy = $client->principalMember->policies()
+                ->where('insurance_company_id', $insuranceCompanyId)
+                ->exists();
+        }
+        
+        if (!$hasPolicy) {
+            return redirect()->route('clients.index')->with('error', 'Client not found or you do not have access to this client.');
+        }
+
+        // Get or create client account if it doesn't exist
+        $account = $client->account;
+        if (!$account) {
+            // Create account immediately if it doesn't exist
+            $accountNumber = \App\Models\ClientAccount::generateAccountNumber($user->insuranceCompany);
+            
+            $account = \App\Models\ClientAccount::create([
+                'client_id' => $client->id,
+                'insurance_company_id' => $user->insurance_company_id,
+                'account_number' => $accountNumber,
+                'account_type' => $client->type === 'principal' ? 'individual' : 'individual',
+                'status' => 'active',
+                'opening_balance' => 0,
+                'current_balance' => 0,
+                'total_debits' => 0,
+                'total_credits' => 0,
+                'available_balance' => 0,
+                'opened_date' => $client->created_at ?? now(),
+                'auto_generate_statements' => true,
+                'statement_frequency' => 'monthly',
+            ]);
+            
+            Log::info('Client account created on-demand', [
+                'client_id' => $client->id,
+                'account_number' => $accountNumber
+            ]);
+        }
+
+        // Get all transactions for this client
+        $transactions = \App\Models\Transaction::where('client_id', $client->id)
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->with(['policy', 'invoice', 'payment', 'serviceCategory'])
+            ->paginate(50);
+
+        // Get all invoices for this client
+        $invoices = \App\Models\Invoice::where('client_id', $client->id)
+            ->orderBy('invoice_date', 'desc')
+            ->with(['policy', 'payments'])
+            ->get();
+
+        // Get all payments for this client
+        $payments = \App\Models\Payment::where('client_id', $client->id)
+            ->orderBy('payment_date', 'desc')
+            ->with(['invoice', 'policy'])
+            ->get();
+
+        // Calculate account summary
+        $totalInvoices = $invoices->sum('total_amount');
+        $totalPaid = $payments->sum('paid_amount');
+        $totalBalance = $invoices->sum('balance_amount');
+        $totalDebits = $transactions->where('type', 'debit')->sum('debit_amount');
+        $totalCredits = $transactions->where('type', 'credit')->sum('credit_amount');
+
+        // Update account balances
+        $account->update([
+            'current_balance' => $totalCredits - $totalDebits,
+            'total_debits' => $totalDebits,
+            'total_credits' => $totalCredits,
+            'available_balance' => $totalCredits - $totalDebits,
+            'last_transaction_date' => $transactions->first()?->transaction_date ?? $account->opened_date,
+        ]);
+
+        return view('clients.account-statement', compact(
+            'client',
+            'account',
+            'transactions',
+            'invoices',
+            'payments',
+            'totalInvoices',
+            'totalPaid',
+            'totalBalance',
+            'totalDebits',
+            'totalCredits'
+        ));
     }
 }

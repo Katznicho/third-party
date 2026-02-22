@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
     
     // Clients
     Route::resource('clients', \App\Http\Controllers\ClientController::class);
+    Route::get('/clients/{client}/account-statement', [\App\Http\Controllers\ClientController::class, 'accountStatement'])->name('clients.account-statement');
     
     // Policies
     Route::resource('policies', \App\Http\Controllers\PolicyController::class);
@@ -78,6 +79,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/required-client-fields', [\App\Http\Controllers\SettingsController::class, 'updateRequiredClientFields'])->name('settings.update-required-client-fields');
     Route::put('/settings/verification', [\App\Http\Controllers\SettingsController::class, 'updateVerificationSettings'])->name('settings.update-verification');
     Route::put('/settings/authorization', [\App\Http\Controllers\SettingsController::class, 'updateAuthorizationSettings'])->name('settings.update-authorization');
+    Route::put('/settings/account-number', [\App\Http\Controllers\SettingsController::class, 'updateAccountNumberSettings'])->name('settings.update-account-number');
     
     // Coverage Decision Matrix
     Route::resource('settings/coverage-decision-matrix', \App\Http\Controllers\CoverageDecisionMatrixController::class)->names([
