@@ -83,145 +83,224 @@
         </div>
     </div>
 
-    <!-- Transactions Table -->
+    <!-- Tabs Navigation -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-200">
-            <h2 class="text-lg font-semibold text-slate-900">Transaction History</h2>
-            <p class="text-sm text-slate-600 mt-1">All financial transactions for this client</p>
+        <div class="border-b border-slate-200">
+            <nav class="flex -mb-px" aria-label="Tabs">
+                <button 
+                    onclick="switchAccountTab('transactions')"
+                    id="account-tab-transactions"
+                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-blue-500 text-blue-600"
+                >
+                    Transaction History
+                </button>
+                <button 
+                    onclick="switchAccountTab('invoices')"
+                    id="account-tab-invoices"
+                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                >
+                    Invoices
+                </button>
+            </nav>
         </div>
 
-        @if($transactions->count() > 0)
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Transaction #</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Description</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Reference</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Debit</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Credit</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Balance</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-slate-200">
-                        @foreach($transactions as $transaction)
-                            <tr class="hover:bg-slate-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                                    {{ $transaction->transaction_date ? $transaction->transaction_date->format('M d, Y') : 'N/A' }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                                    {{ $transaction->transaction_number ?? 'N/A' }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 py-1 text-xs font-medium rounded-full {{ $transaction->type === 'debit' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' }}">
-                                        {{ ucfirst($transaction->type ?? 'N/A') }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-slate-900">
-                                    {{ $transaction->description ?? 'N/A' }}
-                                    @if($transaction->invoice)
-                                        <br><span class="text-xs text-slate-500">Invoice: {{ $transaction->invoice->invoice_number }}</span>
-                                    @endif
-                                    @if($transaction->payment)
-                                        <br><span class="text-xs text-slate-500">Payment: {{ $transaction->payment->payment_reference }}</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                    {{ $transaction->reference_number ?? 'N/A' }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600 font-medium">
-                                    @if($transaction->debit_amount > 0)
-                                        UGX {{ number_format($transaction->debit_amount, 2) }}
-                                    @else
-                                        -
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 font-medium">
-                                    @if($transaction->credit_amount > 0)
-                                        UGX {{ number_format($transaction->credit_amount, 2) }}
-                                    @else
-                                        -
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900 font-medium">
-                                    UGX {{ number_format($transaction->balance_after ?? 0, 2) }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 py-1 text-xs font-medium rounded-full {{ $transaction->transaction_status === 'cleared' ? 'bg-green-100 text-green-800' : ($transaction->transaction_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-100 text-slate-800') }}">
-                                        {{ ucfirst($transaction->transaction_status ?? 'N/A') }}
-                                    </span>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+        <!-- Tab Content -->
+        <div class="p-6">
+            <!-- Transaction History Tab -->
+            <div id="account-content-transactions" class="account-tab-content">
+                <div class="mb-4">
+                    <h2 class="text-lg font-semibold text-slate-900">Transaction History</h2>
+                    <p class="text-sm text-slate-600 mt-1">All financial transactions for this client</p>
+                </div>
+
+                @if($transactions->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Transaction #</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Description</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Reference</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Debit</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Credit</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Balance</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-slate-200">
+                                @foreach($transactions as $transaction)
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                            {{ $transaction->transaction_date ? $transaction->transaction_date->format('M d, Y') : 'N/A' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                            {{ $transaction->transaction_number ?? 'N/A' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full {{ $transaction->type === 'debit' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' }}">
+                                                {{ ucfirst($transaction->type ?? 'N/A') }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-slate-900">
+                                            {{ $transaction->description ?? 'N/A' }}
+                                            @if($transaction->invoice)
+                                                <br><span class="text-xs text-slate-500">Invoice: {{ $transaction->invoice->invoice_number }}</span>
+                                            @endif
+                                            @if($transaction->payment)
+                                                <br><span class="text-xs text-slate-500">Payment: {{ $transaction->payment->payment_reference }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                            {{ $transaction->reference_number ?? 'N/A' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600 font-medium">
+                                            @if($transaction->debit_amount > 0)
+                                                UGX {{ number_format($transaction->debit_amount, 2) }}
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 font-medium">
+                                            @if($transaction->credit_amount > 0)
+                                                UGX {{ number_format($transaction->credit_amount, 2) }}
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900 font-medium">
+                                            UGX {{ number_format($transaction->balance_after ?? 0, 2) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full {{ $transaction->transaction_status === 'cleared' ? 'bg-green-100 text-green-800' : ($transaction->transaction_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-100 text-slate-800') }}">
+                                                {{ ucfirst($transaction->transaction_status ?? 'N/A') }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="px-6 py-4 border-t border-slate-200 mt-4">
+                        {{ $transactions->links() }}
+                    </div>
+                @else
+                    <div class="p-12 text-center">
+                        <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-slate-900">No transactions</h3>
+                        <p class="mt-1 text-sm text-slate-500">This client has no transaction history yet.</p>
+                    </div>
+                @endif
             </div>
 
-            <!-- Pagination -->
-            <div class="px-6 py-4 border-t border-slate-200">
-                {{ $transactions->links() }}
+            <!-- Invoices Tab -->
+            <div id="account-content-invoices" class="account-tab-content" style="display: none;">
+                <div class="mb-4">
+                    <h2 class="text-lg font-semibold text-slate-900">Invoices</h2>
+                    <p class="text-sm text-slate-600 mt-1">All invoices for this client</p>
+                </div>
+
+                @if($invoices->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Invoice #</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Due Date</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Amount</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Paid</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Balance</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-slate-200">
+                                @foreach($invoices as $invoice)
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                                            <a href="{{ route('invoices.show', $invoice) }}" class="hover:underline font-medium">{{ $invoice->invoice_number }}</a>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                            {{ $invoice->invoice_date->format('M d, Y') }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                            {{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900 font-medium">
+                                            UGX {{ number_format($invoice->total_amount, 2) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 font-medium">
+                                            UGX {{ number_format($invoice->paid_amount, 2) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600 font-medium">
+                                            UGX {{ number_format($invoice->balance_amount, 2) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full {{ $invoice->status === 'paid' ? 'bg-green-100 text-green-800' : ($invoice->status === 'partial' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
+                                                {{ ucfirst($invoice->status) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <a href="{{ route('invoices.show', $invoice) }}" class="text-blue-600 hover:text-blue-900">View</a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="p-12 text-center">
+                        <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-slate-900">No invoices</h3>
+                        <p class="mt-1 text-sm text-slate-500">This client has no invoices yet.</p>
+                    </div>
+                @endif
             </div>
-        @else
-            <div class="p-12 text-center">
-                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                <h3 class="mt-2 text-sm font-medium text-slate-900">No transactions</h3>
-                <p class="mt-1 text-sm text-slate-500">This client has no transaction history yet.</p>
-            </div>
-        @endif
+        </div>
     </div>
-
-    <!-- Recent Invoices -->
-    @if($invoices->count() > 0)
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200">
-                <h2 class="text-lg font-semibold text-slate-900">Recent Invoices</h2>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Invoice #</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Amount</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Paid</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Balance</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-slate-200">
-                        @foreach($invoices->take(10) as $invoice)
-                            <tr class="hover:bg-slate-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                                    <a href="{{ route('invoices.show', $invoice) }}" class="hover:underline">{{ $invoice->invoice_number }}</a>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                                    {{ $invoice->invoice_date->format('M d, Y') }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900">
-                                    UGX {{ number_format($invoice->total_amount, 2) }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600">
-                                    UGX {{ number_format($invoice->paid_amount, 2) }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">
-                                    UGX {{ number_format($invoice->balance_amount, 2) }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 py-1 text-xs font-medium rounded-full {{ $invoice->status === 'paid' ? 'bg-green-100 text-green-800' : ($invoice->status === 'partial' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
-                                        {{ ucfirst($invoice->status) }}
-                                    </span>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    @endif
 </div>
+
+<script>
+    // Account statement tab switching
+    function switchAccountTab(tabName) {
+        // Hide all tab contents
+        const allContents = document.querySelectorAll('.account-tab-content');
+        allContents.forEach(content => {
+            content.style.display = 'none';
+        });
+        
+        // Remove active class from all tabs
+        const allTabs = document.querySelectorAll('[id^="account-tab-"]');
+        allTabs.forEach(tab => {
+            tab.classList.remove('border-blue-500', 'text-blue-600');
+            tab.classList.add('border-transparent', 'text-slate-500');
+        });
+        
+        // Show selected tab content
+        const selectedContent = document.getElementById('account-content-' + tabName);
+        if (selectedContent) {
+            selectedContent.style.display = 'block';
+        }
+        
+        // Add active class to selected tab
+        const selectedTab = document.getElementById('account-tab-' + tabName);
+        if (selectedTab) {
+            selectedTab.classList.remove('border-transparent', 'text-slate-500');
+            selectedTab.classList.add('border-blue-500', 'text-blue-600');
+        }
+    }
+    
+    // Initialize first tab on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        switchAccountTab('transactions');
+    });
+</script>
 @endsection
