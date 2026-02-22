@@ -127,12 +127,9 @@ class SettingsController extends Controller
         ]);
 
         $insuranceCompany = $user->insuranceCompany;
-        $insuranceCompany->update([
-            'require_physical_id' => $request->boolean('require_physical_id', true),
-            'enable_method_1' => $request->boolean('enable_method_1', true),
-            'enable_method_2' => $request->boolean('enable_method_2', false),
-            'enable_method_3' => $request->boolean('enable_method_3', false),
-            'enable_method_4' => $request->boolean('enable_method_4', false),
+        
+        // Build update array, only including fields that exist in the database
+        $updateData = [
             'name_mismatch_action' => $validated['name_mismatch_action'],
             'dob_mismatch_action' => $validated['dob_mismatch_action'],
             'id_mismatch_action' => $validated['id_mismatch_action'],
@@ -140,7 +137,27 @@ class SettingsController extends Controller
             'dob_tolerance_days' => $validated['dob_tolerance_days'],
             'phone_otp_expiry_minutes' => $validated['phone_otp_expiry_minutes'],
             'email_otp_expiry_minutes' => $validated['email_otp_expiry_minutes'],
-        ]);
+        ];
+        
+        // Only add these fields if the columns exist
+        $columns = \Illuminate\Support\Facades\Schema::getColumnListing('insurance_companies');
+        if (in_array('require_physical_id', $columns)) {
+            $updateData['require_physical_id'] = $request->boolean('require_physical_id', true);
+        }
+        if (in_array('enable_method_1', $columns)) {
+            $updateData['enable_method_1'] = $request->boolean('enable_method_1', true);
+        }
+        if (in_array('enable_method_2', $columns)) {
+            $updateData['enable_method_2'] = $request->boolean('enable_method_2', false);
+        }
+        if (in_array('enable_method_3', $columns)) {
+            $updateData['enable_method_3'] = $request->boolean('enable_method_3', false);
+        }
+        if (in_array('enable_method_4', $columns)) {
+            $updateData['enable_method_4'] = $request->boolean('enable_method_4', false);
+        }
+        
+        $insuranceCompany->update($updateData);
 
         $tab = $request->input('current_tab', 'verification');
         return redirect()->route('settings.index', ['tab' => $tab])

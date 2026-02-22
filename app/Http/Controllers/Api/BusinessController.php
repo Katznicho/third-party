@@ -713,25 +713,314 @@ class BusinessController extends Controller
     public function verifyPolicyNumber(Request $request, $insuranceCompanyId, $policyNumber = null)
     {
         try {
+            \Illuminate\Support\Facades\Log::info('=== API: verifyPolicyNumber START ===', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'route_policy_number' => $policyNumber,
+                'request_method' => $request->method(),
+                'request_url' => $request->fullUrl(),
+                'request_all' => $request->all(),
+                'query_params' => $request->query(),
+            ]);
+            
             $insuranceCompany = InsuranceCompany::findOrFail($insuranceCompanyId);
+            
+            \Illuminate\Support\Facades\Log::info('API: Insurance company found', [
+                'insurance_company_id' => $insuranceCompany->id,
+                'insurance_company_name' => $insuranceCompany->name,
+                'insurance_company_code' => $insuranceCompany->code,
+            ]);
             
             // Get policy number from route parameter or request
             $policyNumber = $policyNumber ?? $request->input('policy_number');
             
-            // If policy number is provided, try primary verification first
-            if ($policyNumber) {
+            \Illuminate\Support\Facades\Log::info('API: Policy number extracted', [
+                'policy_number' => $policyNumber,
+                'has_policy_number' => !empty($policyNumber),
+            ]);
+            
+            // If no policy number provided, try alternative verification (name + DOB)
+            if (!$policyNumber) {
+                $name = $request->input('name');
+                $dateOfBirth = $request->input('date_of_birth');
+                
+                \Illuminate\Support\Facades\Log::info('API: No policy number, attempting alternative verification', [
+                    'has_name' => !empty($name),
+                    'has_dob' => !empty($dateOfBirth),
+                    'name' => $name,
+                    'date_of_birth' => $dateOfBirth,
+                ]);
+                
+                if (!$name || !$dateOfBirth) {
+                    $response = response()->json([
+                        'success' => false,
+                        'message' => 'Policy number or name and date of birth are required.',
+                        'exists' => false,
+                    ], 400);
+                    
+                    \Illuminate\Support\Facades\Log::info('API: Alternative verification failed - missing data', [
+                        'response' => $response->getContent(),
+                    ]);
+                    
+                    return $response;
+                }
+                
+                // Try alternative verification using name and DOB only
+                $result = $this->verifyByNameAndDob($insuranceCompany, $name, $dateOfBirth);
+                
+                \Illuminate\Support\Facades\Log::info('API: Alternative verification result', [
+                    'response_status' => $result->getStatusCode(),
+                    'response_content' => $result->getContent(),
+                ]);
+                
+                return $result;
+            }
+            
+            // Step 1: Check if policy number exists
+            // Normalize policy number (trim, uppercase, remove extra spaces)
+            $normalizedPolicyNumber = strtoupper(trim($policyNumber));
+            
+            \Illuminate\Support\Facades\Log::info('Verifying policy number', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'original_policy_number' => $policyNumber,
+                'normalized_policy_number' => $normalizedPolicyNumber,
+            ]);
+            
+            // Try exact match first
                 $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
-                    ->where('policy_number', $policyNumber)
+                ->where('policy_number', $normalizedPolicyNumber)
                     ->where('status', 'active')
                     ->with(['principalMember', 'insuranceCompany'])
                     ->first();
 
-                if ($policy) {
+            \Illuminate\Support\Facades\Log::info('Policy lookup attempt 1 (exact match)', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'normalized_policy_number' => $normalizedPolicyNumber,
+                'found' => $policy ? true : false,
+                'policy_id' => $policy ? $policy->id : null,
+            ]);
+
+            // If not found, try case-insensitive search
+            if (!$policy) {
+                $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
+                    ->whereRaw('UPPER(TRIM(policy_number)) = ?', [strtoupper(trim($policyNumber))])
+                    ->where('status', 'active')
+                    ->with(['principalMember', 'insuranceCompany'])
+                    ->first();
+                
+                \Illuminate\Support\Facades\Log::info('Policy lookup attempt 2 (case-insensitive)', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'policy_number' => $policyNumber,
+                    'found' => $policy ? true : false,
+                    'policy_id' => $policy ? $policy->id : null,
+                ]);
+            }
+            
+            // If still not found, try searching across ALL insurance companies (for debugging)
+            if (!$policy) {
+                $policyAnywhere = \App\Models\Policy::where(function($query) use ($normalizedPolicyNumber, $policyNumber) {
+                    $query->where('policy_number', $normalizedPolicyNumber)
+                          ->orWhereRaw('UPPER(TRIM(policy_number)) = ?', [strtoupper(trim($policyNumber))]);
+                })
+                ->where('status', 'active')
+                ->with(['principalMember', 'insuranceCompany'])
+                ->first();
+                
+                if ($policyAnywhere) {
+                    \Illuminate\Support\Facades\Log::warning('⚠️ Policy found but with DIFFERENT insurance company!', [
+                        'searched_insurance_company_id' => $insuranceCompanyId,
+                        'searched_insurance_company_name' => $insuranceCompany->name ?? 'N/A',
+                        'searched_insurance_company_code' => $insuranceCompany->code ?? 'N/A',
+                        'found_policy_insurance_company_id' => $policyAnywhere->insurance_company_id,
+                        'found_policy_insurance_company_name' => $policyAnywhere->insuranceCompany->name ?? 'N/A',
+                        'found_policy_insurance_company_code' => $policyAnywhere->insuranceCompany->code ?? 'N/A',
+                        'policy_number' => $policyNumber,
+                        'normalized_policy_number' => $normalizedPolicyNumber,
+                        'policy_id' => $policyAnywhere->id,
+                        'policy_status' => $policyAnywhere->status,
+                    ]);
+                    
+                    // Check if there's a business connection between the two insurance companies
+                    $connection = \App\Models\BusinessConnection::where(function($query) use ($insuranceCompanyId, $policyAnywhere) {
+                        $query->where('insurance_company_id', $insuranceCompanyId)
+                              ->where('connected_business_id', $policyAnywhere->insurance_company_id);
+                    })->orWhere(function($query) use ($insuranceCompanyId, $policyAnywhere) {
+                        $query->where('insurance_company_id', $policyAnywhere->insurance_company_id)
+                              ->where('connected_business_id', $insuranceCompanyId);
+                    })->first();
+                    
+                    if ($connection) {
+                        \Illuminate\Support\Facades\Log::info('✅ Business connection exists between insurance companies', [
+                            'connection_id' => $connection->id,
+                            'connection_type' => $connection->connection_type,
+                        ]);
+                        
+                        // If there's a connection, allow the policy lookup
+                        $policy = $policyAnywhere;
+                    }
+                }
+            }
+            
+            // If still not found, check if policy exists but is inactive
+            if (!$policy) {
+                $inactivePolicy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
+                    ->whereRaw('UPPER(TRIM(policy_number)) = ?', [strtoupper(trim($policyNumber))])
+                    ->with(['principalMember', 'insuranceCompany'])
+                    ->first();
+                
+                if ($inactivePolicy) {
+                    \Illuminate\Support\Facades\Log::warning('Policy found but inactive', [
+                        'policy_number' => $policyNumber,
+                        'status' => $inactivePolicy->status,
+                    ]);
                     return response()->json([
+                        'success' => false,
+                        'message' => 'Policy number found but is not active. Status: ' . $inactivePolicy->status,
+                        'exists' => true,
+                    ], 404);
+                }
+                
+                // Debug: Check what policies exist for this insurance company (last 10)
+                $recentPolicies = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10)
+                    ->pluck('policy_number', 'status')
+                    ->toArray();
+                
+                // Also check if policy exists with ANY insurance company (for debugging)
+                $policyAnywhere = \App\Models\Policy::where('policy_number', $normalizedPolicyNumber)
+                    ->orWhereRaw('UPPER(TRIM(policy_number)) = ?', [strtoupper(trim($policyNumber))])
+                    ->with(['insuranceCompany'])
+                    ->first();
+                
+                // Get all insurance companies for this business (if business_id is available)
+                $insuranceCompanyDetails = \App\Models\InsuranceCompany::find($insuranceCompanyId);
+                $allInsuranceCompanies = \App\Models\InsuranceCompany::where('id', $insuranceCompanyId)
+                    ->orWhere('code', $insuranceCompanyDetails->code ?? '')
+                    ->get(['id', 'name', 'code'])
+                    ->toArray();
+                
+                $errorResponse = [
+                    'success' => false,
+                    'message' => 'Policy number not found or inactive.',
+                    'exists' => false,
+                ];
+                
+                \Illuminate\Support\Facades\Log::warning('API: Policy number NOT FOUND', [
+                    'insurance_company_id' => $insuranceCompanyId,
+                    'insurance_company_name' => $insuranceCompanyDetails->name ?? 'N/A',
+                    'insurance_company_code' => $insuranceCompanyDetails->code ?? 'N/A',
+                    'policy_number' => $policyNumber,
+                    'normalized' => $normalizedPolicyNumber,
+                    'recent_policies_for_company' => $recentPolicies,
+                    'policy_exists_anywhere' => $policyAnywhere ? [
+                        'found' => true,
+                        'policy_number' => $policyAnywhere->policy_number,
+                        'insurance_company_id' => $policyAnywhere->insurance_company_id,
+                        'insurance_company_name' => $policyAnywhere->insuranceCompany->name ?? 'N/A',
+                        'insurance_company_code' => $policyAnywhere->insuranceCompany->code ?? 'N/A',
+                        'status' => $policyAnywhere->status,
+                    ] : ['found' => false],
+                    'all_insurance_companies' => $allInsuranceCompanies,
+                    'response_data' => $errorResponse,
+                ]);
+                
+                return response()->json($errorResponse, 404);
+            }
+            
+            \Illuminate\Support\Facades\Log::info('Policy found', [
+                'policy_number' => $policy->policy_number,
+                'status' => $policy->status,
+                'principal_member' => $policy->principalMember ? ($policy->principalMember->first_name . ' ' . $policy->principalMember->surname) : null,
+            ]);
+
+            // Step 2: If policy exists, verify name and DOB (if provided)
+            $providedName = $request->input('name');
+            $providedDob = $request->input('date_of_birth');
+            
+            $warnings = [];
+            $verificationStatus = 'verified';
+            $errors = [];
+            
+            // Verify name if provided
+            if ($providedName && $policy->principalMember) {
+                // Build client name from database (first_name + surname + other_names)
+                $clientName = trim(($policy->principalMember->first_name ?? '') . ' ' . ($policy->principalMember->surname ?? ''));
+                if (!empty($policy->principalMember->other_names)) {
+                    $clientName = trim($clientName . ' ' . $policy->principalMember->other_names);
+                }
+                $providedName = trim($providedName);
+                $similarity = $this->calculateNameSimilarity($clientName, $providedName);
+                $nameThreshold = $insuranceCompany->name_similarity_threshold ?? 80;
+                
+                \Illuminate\Support\Facades\Log::info('Name comparison in policy verification', [
+                    'policy_number' => $policy->policy_number,
+                    'client_first_name' => $policy->principalMember->first_name ?? 'N/A',
+                    'client_surname' => $policy->principalMember->surname ?? 'N/A',
+                    'client_other_names' => $policy->principalMember->other_names ?? 'N/A',
+                    'client_name_full' => $clientName,
+                    'provided_name' => $providedName,
+                    'similarity' => $similarity,
+                    'threshold' => $nameThreshold,
+                ]);
+                
+                if ($similarity < $nameThreshold) {
+                    $errors[] = "Name does not match. Similarity: {$similarity}% (required: {$nameThreshold}%)";
+                    $verificationStatus = 'rejected';
+                } elseif ($similarity < 100) {
+                    $warnings[] = "Name similarity: {$similarity}%";
+                }
+            }
+            
+            // Verify DOB if provided
+            if ($providedDob && $policy->principalMember && $policy->principalMember->date_of_birth) {
+                $clientDob = \Carbon\Carbon::parse($policy->principalMember->date_of_birth);
+                $providedDobParsed = \Carbon\Carbon::parse($providedDob);
+                $daysDiff = abs($clientDob->diffInDays($providedDobParsed));
+                $dobTolerance = $insuranceCompany->dob_tolerance_days ?? 0;
+                
+                if ($daysDiff > $dobTolerance) {
+                    $errors[] = "Date of birth does not match. Difference: {$daysDiff} days (allowed: {$dobTolerance} days)";
+                    $verificationStatus = 'rejected';
+                } elseif ($daysDiff > 0) {
+                    $warnings[] = "Date of birth difference: {$daysDiff} days";
+                }
+            }
+            
+            // If verification failed, return error
+            if ($verificationStatus === 'rejected' && !empty($errors)) {
+                $errorResponse = [
+                    'success' => false,
+                    'message' => 'Policy number found, but verification failed: ' . implode('; ', $errors),
+                    'exists' => true,
+                    'verification_status' => 'rejected',
+                    'errors' => $errors,
+                ];
+                
+                \Illuminate\Support\Facades\Log::warning('API: Policy verification REJECTED', [
+                    'policy_number' => $policyNumber,
+                    'response_data' => $errorResponse,
+                ]);
+                
+                return response()->json($errorResponse, 422);
+            }
+            
+            // Build payment responsibility information
+            $paymentInfo = [
+                'has_deductible' => $policy->has_deductible ?? false,
+                'deductible_amount' => $policy->deductible_amount ? (float)$policy->deductible_amount : null,
+                'copay_amount' => $policy->copay_amount ? (float)$policy->copay_amount : null,
+                'coinsurance_percentage' => $policy->coinsurance_percentage ? (float)$policy->coinsurance_percentage : null,
+                'copay_max_limit' => $policy->copay_max_limit ? (float)$policy->copay_max_limit : null,
+                'copay_contributes_to_deductible' => $policy->copayContributesToDeductible(),
+                'coinsurance_contributes_to_deductible' => $policy->coinsuranceContributesToDeductible(),
+            ];
+            
+            $responseData = [
                         'success' => true,
-                        'message' => 'Policy number verified',
+                'message' => 'Policy number verified' . (!empty($warnings) ? ' with warnings' : ''),
                         'exists' => true,
                         'verification_method' => 'policy_number',
+                'verification_status' => $verificationStatus,
                         'data' => [
                             'policy_number' => $policy->policy_number,
                             'insurance_company_id' => $policy->insurance_company_id,
@@ -740,62 +1029,205 @@ class BusinessController extends Controller
                             'principal_member_name' => $policy->principalMember ? ($policy->principalMember->first_name . ' ' . $policy->principalMember->surname) : null,
                             'status' => $policy->status,
                             'expiry_date' => $policy->expiry_date?->toDateString(),
-                        ],
-                    ], 200);
-                }
-            }
-
-            // Policy number verification failed, try alternative methods
-            $alternativeData = $request->only([
-                'name', 'date_of_birth', 'id_passport_no', 'phone', 'email', 'visit_id'
+                    'payment_responsibility' => $paymentInfo,
+                ],
+                'warnings' => $warnings,
+            ];
+            
+            \Illuminate\Support\Facades\Log::info('API: Policy verification SUCCESS - returning response', [
+                'response_data' => $responseData,
             ]);
-
-            // Check if any alternative verification is enabled
-            if (empty($alternativeData)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Policy number not found or inactive. Please provide alternative verification information.',
-                    'exists' => false,
-                    'requires_alternative_verification' => true,
-                ], 404);
-            }
-
-            // Try alternative verification methods
-            $verificationResult = $this->attemptAlternativeVerification($insuranceCompany, $alternativeData);
-
-            if ($verificationResult['success']) {
-                return response()->json([
-                    'success' => true,
-                    'message' => $verificationResult['message'],
-                    'exists' => true,
-                    'verification_method' => $verificationResult['method'],
-                    'verification_status' => $verificationResult['status'],
-                    'data' => $verificationResult['data'],
-                    'warnings' => $verificationResult['warnings'] ?? [],
-                ], 200);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => $verificationResult['message'],
-                'exists' => false,
-                'verification_status' => $verificationResult['status'] ?? 'rejected',
-                'mismatches' => $verificationResult['mismatches'] ?? [],
-            ], 404);
+            
+            return response()->json($responseData, 200);
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to verify policy number', [
-                'insurance_company_id' => $insuranceCompanyId,
-                'policy_number' => $policyNumber,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
+            $errorResponse = [
                 'success' => false,
                 'message' => 'Failed to verify policy number',
                 'error' => $e->getMessage(),
-            ], 500);
+            ];
+            
+            \Illuminate\Support\Facades\Log::error('API: Exception in verifyPolicyNumber', [
+                'insurance_company_id' => $insuranceCompanyId,
+                'policy_number' => $policyNumber,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'response_data' => $errorResponse,
+            ]);
+
+            return response()->json($errorResponse, 500);
+        } finally {
+            \Illuminate\Support\Facades\Log::info('=== API: verifyPolicyNumber END ===');
         }
+    }
+
+    /**
+     * Verify client using name and date of birth only (alternative verification)
+     */
+    private function verifyByNameAndDob(InsuranceCompany $insuranceCompany, string $name, string $dateOfBirth)
+    {
+        \Illuminate\Support\Facades\Log::info('=== API: verifyByNameAndDob START ===', [
+            'insurance_company_id' => $insuranceCompany->id,
+            'provided_name' => $name,
+            'provided_dob' => $dateOfBirth,
+        ]);
+        
+        $policies = \App\Models\Policy::where('insurance_company_id', $insuranceCompany->id)
+            ->where('status', 'active')
+            ->with(['principalMember', 'insuranceCompany'])
+            ->get();
+
+        \Illuminate\Support\Facades\Log::info('API: Found policies for name/DOB verification', [
+            'total_policies' => $policies->count(),
+        ]);
+
+        $nameThreshold = $insuranceCompany->name_similarity_threshold ?? 80;
+        $dobTolerance = $insuranceCompany->dob_tolerance_days ?? 0;
+        
+        $bestMatch = null;
+        $bestSimilarity = 0;
+        $closestDobDiff = null;
+
+        foreach ($policies as $policy) {
+            if (!$policy->principalMember) {
+                continue;
+            }
+            
+            // Build client name from database (first_name + surname)
+            $clientName = trim(($policy->principalMember->first_name ?? '') . ' ' . ($policy->principalMember->surname ?? ''));
+            // Also check if other_names exists and add it
+            if (!empty($policy->principalMember->other_names)) {
+                $clientName = trim($clientName . ' ' . $policy->principalMember->other_names);
+            }
+            $providedName = trim($name);
+            $similarity = $this->calculateNameSimilarity($clientName, $providedName);
+            
+            \Illuminate\Support\Facades\Log::info('Name comparison in verifyByNameAndDob', [
+                'policy_number' => $policy->policy_number,
+                'client_first_name' => $policy->principalMember->first_name ?? 'N/A',
+                'client_surname' => $policy->principalMember->surname ?? 'N/A',
+                'client_other_names' => $policy->principalMember->other_names ?? 'N/A',
+                'client_name_full' => $clientName,
+                'provided_name' => $providedName,
+                'similarity' => $similarity,
+                'threshold' => $nameThreshold,
+            ]);
+            
+            $dobMatch = false;
+            $daysDiff = null;
+            if ($policy->principalMember->date_of_birth) {
+                $clientDob = \Carbon\Carbon::parse($policy->principalMember->date_of_birth);
+                $providedDob = \Carbon\Carbon::parse($dateOfBirth);
+                $daysDiff = abs($clientDob->diffInDays($providedDob));
+                $dobMatch = $daysDiff <= $dobTolerance;
+                
+                \Illuminate\Support\Facades\Log::info('DOB comparison in verifyByNameAndDob', [
+                    'policy_number' => $policy->policy_number,
+                    'client_dob' => $clientDob->toDateString(),
+                    'provided_dob' => $providedDob->toDateString(),
+                    'days_diff' => $daysDiff,
+                    'tolerance' => $dobTolerance,
+                    'match' => $dobMatch,
+                ]);
+            }
+
+            // Track best match
+            if ($similarity > $bestSimilarity) {
+                $bestSimilarity = $similarity;
+                $bestMatch = [
+                    'policy_number' => $policy->policy_number,
+                    'client_name' => $clientName,
+                    'similarity' => $similarity,
+                    'days_diff' => $daysDiff,
+                ];
+            }
+            if ($daysDiff !== null && ($closestDobDiff === null || $daysDiff < $closestDobDiff)) {
+                $closestDobDiff = $daysDiff;
+            }
+
+            // Check if both name and DOB match
+            if ($similarity >= $nameThreshold && $dobMatch) {
+                $warnings = [];
+                if ($similarity < 100) {
+                    $warnings[] = "Name similarity: {$similarity}%";
+                }
+                if ($daysDiff > 0) {
+                    $warnings[] = "Date of birth difference: {$daysDiff} days";
+                }
+                
+                // Build payment responsibility information
+                $paymentInfo = [
+                    'has_deductible' => $policy->has_deductible ?? false,
+                    'deductible_amount' => $policy->deductible_amount ? (float)$policy->deductible_amount : null,
+                    'copay_amount' => $policy->copay_amount ? (float)$policy->copay_amount : null,
+                    'coinsurance_percentage' => $policy->coinsurance_percentage ? (float)$policy->coinsurance_percentage : null,
+                    'copay_max_limit' => $policy->copay_max_limit ? (float)$policy->copay_max_limit : null,
+                    'copay_contributes_to_deductible' => $policy->copayContributesToDeductible(),
+                    'coinsurance_contributes_to_deductible' => $policy->coinsuranceContributesToDeductible(),
+                ];
+                
+                $successResponse = [
+                    'success' => true,
+                    'message' => 'Client verified using name and date of birth',
+                    'exists' => true,
+                    'verification_method' => 'name_dob',
+                    'verification_status' => 'verified',
+                    'data' => [
+                        'policy_number' => $policy->policy_number,
+                        'insurance_company_id' => $policy->insurance_company_id,
+                        'insurance_company_name' => $policy->insuranceCompany->name ?? null,
+                        'principal_member_id' => $policy->principal_member_id,
+                        'principal_member_name' => $policy->principalMember ? ($policy->principalMember->first_name . ' ' . $policy->principalMember->surname) : null,
+                        'status' => $policy->status,
+                        'expiry_date' => $policy->expiry_date?->toDateString(),
+                        'payment_responsibility' => $paymentInfo,
+                    ],
+                    'warnings' => $warnings,
+                ];
+                
+                \Illuminate\Support\Facades\Log::info('API: verifyByNameAndDob - MATCH FOUND', [
+                    'policy_number' => $policy->policy_number,
+                    'name_similarity' => $similarity,
+                    'dob_difference' => $daysDiff,
+                    'response_data' => $successResponse,
+                ]);
+                
+                return response()->json($successResponse, 200);
+            }
+        }
+        
+        // No match found - return detailed error
+        $errorMessage = 'No matching policy found.';
+        $details = [];
+        
+        if ($bestMatch) {
+            $details[] = "Best name match: {$bestMatch['client_name']} ({$bestMatch['similarity']}% similarity, required: {$nameThreshold}%)";
+        }
+        if ($closestDobDiff !== null) {
+            $details[] = "Closest DOB difference: {$closestDobDiff} days (allowed: {$dobTolerance} days)";
+        }
+        
+        if (!empty($details)) {
+            $errorMessage .= ' ' . implode('; ', $details);
+        }
+        
+        $errorResponse = [
+                'success' => false,
+            'message' => $errorMessage,
+                'exists' => false,
+            'verification_status' => 'not_found',
+            'details' => $details,
+        ];
+        
+        \Illuminate\Support\Facades\Log::warning('API: verifyByNameAndDob - NO MATCH FOUND', [
+            'provided_name' => $name,
+            'provided_dob' => $dateOfBirth,
+            'best_match' => $bestMatch,
+            'closest_dob_diff' => $closestDobDiff,
+            'response_data' => $errorResponse,
+        ]);
+        
+        return response()->json($errorResponse, 404);
     }
 
     /**
@@ -870,6 +1302,17 @@ class BusinessController extends Controller
                     'status' => $status,
                 ]);
                 
+                // Build payment responsibility information
+                $paymentInfo = [
+                    'has_deductible' => $visitVerification->policy->has_deductible ?? false,
+                    'deductible_amount' => $visitVerification->policy->deductible_amount ? (float)$visitVerification->policy->deductible_amount : null,
+                    'copay_amount' => $visitVerification->policy->copay_amount ? (float)$visitVerification->policy->copay_amount : null,
+                    'coinsurance_percentage' => $visitVerification->policy->coinsurance_percentage ? (float)$visitVerification->policy->coinsurance_percentage : null,
+                    'copay_max_limit' => $visitVerification->policy->copay_max_limit ? (float)$visitVerification->policy->copay_max_limit : null,
+                    'copay_contributes_to_deductible' => $visitVerification->policy->copayContributesToDeductible(),
+                    'coinsurance_contributes_to_deductible' => $visitVerification->policy->coinsuranceContributesToDeductible(),
+                ];
+                
                 return [
                     'success' => true,
                     'message' => 'Client verified using visit ID',
@@ -881,6 +1324,7 @@ class BusinessController extends Controller
                         'principal_member_id' => $visitVerification->policy->principal_member_id,
                         'visit_id' => $visitVerification->visit_id,
                         'verified_at' => $visitVerification->verified_at?->toIso8601String(),
+                        'payment_responsibility' => $paymentInfo,
                     ],
                 ];
             } else {
@@ -1322,6 +1766,17 @@ class BusinessController extends Controller
                 $this->createVisitVerification($insuranceCompany, $data['visit_id'], $matchedPolicy, $matchedClient, $data, $status);
             }
 
+            // Build payment responsibility information
+            $paymentInfo = [
+                'has_deductible' => $matchedPolicy->has_deductible ?? false,
+                'deductible_amount' => $matchedPolicy->deductible_amount ? (float)$matchedPolicy->deductible_amount : null,
+                'copay_amount' => $matchedPolicy->copay_amount ? (float)$matchedPolicy->copay_amount : null,
+                'coinsurance_percentage' => $matchedPolicy->coinsurance_percentage ? (float)$matchedPolicy->coinsurance_percentage : null,
+                'copay_max_limit' => $matchedPolicy->copay_max_limit ? (float)$matchedPolicy->copay_max_limit : null,
+                'copay_contributes_to_deductible' => $matchedPolicy->copayContributesToDeductible(),
+                'coinsurance_contributes_to_deductible' => $matchedPolicy->coinsuranceContributesToDeductible(),
+            ];
+
             return [
                 'success' => true,
                 'message' => 'Client verified using ' . str_replace('_', ' ', $verificationMethod),
@@ -1335,6 +1790,7 @@ class BusinessController extends Controller
                     'principal_member_name' => $matchedClient ? ($matchedClient->first_name . ' ' . $matchedClient->surname) : null,
                     'status' => $matchedPolicy->status,
                     'expiry_date' => $matchedPolicy->expiry_date?->toDateString(),
+                    'payment_responsibility' => $paymentInfo,
                 ],
             ];
         }
@@ -1421,6 +1877,131 @@ class BusinessController extends Controller
             return 100;
         }
 
+        // Split names into words
+        $name1Parts = array_filter(array_map('trim', explode(' ', $name1)));
+        $name2Parts = array_filter(array_map('trim', explode(' ', $name2)));
+        
+        if (count($name1Parts) === 0 || count($name2Parts) === 0) {
+            return $this->calculateLevenshteinSimilarity($name1, $name2);
+        }
+        
+        // Sort parts for comparison
+        $name1PartsSorted = $name1Parts;
+        $name2PartsSorted = $name2Parts;
+        sort($name1PartsSorted);
+        sort($name2PartsSorted);
+        
+        // Check if all words match (order-independent)
+        if ($name1PartsSorted === $name2PartsSorted) {
+            return 100;
+        }
+        
+        // Check if one name contains all words of the other (handles "JOHN DOE MICHEAL" vs "JOHN DOE")
+        $shorterParts = count($name1Parts) <= count($name2Parts) ? $name1PartsSorted : $name2PartsSorted;
+        $longerParts = count($name1Parts) > count($name2Parts) ? $name1PartsSorted : $name2PartsSorted;
+        
+        $allWordsMatch = true;
+        $matchedWordsCount = 0;
+        foreach ($shorterParts as $word) {
+            if (in_array($word, $longerParts)) {
+                $matchedWordsCount++;
+            } else {
+                $allWordsMatch = false;
+            }
+        }
+        
+        // If shorter name's words all exist in longer name, give high similarity
+        // This handles cases like "JOHN DOE" vs "JOHN DOE MICHEAL" - should be ~90%+
+        if ($allWordsMatch && count($shorterParts) >= 2) {
+            // If at least 2 words match and all shorter words exist in longer name, give high score
+            // Base score: percentage of shorter name words in longer name
+            $baseScore = (count($shorterParts) / count($longerParts)) * 100;
+            // Boost score if shorter name has 2+ words (more reliable match)
+            $boost = count($shorterParts) >= 2 ? 15 : 0;
+            $finalScore = min(100, $baseScore + $boost);
+            
+            \Illuminate\Support\Facades\Log::info('Name similarity: subset match (all words match)', [
+                'name1' => $name1,
+                'name2' => $name2,
+                'shorter_parts' => $shorterParts,
+                'longer_parts' => $longerParts,
+                'base_score' => $baseScore,
+                'final_score' => $finalScore,
+            ]);
+            
+            return (int) round($finalScore);
+        }
+        
+        // If most words from shorter name match (e.g., 2 out of 2, or 2 out of 3), still give good score
+        if ($matchedWordsCount >= 2 && count($shorterParts) >= 2) {
+            $matchRatio = $matchedWordsCount / count($shorterParts);
+            // If 100% of shorter name words match, give very high score
+            if ($matchRatio >= 1.0) {
+                $baseScore = (count($shorterParts) / count($longerParts)) * 100;
+                $finalScore = min(100, $baseScore + 10);
+                
+                \Illuminate\Support\Facades\Log::info('Name similarity: high word match ratio', [
+                    'name1' => $name1,
+                    'name2' => $name2,
+                    'shorter_parts' => $shorterParts,
+                    'longer_parts' => $longerParts,
+                    'matched_words' => $matchedWordsCount,
+                    'match_ratio' => $matchRatio,
+                    'base_score' => $baseScore,
+                    'final_score' => $finalScore,
+                ]);
+                
+                return (int) round($finalScore);
+            }
+        }
+        
+        // Check word-by-word exact match
+        $matchedWords = 0;
+        $totalWords = max(count($name1Parts), count($name2Parts));
+        
+        foreach ($name1Parts as $part1) {
+            foreach ($name2Parts as $part2) {
+                if ($part1 === $part2) {
+                    $matchedWords++;
+                    break;
+                }
+            }
+        }
+        
+        // Calculate word match similarity
+        $wordMatchSimilarity = $matchedWords > 0 && $totalWords > 0 
+            ? ($matchedWords / $totalWords) * 100 
+            : 0;
+        
+        // If most words match (e.g., 2 out of 3), give higher score
+        if ($matchedWords >= 2 && $totalWords >= 2) {
+            // If at least 2 words match, boost the score
+            $wordMatchSimilarity = max($wordMatchSimilarity, ($matchedWords / $totalWords) * 100 + 20);
+        }
+        
+        // Calculate Levenshtein similarity
+        $levenshteinSimilarity = $this->calculateLevenshteinSimilarity($name1, $name2);
+        
+        // Use the higher of the two, but give more weight to word matching
+        $finalSimilarity = max($wordMatchSimilarity * 1.2, $levenshteinSimilarity);
+        
+        \Illuminate\Support\Facades\Log::info('Name similarity calculation details', [
+            'name1' => $name1,
+            'name2' => $name2,
+            'name1_parts' => $name1Parts,
+            'name2_parts' => $name2Parts,
+            'matched_words' => $matchedWords,
+            'total_words' => $totalWords,
+            'word_match_similarity' => $wordMatchSimilarity,
+            'levenshtein_similarity' => $levenshteinSimilarity,
+            'final_similarity' => $finalSimilarity,
+        ]);
+        
+        return (int) round(min(100, $finalSimilarity));
+    }
+    
+    private function calculateLevenshteinSimilarity(string $name1, string $name2): int
+    {
         $maxLength = max(strlen($name1), strlen($name2));
         if ($maxLength === 0) {
             return 0;

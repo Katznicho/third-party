@@ -68,6 +68,9 @@ Route::prefix('v1')->group(function () {
     Route::post('/clients/search-and-send-otp-email', [ClientVerificationController::class, 'searchAndSendOtpByEmail'])->name('api.clients.search-and-send-otp-email');
     Route::post('/clients/verify-otp-email', [ClientVerificationController::class, 'verifyOtpByEmail'])->name('api.clients.verify-otp-email');
     
+    // Create client account (for Kashtre integration)
+    Route::post('/clients/{clientId}/account', [\App\Http\Controllers\Api\ClientController::class, 'createAccount'])->name('api.clients.account.create');
+    
     // Error logging (public, for client-side error reporting)
     Route::post('/log-error', function (\Illuminate\Http\Request $request) {
         \Illuminate\Support\Facades\Log::error('Client-side error', [

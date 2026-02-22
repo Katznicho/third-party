@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('insurance_companies', function (Blueprint $table) {
-            // New verification method fields - only add if they don't exist
+            // Add columns only if they don't exist
             if (!Schema::hasColumn('insurance_companies', 'require_physical_id')) {
                 $table->boolean('require_physical_id')->default(true)->after('required_client_fields');
             }
@@ -29,6 +29,7 @@ return new class extends Migration
                 $table->boolean('enable_method_4')->default(false)->after('enable_method_3');
             }
             if (!Schema::hasColumn('insurance_companies', 'phone_otp_expiry_minutes')) {
+                // Find the position after dob_tolerance_days
                 $table->integer('phone_otp_expiry_minutes')->default(10)->after('dob_tolerance_days');
             }
             if (!Schema::hasColumn('insurance_companies', 'email_otp_expiry_minutes')) {
@@ -43,7 +44,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('insurance_companies', function (Blueprint $table) {
-            $table->dropColumn([
+            $columns = [
                 'require_physical_id',
                 'enable_method_1',
                 'enable_method_2',
@@ -51,7 +52,13 @@ return new class extends Migration
                 'enable_method_4',
                 'phone_otp_expiry_minutes',
                 'email_otp_expiry_minutes',
-            ]);
+            ];
+            
+            foreach ($columns as $column) {
+                if (Schema::hasColumn('insurance_companies', $column)) {
+                    $table->dropColumn($column);
+                }
+            }
         });
     }
 };
