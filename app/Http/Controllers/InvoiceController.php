@@ -698,33 +698,101 @@ class InvoiceController extends Controller
                     
                     // Process payment if mobile money
                     if ($validated['payment_method'] === 'mobile_money' && !empty($validated['phone_number'])) {
-                        // Process mobile money payment
-                        $yoApi = new \App\Payments\YoAPI();
-                        $transactionResult = $yoApi->deposit($validated['phone_number'], $balanceDue, $validated['payment_reference']);
-                        
-                        if ($transactionResult['Status'] === 'OK' && isset($transactionResult['TransactionReference'])) {
-                            // Update payment with transaction reference
-                            $payment->update([
-                                'transaction_id' => $transactionResult['TransactionReference'],
-                                'status' => 'completed',
-                            ]);
-
-                            // Mark invoice as paid in Kashtre
-                            $markPaidResult = $this->kashtreApi->markInvoiceAsPaid($invoiceId, [
-                                'payment_method' => $validated['payment_method'],
-                                'amount' => $balanceDue,
-                                'payment_reference' => $validated['payment_reference'],
-                                'transaction_id' => $transactionResult['TransactionReference'],
-                                'payment_date' => $validated['payment_date'] ?? now()->toDateString(),
-                            ]);
-
-                            if ($markPaidResult['success']) {
-                                $successCount++;
-                            } else {
-                                $failedInvoices[] = ['id' => $invoiceId, 'reason' => 'Failed to mark invoice as paid in Kashtre'];
+                        try {
+                            // Format phone number similar to single-invoice flow
+                            $phone = $validated['phone_number'];
+                            $phone = preg_replace('/\s+/', '', $phone);
+                            if (str_starts_with($phone, '+')) {
+                                $phone = substr($phone, 1);
+                            } elseif (str_starts_with($phone, '0')) {
+                                $phone = '256' . substr($phone, 1);
                             }
-                        } else {
-                            $failedInvoices[] = ['id' => $invoiceId, 'reason' => 'Mobile money payment failed: ' . ($transactionResult['StatusMessage'] ?? 'Unknown error')];
+
+                            // Initialize YoAPI with credentials
+                            $yoApi = new \App\Payments\YoAPI(
+                                config('payments.yo_username'),
+                                config('payments.yo_password')
+                            );
+                            $yoApi->set_instant_notification_url(config('payments.webhook_url'));
+                            $yoApi->set_external_reference($validated['payment_reference']);
+
+                            // Build narrative/description
+                            $description = 'Bulk payment for Invoice #' . ($invoice['invoice_number'] ?? $invoiceId);
+                            if (strlen($description) > 160) {
+                                $description = substr($description, 0, 157) . '...';
+                            }
+
+                            Log::info('Initiating mobile money bulk payment for invoice', [
+                                'invoice_id' => $invoiceId,
+                                'phone' => $phone,
+                                'amount' => $balanceDue,
+                                'description' => $description,
+                                'payment_reference' => $validated['payment_reference'],
+                            ]);
+
+                            // Send mobile money request
+                            $yoResult = $yoApi->ac_deposit_funds($phone, $balanceDue, $description);
+
+                            Log::info('YoAPI response for bulk invoice payment', [
+                                'invoice_id' => $invoiceId,
+                                'result' => $yoResult,
+                            ]);
+
+                            if (isset($yoResult['Status']) && $yoResult['Status'] === 'OK' && isset($yoResult['TransactionReference'])) {
+                                $transactionReference = $yoResult['TransactionReference'];
+
+                                // Update payment with transaction reference and Yo metadata (keep status pending; cron will confirm)
+                                if ($payment) {
+                                    $payment->update([
+                                        'payment_reference' => $transactionReference,
+                                        'transaction_id' => $transactionReference,
+                                        'payment_metadata' => array_merge($payment->payment_metadata ?? [], [
+                                            'yo_transaction_reference' => $transactionReference,
+                                            'yo_status' => $yoResult['Status'] ?? null,
+                                            'yo_status_message' => $yoResult['StatusMessage'] ?? null,
+                                        ]),
+                                    ]);
+                                }
+
+                                // Prepare payload for Kashtre mark-as-paid (mobile money pending)
+                                $kashtrePayload = $paymentData;
+                                $kashtrePayload['amount'] = $balanceDue;
+                                $kashtrePayload['payment_reference'] = $transactionReference;
+                                $kashtrePayload['transaction_id'] = $transactionReference;
+                                $kashtrePayload['payment_date'] = $validated['payment_date'] ?? now()->toDateString();
+                                $kashtrePayload['notes'] = ($kashtrePayload['notes'] ?? '') . ' | Mobile Money Transaction Reference: ' . $transactionReference;
+
+                                $markPaidResult = $this->kashtreApi->markInvoiceAsPaid(
+                                    $invoiceId,
+                                    $insuranceCompanyId,
+                                    $kashtrePayload
+                                );
+
+                                if ($markPaidResult['success']) {
+                                    $successCount++;
+                                } else {
+                                    $failedInvoices[] = [
+                                        'id' => $invoiceId,
+                                        'reason' => 'Failed to mark invoice as paid in Kashtre',
+                                    ];
+                                }
+                            } else {
+                                $errorMessage = $yoResult['StatusMessage'] ?? $yoResult['ErrorMessage'] ?? 'Unknown error';
+                                $failedInvoices[] = [
+                                    'id' => $invoiceId,
+                                    'reason' => 'Mobile money payment failed: ' . $errorMessage,
+                                ];
+                            }
+                        } catch (\Exception $e) {
+                            Log::error('Error during mobile money bulk payment', [
+                                'invoice_id' => $invoiceId,
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString(),
+                            ]);
+                            $failedInvoices[] = [
+                                'id' => $invoiceId,
+                                'reason' => 'Mobile money exception: ' . $e->getMessage(),
+                            ];
                         }
                     } else {
                         // For bank transfer and cash, just create the payment record
