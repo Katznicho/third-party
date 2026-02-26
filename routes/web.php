@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function () {
     // Clients
     Route::resource('clients', \App\Http\Controllers\ClientController::class);
     Route::get('/clients/{client}/account-statement', [\App\Http\Controllers\ClientController::class, 'accountStatement'])->name('clients.account-statement');
+    Route::post('/clients/{client}/check-mobile-money-payments', [\App\Http\Controllers\ClientController::class, 'checkMobileMoneyPayments'])->name('clients.check-mobile-money-payments');
     Route::get('/clients/{client}/pay-premium', [\App\Http\Controllers\PremiumPaymentController::class, 'showPayPremium'])->name('clients.pay-premium');
     Route::post('/clients/{client}/pay-premium', [\App\Http\Controllers\PremiumPaymentController::class, 'processPayPremium'])->name('clients.pay-premium.process');
     

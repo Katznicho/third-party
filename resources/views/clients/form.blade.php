@@ -1355,29 +1355,47 @@
             return;
         }
 
-        // Principal Member Details
+        // Principal Member Details (randomised each time)
+        const firstNames = ['JOHN', 'PETER', 'DAVID', 'ROBERT', 'JAMES', 'MICHAEL', 'PAUL', 'ANDREW', 'SIMON', 'ALEX'];
+        const surnames = ['DOE', 'SMITH', 'KATENDE', 'OKELLO', 'MUGISHA', 'KABUYE', 'NANYONJO', 'SSEMUWEMBA', 'KASULE'];
+        const otherNames = ['MICHAEL', 'NICHOLAS', 'BRIAN', 'STEPHEN', 'FRANK', 'GEORGE'];
+
+        function pickRandom(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        const principalFirstName = pickRandom(firstNames);
+        const principalSurname = pickRandom(surnames);
+        const principalOtherName = pickRandom(otherNames);
+
+        const nextOfKinFirstName = pickRandom(firstNames.filter(n => n !== principalFirstName)) || 'JANE';
+        const nextOfKinSurname = pickRandom(surnames.filter(n => n !== principalSurname)) || 'DOE';
+
+        // Generate a random ID/passport number so it doesn't always clash
+        const randomIdNumber = 'CM' + Math.floor(100000000 + Math.random() * 900000000);
+
         const testData = {
             // Personal Information
-            first_name: 'JOHN',
-            surname: 'DOE',
-            other_names: 'MICHAEL',
+            first_name: principalFirstName,
+            surname: principalSurname,
+            other_names: principalOtherName,
             date_of_birth: '1985-05-15',
             gender: 'male',
             marital_status: 'married',
-            id_passport_no: 'CM123456789',
+            id_passport_no: randomIdNumber,
             nationality: 'Ugandan',
             
             // Contact Information
-            cell_phone: '+256701234567',
-            email: 'john.doe@example.com',
+            cell_phone: '+2567' + Math.floor(1000000 + Math.random() * 8999999),
+            email: principalFirstName.toLowerCase() + '.' + principalSurname.toLowerCase() + '@example.com',
             postal_address: 'P.O. Box 12345, Kampala',
             physical_address: 'Plot 45, Nakawa Road, Kampala',
             
             // Next of Kin
-            next_of_kin_name: 'JANE DOE',
+            next_of_kin_name: nextOfKinFirstName + ' ' + nextOfKinSurname,
             next_of_kin_relationship: 'spouse',
-            next_of_kin_cell_phone: '+256702345678',
-            next_of_kin_email: 'jane.doe@example.com',
+            next_of_kin_cell_phone: '+2567' + Math.floor(1000000 + Math.random() * 8999999),
+            next_of_kin_email: nextOfKinFirstName.toLowerCase() + '.' + nextOfKinSurname.toLowerCase() + '@example.com',
             next_of_kin_post_address: 'P.O. Box 12345, Kampala',
             next_of_kin_physical_address: 'Plot 45, Nakawa Road, Kampala',
             

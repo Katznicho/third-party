@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Payment;
+use App\Models\Policy;
 use App\Payments\YoAPI;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -116,6 +117,18 @@ class CheckPaymentStatus extends Command
                                     'completed_at' => now()->toDateTimeString(),
                                 ]),
                             ]);
+
+                            // If this is a premium payment and linked to a policy, activate the policy
+                            if ($payment->payment_type === 'premium_payment' && $payment->policy_id) {
+                                $policy = Policy::find($payment->policy_id);
+                                if ($policy) {
+                                    $policy->update([
+                                        'status' => 'active',
+                                        'is_paid' => true,
+                                        'payment_date' => now(),
+                                    ]);
+                                }
+                            }
 
                             $completedCount++;
                             Log::info("Payment status updated to completed", [

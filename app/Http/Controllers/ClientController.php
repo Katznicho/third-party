@@ -7,6 +7,8 @@ use App\Models\Policy;
 use App\Models\PolicyBenefit;
 use App\Models\Plan;
 use App\Models\InsuranceCompany;
+use App\Models\Payment;
+use App\Payments\YoAPI;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -522,14 +524,99 @@ class ClientController extends Controller
             'has_exclusions' => $hasExclusions
         ]);
 
-        // If principal with policy created, redirect to pay premium (Yo/cash); policy becomes active after payment is confirmed
+        // If principal with policy created, automatically initiate Yo mobile money premium payment
         if ($validated['plan_id'] && $validated['type'] === 'principal' && $policyNumber) {
-            return redirect()->route('clients.pay-premium', $client)
-                ->with('success', $successMessage . ' Please complete premium payment to activate the policy.')
-                ->with('has_exclusions', $hasExclusions);
+            try {
+                $policy = isset($policy) ? $policy : Policy::where('policy_number', $policyNumber)->first();
+                $paymentPhone = $client->cell_phone;
+
+                if ($policy && $paymentPhone) {
+                    $phone = preg_replace('/\s+/', '', $paymentPhone);
+                    if (str_starts_with($phone, '+')) {
+                        $phone = substr($phone, 1);
+                    } elseif (str_starts_with($phone, '0')) {
+                        $phone = '256' . substr($phone, 1);
+                    }
+
+                    if (strlen($phone) >= 9) {
+                        $paymentReference = 'PREM-' . $policy->id . '-' . time();
+                        $amount = (float) $policy->total_premium_due;
+
+                        $yoApi = new YoAPI(
+                            config('payments.yo_username'),
+                            config('payments.yo_password')
+                        );
+                        $yoApi->set_instant_notification_url(config('payments.webhook_url'));
+                        $yoApi->set_external_reference($paymentReference);
+
+                        $narrative = 'Premium payment - Policy ' . $policy->policy_number . ' - ' . $client->full_name;
+                        if (strlen($narrative) > 160) {
+                            $narrative = substr($narrative, 0, 157) . '...';
+                        }
+
+                        Log::info('Initiating Yo premium payment from client creation', [
+                            'policy_id' => $policy->id,
+                            'client_id' => $client->id,
+                            'phone' => $phone,
+                            'amount' => $amount,
+                            'reference' => $paymentReference,
+                        ]);
+
+                        $yoResult = $yoApi->ac_deposit_funds($phone, $amount, $narrative);
+
+                        Log::info('YoAPI premium payment response (client creation)', ['result' => $yoResult]);
+
+                        if (isset($yoResult['Status']) && $yoResult['Status'] === 'OK' && !empty($yoResult['TransactionReference'])) {
+                            $transactionRef = $yoResult['TransactionReference'];
+
+                            // Record payment as pending so cron/manual check can complete it
+                            Payment::create([
+                                'payment_reference' => $paymentReference,
+                                'invoice_id' => null,
+                                'policy_id' => $policy->id,
+                                'client_id' => $client->id,
+                                'payment_type' => 'premium_payment',
+                                'amount' => $amount,
+                                'paid_amount' => $amount,
+                                'balance_amount' => 0,
+                                'payment_method' => 'mobile_money',
+                                'mobile_money_number' => $phone,
+                                'transaction_id' => $transactionRef,
+                                'status' => 'pending',
+                                'payment_date' => now(),
+                                'processed_at' => null,
+                                'payment_notes' => 'Premium payment (mobile money) initiated on client creation',
+                                'payment_metadata' => [
+                                    'yo_transaction_reference' => $transactionRef,
+                                    'yo_status' => $yoResult['Status'] ?? null,
+                                    'policy_id' => $policy->id,
+                                    'insurance_company_id' => $insuranceCompany->id,
+                                ],
+                                'processed_by' => auth()->id(),
+                            ]);
+
+                            $successMessage .= ' Mobile money request sent to ' . $phone . '. Policy will become active once payment is confirmed.';
+                        } else {
+                            $errorMessage = $yoResult['StatusMessage'] ?? $yoResult['ErrorMessage'] ?? 'Unknown error';
+                            $successMessage .= ' However, mobile money premium payment could not be initiated: ' . $errorMessage;
+                        }
+                    } else {
+                        $successMessage .= ' Payment phone number is invalid, premium payment was not initiated.';
+                    }
+                } else {
+                    $successMessage .= ' No valid payment phone found, premium payment was not initiated.';
+                }
+            } catch (\Exception $e) {
+                Log::error('Error initiating Yo premium payment during client creation', [
+                    'client_id' => $client->id,
+                    'policy_number' => $policyNumber,
+                    'error' => $e->getMessage(),
+                ]);
+                $successMessage .= ' Premium payment could not be initiated automatically. Please try again from the client page.';
+            }
         }
 
-        return redirect()->route('clients.index')
+        return redirect()->route('clients.show', $client)
             ->with('success', $successMessage)
             ->with('has_exclusions', $hasExclusions);
 
@@ -667,7 +754,134 @@ class ClientController extends Controller
             'medicalQuestionResponses.question',
             'plan'
         ]);
-        return view('clients.show', compact('client'));
+        
+        // Check if client has any pending mobile money payments (for manual status check)
+        $hasPendingMobileMoneyPayments = Payment::where('client_id', $client->id)
+            ->where('status', 'pending')
+            ->where('payment_method', 'mobile_money')
+            ->whereNotNull('transaction_id')
+            ->exists();
+
+        return view('clients.show', compact('client', 'hasPendingMobileMoneyPayments'));
+    }
+
+    /**
+     * Manually check YoAPI status for this client's pending mobile money payments.
+     * Useful when the cron job fails or is delayed.
+     */
+    public function checkMobileMoneyPayments(Client $client)
+    {
+        $user = auth()->user();
+        $insuranceCompanyId = $user->insurance_company_id;
+
+        // Reuse the same access guard as show()
+        $hasPolicy = $client->policies()
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->exists();
+        if (!$hasPolicy && $client->principalMember) {
+            $hasPolicy = $client->principalMember->policies()
+                ->where('insurance_company_id', $insuranceCompanyId)
+                ->exists();
+        }
+        if (!$hasPolicy) {
+            abort(403, 'You do not have access to this client.');
+        }
+
+        // Find this client's pending mobile money payments
+        $pendingPayments = Payment::where('client_id', $client->id)
+            ->where('status', 'pending')
+            ->where('payment_method', 'mobile_money')
+            ->whereNotNull('transaction_id')
+            ->whereNotNull('payment_metadata')
+            ->get();
+
+        if ($pendingPayments->isEmpty()) {
+            return redirect()->route('clients.show', $client)
+                ->with('info', 'No pending mobile money payments found for this client.');
+        }
+
+        $yoPayments = new YoAPI(
+            config('payments.yo_username'),
+            config('payments.yo_password')
+        );
+
+        $processedCount = 0;
+        $completedCount = 0;
+        $failedCount = 0;
+
+        foreach ($pendingPayments as $payment) {
+            try {
+                $transactionReference = $payment->transaction_id;
+                if (!$transactionReference) {
+                    continue;
+                }
+
+                $statusCheck = $yoPayments->ac_transaction_check_status($transactionReference);
+
+                if (!isset($statusCheck['TransactionStatus'])) {
+                    continue;
+                }
+
+                \Illuminate\Support\Facades\DB::beginTransaction();
+
+                try {
+                    if ($statusCheck['TransactionStatus'] === 'SUCCEEDED') {
+                        $payment->update([
+                            'status' => 'completed',
+                            'cleared_date' => now(),
+                            'processed_at' => now(),
+                            'payment_metadata' => array_merge($payment->payment_metadata ?? [], [
+                                'yo_status' => $statusCheck['TransactionStatus'] ?? null,
+                                'yo_status_message' => $statusCheck['StatusMessage'] ?? null,
+                                'yo_transaction_completion_date' => $statusCheck['TransactionCompletionDate'] ?? null,
+                                'yo_issued_receipt_number' => $statusCheck['IssuedReceiptNumber'] ?? null,
+                                'completed_at' => now()->toDateTimeString(),
+                            ]),
+                        ]);
+                        $completedCount++;
+                    } elseif ($statusCheck['TransactionStatus'] === 'FAILED') {
+                        $payment->update([
+                            'status' => 'failed',
+                            'failure_reason' => $statusCheck['StatusMessage'] ?? $statusCheck['ErrorMessage'] ?? 'Payment failed via Yo Payments',
+                            'payment_metadata' => array_merge($payment->payment_metadata ?? [], [
+                                'yo_status' => $statusCheck['TransactionStatus'] ?? null,
+                                'yo_status_message' => $statusCheck['StatusMessage'] ?? null,
+                                'yo_error_message' => $statusCheck['ErrorMessage'] ?? null,
+                                'failed_at' => now()->toDateTimeString(),
+                            ]),
+                        ]);
+                        $failedCount++;
+                    } else {
+                        // PENDING or other status: just update metadata timestamp
+                        $payment->update([
+                            'payment_metadata' => array_merge($payment->payment_metadata ?? [], [
+                                'last_status_check' => now()->toDateTimeString(),
+                                'yo_status' => $statusCheck['TransactionStatus'] ?? null,
+                                'yo_status_message' => $statusCheck['StatusMessage'] ?? null,
+                            ]),
+                        ]);
+                    }
+
+                    \Illuminate\Support\Facades\DB::commit();
+                    $processedCount++;
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\DB::rollBack();
+                }
+            } catch (\Exception $e) {
+                // Ignore individual failures, continue with others
+            }
+        }
+
+        $message = "Checked {$processedCount} mobile money payment(s) for this client.";
+        if ($completedCount > 0) {
+            $message .= " Completed: {$completedCount}.";
+        }
+        if ($failedCount > 0) {
+            $message .= " Failed: {$failedCount}.";
+        }
+
+        return redirect()->route('clients.show', $client)
+            ->with('success', $message);
     }
 
     /**

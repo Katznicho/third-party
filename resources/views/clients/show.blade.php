@@ -64,8 +64,19 @@
             </div>
             
             <div>
-                <label class="block text-sm font-medium text-slate-500 mb-1">Cell Phone</label>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Payment Phone (Mobile Money)</label>
                 <p class="text-base text-slate-900">{{ $client->cell_phone ?: 'N/A' }}</p>
+                @if(!empty($client->cell_phone) && ($hasPendingMobileMoneyPayments ?? false))
+                    <form action="{{ route('clients.check-mobile-money-payments', $client) }}" method="POST" class="mt-2 inline">
+                        @csrf
+                        <button type="submit" class="px-3 py-1 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                            Check Mobile Money Payment Status
+                        </button>
+                    </form>
+                    <p class="mt-1 text-xs text-slate-500">
+                        Use this to manually refresh Yo Payments status if the automatic check is delayed.
+                    </p>
+                @endif
             </div>
             
             <div>

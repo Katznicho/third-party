@@ -122,20 +122,33 @@ class PremiumPaymentController extends Controller
 
                 if (isset($yoResult['Status']) && $yoResult['Status'] === 'OK' && !empty($yoResult['TransactionReference'])) {
                     $transactionRef = $yoResult['TransactionReference'];
-                    PolicyPremiumPayment::create([
+
+                    // Create Payment record as pending so the cron can update it later
+                    Payment::create([
+                        'payment_reference' => $paymentReference,
+                        'invoice_id' => null,
                         'policy_id' => $policy->id,
                         'client_id' => $client->id,
+                        'payment_type' => 'premium_payment',
                         'amount' => $amount,
+                        'paid_amount' => $amount,
+                        'balance_amount' => 0,
                         'payment_method' => 'mobile_money',
-                        'mobile_phone' => $phone,
+                        'mobile_money_number' => $phone,
+                        'transaction_id' => $transactionRef,
                         'status' => 'pending',
-                        'yo_transaction_reference' => $transactionRef,
-                        'payment_reference' => $paymentReference,
-                        'metadata' => [
-                            'notes' => $validated['notes'] ?? null,
+                        'payment_date' => now(),
+                        'processed_at' => null,
+                        'payment_notes' => $validated['notes'] ?? 'Premium payment (mobile money)',
+                        'payment_metadata' => [
+                            'yo_transaction_reference' => $transactionRef,
                             'yo_status' => $yoResult['Status'] ?? null,
+                            'policy_id' => $policy->id,
+                            'insurance_company_id' => $user->insurance_company_id,
                         ],
+                        'processed_by' => $user->id,
                     ]);
+
                     DB::commit();
                     return redirect()->route('clients.pay-premium', $client)
                         ->with('success', 'Mobile money request sent. Please complete the payment on your phone. The policy will become active once payment is confirmed (usually within a few minutes).');
@@ -147,19 +160,6 @@ class PremiumPaymentController extends Controller
             }
 
             // Cash or bank transfer: mark as completed immediately and activate policy
-            PolicyPremiumPayment::create([
-                'policy_id' => $policy->id,
-                'client_id' => $client->id,
-                'amount' => $amount,
-                'payment_method' => $validated['payment_method'],
-                'mobile_phone' => null,
-                'status' => 'completed',
-                'yo_transaction_reference' => null,
-                'payment_reference' => $paymentReference,
-                'metadata' => ['notes' => $validated['notes'] ?? null],
-                'paid_at' => now(),
-            ]);
-
             $policy->update([
                 'status' => 'active',
                 'is_paid' => true,

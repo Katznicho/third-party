@@ -12,10 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Check payment statuses every minute
+        // Check payment statuses every minute (includes premium payments via Yo)
         $schedule->command('payments:check-status')->everyMinute();
-        // Check Yo premium payments and activate policy when confirmed
-        $schedule->command('payments:check-premium-status')->everyMinute();
     }
 
     /**
