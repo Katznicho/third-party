@@ -687,7 +687,23 @@ class InvoiceController extends Controller
                     }
 
                     $invoice = $invoiceDetails['data']['invoice'] ?? [];
-                    $balanceDue = $invoice['balance_due'] ?? $invoice['total_amount'] ?? 0;
+                    // Ensure numeric balance due
+                    $balanceDueRaw = $invoice['balance_due'] ?? $invoice['total_amount'] ?? 0;
+                    $balanceDue = (float) $balanceDueRaw;
+
+                    // If there is nothing outstanding on this invoice, skip mobile money
+                    if ($balanceDue <= 0) {
+                        Log::warning('Bulk payment: invoice has no outstanding balance, skipping mobile money', [
+                            'invoice_id' => $invoiceId,
+                            'balance_due_raw' => $balanceDueRaw,
+                            'balance_due' => $balanceDue,
+                        ]);
+                        $failedInvoices[] = [
+                            'id' => $invoiceId,
+                            'reason' => 'Invoice has no outstanding balance to pay.',
+                        ];
+                        continue;
+                    }
 
                     // Create payment record for this invoice
                     $paymentData = $validated;
