@@ -336,7 +336,7 @@ class ClientController extends Controller
                 ? (bool)$validated['coinsurance_contributes_to_deductible'] 
                 : $defaultCoinsuranceContributes;
             
-            // Create policy with calculated premium
+            // Create policy with calculated premium - status inactive until premium is paid (Yo/cash, confirmed by cron for Yo)
             $policy = Policy::create([
                 'policy_number' => $policyNumber,
                 'insurance_company_id' => auth()->user()->insurance_company_id,
@@ -349,7 +349,7 @@ class ClientController extends Controller
                 'insurance_training_levy' => $insuranceTrainingLevy,
                 'stamp_duty' => $stampDuty,
                 'total_premium_due' => $totalPremiumDue,
-                'status' => 'active',
+                'status' => 'inactive',
                 'is_paid' => false,
                 'has_deductible' => $validated['has_deductible'] ?? false,
                 'copay_amount' => $validated['copay_amount'] ?? null,
@@ -521,6 +521,13 @@ class ClientController extends Controller
             'policy_number' => $policyNumber,
             'has_exclusions' => $hasExclusions
         ]);
+
+        // If principal with policy created, redirect to pay premium (Yo/cash); policy becomes active after payment is confirmed
+        if ($validated['plan_id'] && $validated['type'] === 'principal' && $policyNumber) {
+            return redirect()->route('clients.pay-premium', $client)
+                ->with('success', $successMessage . ' Please complete premium payment to activate the policy.')
+                ->with('has_exclusions', $hasExclusions);
+        }
 
         return redirect()->route('clients.index')
             ->with('success', $successMessage)

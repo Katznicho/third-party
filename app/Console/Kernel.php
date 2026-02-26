@@ -14,6 +14,8 @@ class Kernel extends ConsoleKernel
     {
         // Check payment statuses every minute
         $schedule->command('payments:check-status')->everyMinute();
+        // Check Yo premium payments and activate policy when confirmed
+        $schedule->command('payments:check-premium-status')->everyMinute();
     }
 
     /**

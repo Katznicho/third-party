@@ -119,9 +119,12 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-500 mb-1">Status</label>
                     <p class="text-base text-slate-900">
-                        <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $policy->status === 'active' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600' }}">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $policy->status === 'active' ? 'bg-green-100 text-green-800' : ($policy->status === 'inactive' && !$policy->is_paid ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600') }}">
                             {{ ucfirst($policy->status) }}
                         </span>
+                        @if($policy->status === 'inactive' && !$policy->is_paid)
+                            <a href="{{ route('clients.pay-premium', $client) }}" class="ml-2 px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">Pay Premium</a>
+                        @endif
                     </p>
                 </div>
                 
