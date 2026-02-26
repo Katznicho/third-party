@@ -480,10 +480,10 @@
                 @enderror
             </div>
 
-            <!-- Cell Phone -->
+            <!-- Payment Phone (Mobile Money) -->
             <div>
                 <label for="cell_phone" class="block text-sm font-medium text-slate-700 mb-1">
-                    Cell Phone
+                    Payment Phone (Mobile Money)
                     @if(isset($requiredFields) && in_array('cell_phone', $requiredFields))
                         <span class="text-red-500">*</span>
                     @endif
@@ -493,10 +493,13 @@
                     name="cell_phone" 
                     id="cell_phone" 
                     value="{{ old('cell_phone', $client->cell_phone ?? '') }}" 
-                    placeholder="Enter cell phone number" 
+                    placeholder="Enter mobile money phone number (e.g. 2567XXXXXXXX)" 
                     @if(isset($requiredFields) && in_array('cell_phone', $requiredFields)) required @endif
                     class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('cell_phone') border-red-300 @enderror"
                 >
+                <p class="mt-1 text-xs text-slate-500">
+                    This number will be used to send Yo Payments mobile money prompts for premium and other payments.
+                </p>
                 @error('cell_phone')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
