@@ -145,6 +145,7 @@ class CheckPaymentStatus extends Command
                                 'transaction_id' => $transactionReference,
                                 'amount' => $payment->amount,
                             ]);
+                            
 
                             // Update payment status to failed
                             $payment->update([
