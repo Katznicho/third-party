@@ -27,6 +27,6 @@
             ->orderBy('id')
             ->get();
     @endphp
-    @include('clients.form', ['client' => $client, 'action' => route('clients.store'), 'method' => 'POST', 'medicalQuestions' => $medicalQuestions])
+    @include('clients.form', ['client' => $client, 'action' => route('clients.store'), 'method' => 'POST', 'medicalQuestions' => $medicalQuestions, 'insuranceCompany' => $insuranceCompany ?? auth()->user()->insuranceCompany, 'requiredFields' => $requiredFields ?? []])
 </div>
 @endsection

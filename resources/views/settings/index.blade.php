@@ -37,6 +37,13 @@
                     Policy Numbers
                 </button>
                 <button 
+                    onclick="switchTab('payment')"
+                    id="tab-payment"
+                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                >
+                    Payment
+                </button>
+                <button 
                     onclick="switchTab('account-number')"
                     id="tab-account-number"
                     class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
@@ -232,6 +239,85 @@
                                 class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150"
                             >
                                 Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Payment Tab -->
+            <div id="content-payment" class="tab-content" style="display: none;">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-xl font-bold text-slate-900 mb-4">Payment Settings</h2>
+                    <p class="text-sm text-slate-600 mb-6">Configure allowed payment methods and grace period (days) per payment method before a payment is considered overdue.</p>
+
+                    <form action="{{ route('settings.update-payment') }}" method="POST" class="space-y-6">
+                        @csrf
+                        @method('PUT')
+                        <input type="hidden" name="current_tab" value="payment">
+
+                        <!-- Payment Methods -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3">Allowed Payment Methods</h3>
+                            <p class="text-xs text-slate-600 mb-4">Select which payment methods are accepted. Clients and vendors will only see these options.</p>
+                            @php
+                                $savedMethods = old('payment_methods', $insuranceCompany->payment_methods ?? []);
+                            @endphp
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 border border-slate-200 rounded-lg p-4 bg-white">
+                                @foreach(\App\Models\InsuranceCompany::getPaymentMethodOptions() as $value => $label)
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            name="payment_methods[]" 
+                                            value="{{ $value }}"
+                                            {{ in_array($value, is_array($savedMethods) ? $savedMethods : []) ? 'checked' : '' }}
+                                            class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        >
+                                        <span class="text-sm text-slate-700">{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Grace Period Per Payment Method -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3">Grace Period (per payment method)</h3>
+                            <p class="text-xs text-slate-600 mb-4">Number of days allowed for payment after due date before it is considered overdue. Set to 0 for no grace period. Maximum 365 days per method.</p>
+                            @php
+                                $gracePeriods = old('grace_periods', $insuranceCompany->payment_grace_periods ?? []);
+                            @endphp
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-lg bg-white">
+                                    <thead class="bg-slate-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Payment Method</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Grace Period (days)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200">
+                                        @foreach(\App\Models\InsuranceCompany::getPaymentMethodOptions() as $value => $label)
+                                            <tr>
+                                                <td class="px-4 py-3 text-sm text-slate-700">{{ $label }}</td>
+                                                <td class="px-4 py-3">
+                                                    <input 
+                                                        type="number" 
+                                                        name="grace_periods[{{ $value }}]" 
+                                                        value="{{ isset($gracePeriods[$value]) ? (int) $gracePeriods[$value] : 0 }}"
+                                                        min="0"
+                                                        max="365"
+                                                        class="w-24 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                                    >
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-4 border-t border-slate-200">
+                            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                Save Payment Settings
                             </button>
                         </div>
                     </form>

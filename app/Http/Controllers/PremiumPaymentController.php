@@ -96,6 +96,39 @@ class PremiumPaymentController extends Controller
                     return redirect()->back()->with('error', 'Please enter a valid mobile money number.')->withInput();
                 }
 
+                // In local environment, auto-complete without calling Yo
+                if (app()->environment('local')) {
+                    $policy->update([
+                        'status' => 'active',
+                        'is_paid' => true,
+                        'payment_date' => now(),
+                    ]);
+
+                    Payment::create([
+                        'payment_reference' => $paymentReference,
+                        'invoice_id' => null,
+                        'policy_id' => $policy->id,
+                        'client_id' => $client->id,
+                        'payment_type' => 'premium_payment',
+                        'amount' => $amount,
+                        'paid_amount' => $amount,
+                        'balance_amount' => 0,
+                        'payment_method' => 'mobile_money',
+                        'mobile_money_number' => $phone,
+                        'transaction_id' => 'LOCAL-TEST-' . uniqid(),
+                        'status' => 'completed',
+                        'payment_date' => now(),
+                        'processed_at' => now(),
+                        'payment_notes' => ($validated['notes'] ?? 'Premium payment (mobile money)') . ' [LOCAL AUTO-COMPLETE]',
+                        'processed_by' => $user->id,
+                    ]);
+
+                    DB::commit();
+
+                    return redirect()->route('clients.show', $client)
+                        ->with('success', 'Premium paid automatically in local environment. Policy is now active.');
+                }
+
                 $yoApi = new YoAPI(
                     config('payments.yo_username'),
                     config('payments.yo_password')

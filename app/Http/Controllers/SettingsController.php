@@ -49,6 +49,41 @@ class SettingsController extends Controller
     }
 
     /**
+     * Update payment settings (allowed methods + grace period per method).
+     */
+    public function updatePaymentSettings(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $allowedKeys = array_keys(InsuranceCompany::getPaymentMethodOptions());
+        $validated = $request->validate([
+            'payment_methods' => 'nullable|array',
+            'payment_methods.*' => 'string|in:' . implode(',', $allowedKeys),
+            'grace_periods' => 'nullable|array',
+            'grace_periods.*' => 'nullable|integer|min:0|max:365',
+        ]);
+
+        $gracePeriods = [];
+        foreach ($allowedKeys as $key) {
+            $gracePeriods[$key] = isset($validated['grace_periods'][$key])
+                ? (int) $validated['grace_periods'][$key]
+                : 0;
+        }
+
+        $insuranceCompany = $user->insuranceCompany;
+        $insuranceCompany->update([
+            'payment_methods' => $validated['payment_methods'] ?? [],
+            'payment_grace_periods' => $gracePeriods,
+        ]);
+
+        return redirect()->route('settings.index', ['tab' => 'payment'])
+            ->with('success', 'Payment settings updated successfully.');
+    }
+
+    /**
      * Update deductible contribution settings
      */
     public function updateDeductibleContributionSettings(Request $request)

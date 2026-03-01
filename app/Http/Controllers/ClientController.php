@@ -171,9 +171,28 @@ class ClientController extends Controller
             $validated['relation_to_principal'] = null;
         }
 
-        // Remove fields that don't exist in the database (services_category and payment_methods)
+        // Validate premium payment method when principal with plan
+        if (($validated['type'] ?? '') === 'principal' && !empty($validated['plan_id'])) {
+            $allowedMethods = $insuranceCompany->payment_methods ?: array_keys(InsuranceCompany::getPaymentMethodOptions());
+            $request->validate([
+                'premium_payment_method' => ['required', 'string', 'in:' . implode(',', $allowedMethods)],
+            ]);
+            if (($request->input('premium_payment_method')) === 'mobile_money') {
+                $request->validate([
+                    'premium_payment_phone' => ['required', 'string', 'max:50'],
+                ]);
+            }
+        }
+
+        // When premium payment is Mobile Money, use payment phone as client cell_phone for the prompt and storage
+        if (($request->input('premium_payment_method')) === 'mobile_money' && $request->filled('premium_payment_phone')) {
+            $validated['cell_phone'] = $request->input('premium_payment_phone');
+        }
+
+        // Remove fields that don't exist in the database (services_category, payment_methods, premium_payment_method)
         unset($validated['services_category']);
         unset($validated['payment_methods']);
+        unset($validated['premium_payment_method']);
 
         $client = Client::create($validated);
         $policyNumber = null;
@@ -524,95 +543,150 @@ class ClientController extends Controller
             'has_exclusions' => $hasExclusions
         ]);
 
-        // If principal with policy created, automatically initiate Yo mobile money premium payment
-        if ($validated['plan_id'] && $validated['type'] === 'principal' && $policyNumber) {
+        // If principal with policy created, handle premium payment per selected method
+        $premiumPaymentMethod = $request->input('premium_payment_method');
+        if ($validated['plan_id'] && $validated['type'] === 'principal' && $policyNumber && $premiumPaymentMethod) {
             try {
                 $policy = isset($policy) ? $policy : Policy::where('policy_number', $policyNumber)->first();
-                $paymentPhone = $client->cell_phone;
+                if (!$policy) {
+                    $successMessage .= ' Premium payment was not created (policy not found).';
+                } else {
+                    $paymentReference = 'PREM-' . $policy->id . '-' . time();
+                    $amount = (float) $policy->total_premium_due;
+                    $paymentMethodForDb = in_array($premiumPaymentMethod, ['p_card', 'v_card']) ? 'card' : $premiumPaymentMethod;
 
-                if ($policy && $paymentPhone) {
-                    $phone = preg_replace('/\s+/', '', $paymentPhone);
-                    if (str_starts_with($phone, '+')) {
-                        $phone = substr($phone, 1);
-                    } elseif (str_starts_with($phone, '0')) {
-                        $phone = '256' . substr($phone, 1);
-                    }
+                    if ($premiumPaymentMethod === 'mobile_money') {
+                        $paymentPhone = $client->cell_phone;
+                        if ($paymentPhone) {
+                            $phone = preg_replace('/\s+/', '', $paymentPhone);
+                            if (str_starts_with($phone, '+')) {
+                                $phone = substr($phone, 1);
+                            } elseif (str_starts_with($phone, '0')) {
+                                $phone = '256' . substr($phone, 1);
+                            }
 
-                    if (strlen($phone) >= 9) {
-                        $paymentReference = 'PREM-' . $policy->id . '-' . time();
-                        $amount = (float) $policy->total_premium_due;
+                            if (strlen($phone) >= 9) {
+                                if (app()->environment('local')) {
+                                    $policy->update([
+                                        'status' => 'active',
+                                        'is_paid' => true,
+                                        'payment_date' => now(),
+                                    ]);
+                                    Payment::create([
+                                        'payment_reference' => $paymentReference,
+                                        'invoice_id' => null,
+                                        'policy_id' => $policy->id,
+                                        'client_id' => $client->id,
+                                        'payment_type' => 'premium_payment',
+                                        'amount' => $amount,
+                                        'paid_amount' => $amount,
+                                        'balance_amount' => 0,
+                                        'payment_method' => 'mobile_money',
+                                        'mobile_money_number' => $phone,
+                                        'transaction_id' => 'LOCAL-TEST-' . uniqid(),
+                                        'status' => 'completed',
+                                        'payment_date' => now(),
+                                        'processed_at' => now(),
+                                        'payment_notes' => 'Premium payment (mobile money) auto-completed in local environment',
+                                        'processed_by' => auth()->id(),
+                                    ]);
+                                    $successMessage .= ' Premium paid automatically in local environment. Policy is now active.';
+                                } else {
+                                    $yoApi = new YoAPI(
+                                        config('payments.yo_username'),
+                                        config('payments.yo_password')
+                                    );
+                                    $yoApi->set_instant_notification_url(config('payments.webhook_url'));
+                                    $yoApi->set_external_reference($paymentReference);
+                                    $narrative = 'Premium payment - Policy ' . $policy->policy_number . ' - ' . $client->full_name;
+                                    if (strlen($narrative) > 160) {
+                                        $narrative = substr($narrative, 0, 157) . '...';
+                                    }
+                                    Log::info('Initiating Yo premium payment from client creation', [
+                                        'policy_id' => $policy->id,
+                                        'client_id' => $client->id,
+                                        'phone' => $phone,
+                                        'amount' => $amount,
+                                        'reference' => $paymentReference,
+                                    ]);
+                                    $yoResult = $yoApi->ac_deposit_funds($phone, $amount, $narrative);
+                                    Log::info('YoAPI premium payment response (client creation)', ['result' => $yoResult]);
 
-                        $yoApi = new YoAPI(
-                            config('payments.yo_username'),
-                            config('payments.yo_password')
-                        );
-                        $yoApi->set_instant_notification_url(config('payments.webhook_url'));
-                        $yoApi->set_external_reference($paymentReference);
-
-                        $narrative = 'Premium payment - Policy ' . $policy->policy_number . ' - ' . $client->full_name;
-                        if (strlen($narrative) > 160) {
-                            $narrative = substr($narrative, 0, 157) . '...';
-                        }
-
-                        Log::info('Initiating Yo premium payment from client creation', [
-                            'policy_id' => $policy->id,
-                            'client_id' => $client->id,
-                            'phone' => $phone,
-                            'amount' => $amount,
-                            'reference' => $paymentReference,
-                        ]);
-
-                        $yoResult = $yoApi->ac_deposit_funds($phone, $amount, $narrative);
-
-                        Log::info('YoAPI premium payment response (client creation)', ['result' => $yoResult]);
-
-                        if (isset($yoResult['Status']) && $yoResult['Status'] === 'OK' && !empty($yoResult['TransactionReference'])) {
-                            $transactionRef = $yoResult['TransactionReference'];
-
-                            // Record payment as pending so cron/manual check can complete it
-                            Payment::create([
-                                'payment_reference' => $paymentReference,
-                                'invoice_id' => null,
-                                'policy_id' => $policy->id,
-                                'client_id' => $client->id,
-                                'payment_type' => 'premium_payment',
-                                'amount' => $amount,
-                                'paid_amount' => $amount,
-                                'balance_amount' => 0,
-                                'payment_method' => 'mobile_money',
-                                'mobile_money_number' => $phone,
-                                'transaction_id' => $transactionRef,
-                                'status' => 'pending',
-                                'payment_date' => now(),
-                                'processed_at' => null,
-                                'payment_notes' => 'Premium payment (mobile money) initiated on client creation',
-                                'payment_metadata' => [
-                                    'yo_transaction_reference' => $transactionRef,
-                                    'yo_status' => $yoResult['Status'] ?? null,
-                                    'policy_id' => $policy->id,
-                                    'insurance_company_id' => $insuranceCompany->id,
-                                ],
-                                'processed_by' => auth()->id(),
-                            ]);
-
-                            $successMessage .= ' Mobile money request sent to ' . $phone . '. Policy will become active once payment is confirmed.';
+                                    if (isset($yoResult['Status']) && $yoResult['Status'] === 'OK' && !empty($yoResult['TransactionReference'])) {
+                                        $transactionRef = $yoResult['TransactionReference'];
+                                        Payment::create([
+                                            'payment_reference' => $paymentReference,
+                                            'invoice_id' => null,
+                                            'policy_id' => $policy->id,
+                                            'client_id' => $client->id,
+                                            'payment_type' => 'premium_payment',
+                                            'amount' => $amount,
+                                            'paid_amount' => $amount,
+                                            'balance_amount' => 0,
+                                            'payment_method' => 'mobile_money',
+                                            'mobile_money_number' => $phone,
+                                            'transaction_id' => $transactionRef,
+                                            'status' => 'pending',
+                                            'payment_date' => now(),
+                                            'processed_at' => null,
+                                            'payment_notes' => 'Premium payment (mobile money) initiated on client creation',
+                                            'payment_metadata' => [
+                                                'yo_transaction_reference' => $transactionRef,
+                                                'yo_status' => $yoResult['Status'] ?? null,
+                                                'policy_id' => $policy->id,
+                                                'insurance_company_id' => $insuranceCompany->id,
+                                            ],
+                                            'processed_by' => auth()->id(),
+                                        ]);
+                                        $successMessage .= ' Mobile money request sent to ' . $phone . '. Policy will become active once payment is confirmed.';
+                                    } else {
+                                        $errorMessage = $yoResult['StatusMessage'] ?? $yoResult['ErrorMessage'] ?? 'Unknown error';
+                                        $successMessage .= ' However, mobile money premium payment could not be initiated: ' . $errorMessage;
+                                    }
+                                }
+                            } else {
+                                $successMessage .= ' Payment phone number is invalid, premium payment was not initiated.';
+                            }
                         } else {
-                            $errorMessage = $yoResult['StatusMessage'] ?? $yoResult['ErrorMessage'] ?? 'Unknown error';
-                            $successMessage .= ' However, mobile money premium payment could not be initiated: ' . $errorMessage;
+                            $successMessage .= ' No payment phone provided for mobile money. Premium payment was not initiated.';
                         }
                     } else {
-                        $successMessage .= ' Payment phone number is invalid, premium payment was not initiated.';
+                        // Non–mobile money: create pending payment; staff updates manually within grace period
+                        $graceDays = $insuranceCompany->getGracePeriodForMethod($premiumPaymentMethod);
+                        $dueAt = now()->addDays($graceDays);
+
+                        Payment::create([
+                            'payment_reference' => $paymentReference,
+                            'invoice_id' => null,
+                            'policy_id' => $policy->id,
+                            'client_id' => $client->id,
+                            'payment_type' => 'premium_payment',
+                            'amount' => $amount,
+                            'paid_amount' => 0,
+                            'balance_amount' => $amount,
+                            'payment_method' => $paymentMethodForDb,
+                            'status' => 'pending',
+                            'payment_date' => now(),
+                            'processed_at' => null,
+                            'payment_notes' => 'Premium payment (' . $premiumPaymentMethod . ') – to be updated manually. Due by ' . $dueAt->toDateString() . ' (grace: ' . $graceDays . ' days).',
+                            'payment_metadata' => [
+                                'premium_payment_method_selected' => $premiumPaymentMethod,
+                                'grace_days' => $graceDays,
+                                'due_at' => $dueAt->toDateString(),
+                                'policy_id' => $policy->id,
+                                'insurance_company_id' => $insuranceCompany->id,
+                            ],
+                        ]);
+                        $successMessage .= ' Premium payment recorded as pending (' . $premiumPaymentMethod . '). Update payment manually within ' . $graceDays . ' day(s) (due by ' . $dueAt->toDateString() . ').';
                     }
-                } else {
-                    $successMessage .= ' No valid payment phone found, premium payment was not initiated.';
                 }
             } catch (\Exception $e) {
-                Log::error('Error initiating Yo premium payment during client creation', [
+                Log::error('Error during premium payment setup (client creation)', [
                     'client_id' => $client->id,
                     'policy_number' => $policyNumber,
                     'error' => $e->getMessage(),
                 ]);
-                $successMessage .= ' Premium payment could not be initiated automatically. Please try again from the client page.';
+                $successMessage .= ' Premium payment could not be set up. Please try again from the client page.';
             }
         }
 
@@ -762,7 +836,14 @@ class ClientController extends Controller
             ->whereNotNull('transaction_id')
             ->exists();
 
-        return view('clients.show', compact('client', 'hasPendingMobileMoneyPayments'));
+        // Premium payments for this client (to show grace period, payment method, and mark as received)
+        $premiumPayments = Payment::where('client_id', $client->id)
+            ->where('payment_type', 'premium_payment')
+            ->with('policy')
+            ->orderBy('payment_date', 'desc')
+            ->get();
+
+        return view('clients.show', compact('client', 'hasPendingMobileMoneyPayments', 'premiumPayments'));
     }
 
     /**

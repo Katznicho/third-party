@@ -1247,6 +1247,50 @@
     <input type="hidden" name="type" value="principal">
     <input type="hidden" name="is_active" value="1">
 
+    @if($method === 'POST' && isset($insuranceCompany))
+    <!-- Payment Details Card (always visible on create) -->
+    <div class="border border-slate-300 rounded-lg p-6 bg-slate-50">
+        <h2 class="text-xl font-bold text-slate-900 mb-4 border-b border-slate-300 pb-2">Payment Details</h2>
+        <p class="text-sm text-slate-600 mb-4">How will the client pay the premium? For Mobile Money a payment prompt will be sent to the number you provide. Other methods are recorded manually within the grace period. <span class="text-slate-500">Select a plan above to enable this section.</span></p>
+        @php
+            $allowedMethods = $insuranceCompany->payment_methods ?? [];
+            $methodOptions = \App\Models\InsuranceCompany::getPaymentMethodOptions();
+            $options = empty($allowedMethods) ? $methodOptions : array_intersect_key($methodOptions, array_flip($allowedMethods));
+        @endphp
+        <div id="premium-payment-method-section" class="space-y-4">
+            <div>
+                <label for="premium_payment_method" class="block text-sm font-medium text-slate-700 mb-2">
+                    Premium payment method <span class="text-red-500">*</span>
+                </label>
+                <select 
+                    name="premium_payment_method" 
+                    id="premium_payment_method" 
+                    class="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="">— Select payment method —</option>
+                    @foreach($options as $value => $label)
+                        <option value="{{ $value }}" {{ old('premium_payment_method') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div id="premium-payment-phone-wrap" class="hidden">
+                <label for="premium_payment_phone" class="block text-sm font-medium text-slate-700 mb-2">
+                    Payment phone number (Mobile Money) <span class="text-red-500">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    name="premium_payment_phone" 
+                    id="premium_payment_phone" 
+                    value="{{ old('premium_payment_phone') }}" 
+                    placeholder="e.g. 256701234567 or 0701234567" 
+                    class="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                <p class="mt-1 text-xs text-slate-500">A payment prompt will be sent to this number. The client approves on their phone to complete the premium payment.</p>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Form Actions -->
     <div class="flex justify-between items-center pt-4 border-t border-slate-200">
         <button type="button" onclick="autoGenerateForm()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150">
@@ -1947,10 +1991,19 @@
         
         if (!selectedPlan) {
             premiumCalcDiv.style.display = 'none';
+            var pmSelect = document.getElementById('premium_payment_method');
+            if (pmSelect) { pmSelect.required = false; }
+            var phoneWrap = document.getElementById('premium-payment-phone-wrap');
+            if (phoneWrap) { phoneWrap.classList.add('hidden'); }
+            var phoneInput = document.getElementById('premium_payment_phone');
+            if (phoneInput) { phoneInput.required = false; }
             return;
         }
-        
+
         premiumCalcDiv.style.display = 'block';
+        var pmSelect = document.getElementById('premium_payment_method');
+        if (pmSelect) { pmSelect.required = true; }
+        if (typeof syncPremiumPaymentPhoneVisibility === 'function') syncPremiumPaymentPhoneVisibility();
         
         const planId = parseInt(selectedPlan.value);
         const numberOfDependents = parseInt(document.getElementById('number_of_dependents').value) || 0;
@@ -2225,10 +2278,31 @@
         }
     }
     
+    function syncPremiumPaymentPhoneVisibility() {
+        var pmSelect = document.getElementById('premium_payment_method');
+        var phoneWrap = document.getElementById('premium-payment-phone-wrap');
+        var phoneInput = document.getElementById('premium_payment_phone');
+        if (!pmSelect || !phoneWrap || !phoneInput) return;
+        var isMobileMoney = (pmSelect.value === 'mobile_money');
+        if (isMobileMoney) {
+            phoneWrap.classList.remove('hidden');
+            phoneInput.required = true;
+        } else {
+            phoneWrap.classList.add('hidden');
+            phoneInput.required = false;
+        }
+    }
+
     // Initialize: Add event listeners to existing dependant inputs for auto-calculation
     document.addEventListener('DOMContentLoaded', function() {
         // Setup deductible toggle
         setupDeductibleToggle();
+        
+        var pmSelect = document.getElementById('premium_payment_method');
+        if (pmSelect) {
+            pmSelect.addEventListener('change', syncPremiumPaymentPhoneVisibility);
+            syncPremiumPaymentPhoneVisibility();
+        }
         
         // Add event listeners to all existing dependant inputs
         const dependantInputs = document.querySelectorAll('#dependants-container input, #dependants-container select');

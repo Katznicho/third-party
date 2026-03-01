@@ -182,6 +182,117 @@
                 </div>
             </div>
 
+            @php
+                $policyPremiumPayments = isset($premiumPayments) ? $premiumPayments->where('policy_id', $policy->id) : collect();
+                $paymentMethodLabels = \App\Models\InsuranceCompany::getPaymentMethodOptions();
+            @endphp
+            @if($policyPremiumPayments->isNotEmpty())
+            <!-- Premium payment record(s): grace period, payment method, mark as received -->
+            <div class="border-t border-slate-200 pt-6 mt-6">
+                <h3 class="text-lg font-semibold text-slate-900 mb-4">Payment record</h3>
+                <div class="space-y-4">
+                    @foreach($policyPremiumPayments as $pmt)
+                    <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <span class="text-xs font-medium text-slate-500 uppercase">Reference</span>
+                                <p class="text-sm font-mono text-slate-900">{{ $pmt->payment_reference }}</p>
+                            </div>
+                            <div>
+                                <span class="text-xs font-medium text-slate-500 uppercase">Amount</span>
+                                <p class="text-sm font-semibold text-slate-900">UGX {{ number_format($pmt->amount, 2) }}</p>
+                            </div>
+                            <div>
+                                <span class="text-xs font-medium text-slate-500 uppercase">Payment method</span>
+                                @php
+                                    $methodKey = $pmt->payment_metadata['premium_payment_method_selected'] ?? $pmt->payment_method;
+                                    $methodLabel = $paymentMethodLabels[$methodKey] ?? ucfirst(str_replace('_', ' ', $methodKey ?? 'N/A'));
+                                @endphp
+                                <p class="text-sm text-slate-900">{{ $methodLabel }}</p>
+                            </div>
+                            <div>
+                                <span class="text-xs font-medium text-slate-500 uppercase">Status</span>
+                                <p class="text-sm">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full
+                                        {{ $pmt->status === 'completed' ? 'bg-green-100 text-green-800' : ($pmt->status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800') }}">
+                                        {{ ucfirst($pmt->status) }}
+                                    </span>
+                                </p>
+                            </div>
+                            @if(is_array($pmt->payment_metadata))
+                            <div>
+                                <span class="text-xs font-medium text-slate-500 uppercase">Grace period</span>
+                                <p class="text-sm text-slate-900">
+                                    @if(isset($pmt->payment_metadata['grace_days']))
+                                        {{ $pmt->payment_metadata['grace_days'] }} day(s)
+                                    @else
+                                        —
+                                    @endif
+                                </p>
+                            </div>
+                            <div>
+                                <span class="text-xs font-medium text-slate-500 uppercase">Due by</span>
+                                <p class="text-sm text-slate-900">
+                                    @if(!empty($pmt->payment_metadata['due_at']))
+                                        {{ \Carbon\Carbon::parse($pmt->payment_metadata['due_at'])->format('d M Y') }}
+                                    @else
+                                        —
+                                    @endif
+                                </p>
+                            </div>
+                            @if(!empty($pmt->payment_metadata['due_at']) && $pmt->status === 'pending')
+                            @php
+                                $dueAt = \Carbon\Carbon::parse($pmt->payment_metadata['due_at'])->startOfDay();
+                                $today = \Carbon\Carbon::today();
+                                $daysRemaining = $today->diffInDays($dueAt, false);
+                            @endphp
+                            <div>
+                                <span class="text-xs font-medium text-slate-500 uppercase">Days remaining</span>
+                                <p class="text-sm font-semibold {{ $daysRemaining < 0 ? 'text-red-700' : ($daysRemaining === 0 ? 'text-amber-700' : 'text-slate-900') }}">
+                                    @if($daysRemaining > 0)
+                                        {{ $daysRemaining }} day(s) remaining
+                                    @elseif($daysRemaining === 0)
+                                        Due today
+                                    @else
+                                        Overdue by {{ abs($daysRemaining) }} day(s)
+                                    @endif
+                                </p>
+                            </div>
+                            @endif
+                            @endif
+                        </div>
+                        @if($pmt->payment_notes)
+                        <p class="text-xs text-slate-600 mb-3">{{ $pmt->payment_notes }}</p>
+                        @endif
+                        @if($pmt->status === 'pending' && $pmt->payment_method === 'mobile_money')
+                        <form action="{{ route('clients.check-mobile-money-payments', $client) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700">Check Mobile Money status</button>
+                        </form>
+                        @endif
+                        @if($pmt->status === 'pending' && $pmt->payment_method !== 'mobile_money')
+                        <div class="mt-3 pt-3 border-t border-slate-200">
+                            <button type="button" onclick="document.getElementById('mark-received-{{ $pmt->id }}').classList.toggle('hidden')" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700">Mark payment as received</button>
+                            <div id="mark-received-{{ $pmt->id }}" class="hidden mt-3 p-4 bg-white rounded-lg border border-slate-200 max-w-md">
+                                <form action="{{ route('payments.mark-received', $pmt) }}" method="POST">
+                                    @csrf
+                                    <label for="mark-received-reason-{{ $pmt->id }}" class="block text-sm font-medium text-slate-700 mb-2">Reason <span class="text-red-500">*</span></label>
+                                    <textarea name="reason" id="mark-received-reason-{{ $pmt->id }}" rows="3" required maxlength="500" placeholder="e.g. Cash received at branch on 26 Feb 2025" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"></textarea>
+                                    <p class="mt-1 text-xs text-slate-500 mb-3">Provide a brief reason for marking this payment as received. This will be saved on the payment record.</p>
+                                    <div class="flex gap-2">
+                                        <button type="submit" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700">Confirm & mark received</button>
+                                        <button type="button" onclick="document.getElementById('mark-received-{{ $pmt->id }}').classList.add('hidden')" class="px-3 py-1.5 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             <!-- Policy Options -->
             <div class="border-t border-slate-200 pt-6 mt-6">
                 <h3 class="text-lg font-semibold text-slate-900 mb-4">Policy Options</h3>

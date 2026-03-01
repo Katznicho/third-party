@@ -53,6 +53,8 @@ class InsuranceCompany extends Model
         'require_manual_review_above_amount',
         'manual_review_threshold_amount',
         'payment_responsibility_collection',
+        'payment_methods',
+        'payment_grace_periods',
         // Legacy fields (kept for backward compatibility)
         'enable_name_dob_verification',
         'enable_id_passport_verification',
@@ -93,7 +95,9 @@ class InsuranceCompany extends Model
             'auto_reject_min_amount' => 'decimal:2',
             'require_manual_review_above_amount' => 'boolean',
             'manual_review_threshold_amount' => 'decimal:2',
-            // Legacy fields (kept for backward compatibility)
+            'payment_methods' => 'array',
+            'payment_grace_periods' => 'array',
+        // Legacy fields (kept for backward compatibility)
             'enable_name_dob_verification' => 'boolean',
             'enable_id_passport_verification' => 'boolean',
             'enable_phone_verification' => 'boolean',
@@ -123,6 +127,30 @@ class InsuranceCompany extends Model
     {
         return $this->hasMany(BusinessConnection::class, 'connected_business_id')
             ->with('insuranceCompany');
+    }
+
+    /**
+     * Pre-defined payment method options (value => label) for settings dropdown.
+     */
+    public static function getPaymentMethodOptions(): array
+    {
+        return [
+            'bank_transfer' => 'Bank',
+            'cash' => 'Cash',
+            'mobile_money' => 'Mobile Money',
+            'p_card' => 'P Card',
+            'v_card' => 'V Card',
+        ];
+    }
+
+    /**
+     * Get grace period in days for a payment method (default 0).
+     */
+    public function getGracePeriodForMethod(string $method): int
+    {
+        $periods = $this->payment_grace_periods ?? [];
+        $days = $periods[$method] ?? 0;
+        return max(0, min(365, (int) $days));
     }
 
     /**

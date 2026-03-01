@@ -60,6 +60,7 @@ Route::middleware('auth')->group(function () {
     
     // Payments
     Route::resource('payments', \App\Http\Controllers\PaymentController::class);
+    Route::post('/payments/{payment}/mark-received', [\App\Http\Controllers\PaymentController::class, 'markReceived'])->name('payments.mark-received');
     
     // Payment Responsibilities
     Route::resource('payment-responsibilities', \App\Http\Controllers\PaymentResponsibilityController::class);
@@ -83,6 +84,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/verification', [\App\Http\Controllers\SettingsController::class, 'updateVerificationSettings'])->name('settings.update-verification');
     Route::put('/settings/authorization', [\App\Http\Controllers\SettingsController::class, 'updateAuthorizationSettings'])->name('settings.update-authorization');
     Route::put('/settings/account-number', [\App\Http\Controllers\SettingsController::class, 'updateAccountNumberSettings'])->name('settings.update-account-number');
+    Route::put('/settings/payment', [\App\Http\Controllers\SettingsController::class, 'updatePaymentSettings'])->name('settings.update-payment');
     
     // Coverage Decision Matrix
     Route::resource('settings/coverage-decision-matrix', \App\Http\Controllers\CoverageDecisionMatrixController::class)->names([

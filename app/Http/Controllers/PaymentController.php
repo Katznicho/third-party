@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Payment;
+use App\Models\Policy;
 use Illuminate\Http\Request;
 
 class PaymentController extends Controller
@@ -102,5 +103,57 @@ class PaymentController extends Controller
     public function destroy(Payment $payment)
     {
         //
+    }
+
+    /**
+     * Mark a premium payment as received (for Bank, Cash, Card etc. – manual recording).
+     * Requires a reason. Updates payment to completed and activates the policy.
+     */
+    public function markReceived(Request $request, Payment $payment)
+    {
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+
+        if ($payment->payment_type !== 'premium_payment') {
+            return redirect()->back()->with('error', 'This action only applies to premium payments.');
+        }
+        if ($payment->status !== 'pending') {
+            return redirect()->back()->with('error', 'This payment is not pending.');
+        }
+
+        $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ], [
+            'reason.required' => 'Please provide a reason for marking this payment as received.',
+        ]);
+
+        $payment->load('policy');
+        if (!$payment->policy || $payment->policy->insurance_company_id != $insuranceCompanyId) {
+            abort(403, 'You do not have access to this payment.');
+        }
+
+        $reason = trim($request->input('reason'));
+        $existingNotes = $payment->payment_notes ? trim($payment->payment_notes) . "\n" : '';
+        $newNotes = $existingNotes . 'Marked as received: ' . $reason;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $newNotes) {
+            $amount = $payment->amount;
+            $payment->update([
+                'status' => 'completed',
+                'paid_amount' => $amount,
+                'balance_amount' => 0,
+                'processed_at' => now(),
+                'processed_by' => auth()->id(),
+                'payment_notes' => $newNotes,
+            ]);
+
+            $payment->policy->update([
+                'status' => 'active',
+                'is_paid' => true,
+                'payment_date' => now(),
+            ]);
+        });
+
+        return redirect()->route('clients.show', $payment->client_id)
+            ->with('success', 'Payment marked as received. Policy is now active.');
     }
 }
