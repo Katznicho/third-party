@@ -51,6 +51,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/transactions/outstanding', [\App\Http\Controllers\TransactionController::class, 'outstanding'])->name('transactions.outstanding');
     Route::get('/transactions/cleared', [\App\Http\Controllers\TransactionController::class, 'cleared'])->name('transactions.cleared');
     
+    // Authorization Codes (invoice authorizations from Kashtre for third parties to track)
+    Route::get('/authorization-codes', [\App\Http\Controllers\AuthorizationCodeController::class, 'index'])->name('authorization-codes.index');
+
     // Invoices
     Route::get('/invoices', [\App\Http\Controllers\InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('/invoices/{invoiceId}', [\App\Http\Controllers\InvoiceController::class, 'show'])->name('invoices.show');
