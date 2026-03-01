@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Payment;
 use App\Models\Policy;
+use App\Services\PaymentCompletionService;
+use App\Services\RecordClientPortionService;
 use Illuminate\Http\Request;
 
 class PaymentController extends Controller
@@ -146,6 +148,9 @@ class PaymentController extends Controller
                 'payment_notes' => $newNotes,
             ]);
 
+            // Create transaction and update client account so payment appears on client account
+            PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment->fresh());
+
             $payment->policy->update([
                 'status' => 'active',
                 'is_paid' => true,
@@ -155,5 +160,66 @@ class PaymentController extends Controller
 
         return redirect()->route('clients.show', $payment->client_id)
             ->with('success', 'Payment marked as received. Policy is now active.');
+    }
+
+    /**
+     * Show form to record a client-portion payment (e.g. after collecting via mobile money in Kashtre).
+     * Recording here makes the payment appear in: Payments, client account statement, balance statement, third-party vendor page.
+     */
+    public function recordClientPortionForm()
+    {
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+        if (!$insuranceCompanyId) {
+            return redirect()->route('payments.index')->with('error', 'No insurance company associated with your account.');
+        }
+        return view('payments.record-client-portion');
+    }
+
+    /**
+     * Store a recorded client-portion payment. Uses same logic as API so the record appears in all 4 places.
+     */
+    public function storeRecordClientPortion(Request $request)
+    {
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+        if (!$insuranceCompanyId) {
+            return redirect()->route('payments.index')->with('error', 'No insurance company associated with your account.');
+        }
+
+        $request->validate([
+            'policy_number' => ['required', 'string', 'max:64'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'mobile_money_number' => ['nullable', 'string', 'max:255'],
+        ], [
+            'policy_number.required' => 'Policy number is required.',
+            'amount.required' => 'Amount collected is required.',
+            'amount.min' => 'Amount must be at least 0.01.',
+        ]);
+
+        $paymentReference = 'MANUAL-CP-' . now()->format('YmdHis') . '-' . str_pad((string) random_int(1, 999), 3, '0', STR_PAD_LEFT);
+
+        $validated = [
+            'insurance_company_id' => $insuranceCompanyId,
+            'policy_number' => trim($request->input('policy_number')),
+            'amount' => (float) $request->input('amount'),
+            'payment_reference' => $paymentReference,
+            'payment_method' => 'mobile_money',
+            'mobile_money_number' => $request->input('mobile_money_number') ?: null,
+            'payment_notes' => 'Client portion recorded manually (collected e.g. via mobile money).',
+            'source' => 'kashtre',
+            'processed_by' => auth()->id(),
+        ];
+
+        $result = RecordClientPortionService::record($validated);
+
+        if (!$result['success']) {
+            return redirect()->route('payments.record-client-portion')
+                ->withInput()
+                ->with('error', $result['message'] ?? 'Could not record payment.');
+        }
+
+        $clientId = $result['client_id'];
+        return redirect()
+            ->route('clients.account-statement', $clientId)
+            ->with('success', 'Payment of UGX ' . number_format($validated['amount'], 2) . ' recorded. It appears in Payments, this client’s account statement, Balance statement, and Third-party vendor page.');
     }
 }

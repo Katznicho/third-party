@@ -25,6 +25,7 @@ So in both cases, “the rest” is the same: once the payment is completed (eit
 | `payment_reference` | string | Yes | Unique reference (e.g. `KASHTRE-CP-{invoice_id}-{timestamp}`). Must be unique across all payments. |
 | `kashtre_invoice_id` | string | No | Kashtre invoice ID. |
 | `authorization_reference` | string | No | Authorization reference from the insurance authorization. |
+| `connected_business_id` | int | No | Kashtre business id (vendor). Stored in payment metadata so the payment appears on `/third-party-vendors/{id}`. |
 | `payment_method` | string | No | One of: `cash`, `bank_transfer`, `mobile_money`, `cheque`, `card`, `credit`, `other`. Default `mobile_money`. |
 | `mobile_money_number` | string | No | Mobile money number if applicable. |
 
@@ -65,7 +66,12 @@ Content-Type: application/json
 }
 ```
 
-After a successful call, the third party will have created a `Payment`, a `Transaction` on the client’s account, and updated the client’s `ClientAccount` balance, and the payment will appear in the third party’s Payments list and on the client’s internal account.
+After a successful call, the third party will have created a `Payment`, a `Transaction` on the client’s account, and updated the client’s `ClientAccount` balance. These 4 sections then show the updated data:
+
+1. **`/clients/{id}/account-statement`** – Client account statement (transactions + balance).
+2. **`/payments`** – Payments list (new payment row).
+3. **`/third-party-vendors/{id}`** – Vendor payments (payments from Kashtre; optional filter by `connected_business_id`).
+4. **`/balance-statement/{id}`** – Redirects to client account statement for that client (same as (1)).
 
 ---
 

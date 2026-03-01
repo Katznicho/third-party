@@ -37,10 +37,13 @@
                                 {{ $connection->connected_business_name ?? 'Kashtre Business' }}
                             </h3>
                         </div>
-                        <div class="pt-2 border-t border-slate-200">
+                        <div class="pt-2 border-t border-slate-200 flex items-center justify-between">
                             <span class="text-xs text-slate-500">
                                 Connected {{ $connection->created_at->diffForHumans() }}
                             </span>
+                            <a href="{{ route('third-party-vendors.show', $connection->connected_business_id ?? $connection->id) }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                                View payments →
+                            </a>
                         </div>
                     </div>
                 @endforeach

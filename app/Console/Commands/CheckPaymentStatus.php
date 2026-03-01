@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Payment;
 use App\Models\Policy;
 use App\Payments\YoAPI;
+use App\Services\PaymentCompletionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -107,6 +108,8 @@ class CheckPaymentStatus extends Command
                             // Update payment status to completed
                             $payment->update([
                                 'status' => 'completed',
+                                'paid_amount' => $payment->amount,
+                                'balance_amount' => 0,
                                 'cleared_date' => now(),
                                 'processed_at' => now(),
                                 'payment_metadata' => array_merge($payment->payment_metadata ?? [], [
@@ -117,6 +120,9 @@ class CheckPaymentStatus extends Command
                                     'completed_at' => now()->toDateTimeString(),
                                 ]),
                             ]);
+
+                            // Create transaction and update client account so payment appears on client account
+                            PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment->fresh());
 
                             // If this is a premium payment and linked to a policy, activate the policy
                             if ($payment->payment_type === 'premium_payment' && $payment->policy_id) {

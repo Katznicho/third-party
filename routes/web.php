@@ -61,9 +61,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/invoices/bulk-pay', [\App\Http\Controllers\InvoiceController::class, 'bulkPay'])->name('invoices.bulk-pay');
     Route::post('/invoices/{invoice}/generate-pdf', [\App\Http\Controllers\InvoiceController::class, 'generatePdf'])->name('invoices.generate-pdf');
     
-    // Payments
+    // Payments (custom routes first so they are not matched as payments/{payment})
+    Route::get('/payments/record-client-portion', [\App\Http\Controllers\PaymentController::class, 'recordClientPortionForm'])->name('payments.record-client-portion');
+    Route::post('/payments/record-client-portion', [\App\Http\Controllers\PaymentController::class, 'storeRecordClientPortion'])->name('payments.record-client-portion.store');
     Route::resource('payments', \App\Http\Controllers\PaymentController::class);
     Route::post('/payments/{payment}/mark-received', [\App\Http\Controllers\PaymentController::class, 'markReceived'])->name('payments.mark-received');
+
+    // Balance statement (alias for client account statement – same data as clients/{id}/account-statement)
+    Route::get('/balance-statement/{client}', function (\App\Models\Client $client) {
+        return redirect()->route('clients.account-statement', $client);
+    })->name('balance-statement.show');
+
+    // Third-party vendors (connected Kashtre businesses) – show vendor and their payments
+    Route::get('/third-party-vendors/{id}', [\App\Http\Controllers\ThirdPartyVendorController::class, 'show'])->name('third-party-vendors.show');
     
     // Payment Responsibilities
     Route::resource('payment-responsibilities', \App\Http\Controllers\PaymentResponsibilityController::class);

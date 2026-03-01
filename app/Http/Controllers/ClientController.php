@@ -572,7 +572,7 @@ class ClientController extends Controller
                                         'is_paid' => true,
                                         'payment_date' => now(),
                                     ]);
-                                    Payment::create([
+                                    $payment = Payment::create([
                                         'payment_reference' => $paymentReference,
                                         'invoice_id' => null,
                                         'policy_id' => $policy->id,
@@ -590,6 +590,7 @@ class ClientController extends Controller
                                         'payment_notes' => 'Premium payment (mobile money) auto-completed in local environment',
                                         'processed_by' => auth()->id(),
                                     ]);
+                                    \App\Services\PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment);
                                     $successMessage .= ' Premium paid automatically in local environment. Policy is now active.';
                                 } else {
                                     $yoApi = new YoAPI(
@@ -909,6 +910,8 @@ class ClientController extends Controller
                     if ($statusCheck['TransactionStatus'] === 'SUCCEEDED') {
                         $payment->update([
                             'status' => 'completed',
+                            'paid_amount' => $payment->amount,
+                            'balance_amount' => 0,
                             'cleared_date' => now(),
                             'processed_at' => now(),
                             'payment_metadata' => array_merge($payment->payment_metadata ?? [], [
@@ -919,6 +922,7 @@ class ClientController extends Controller
                                 'completed_at' => now()->toDateTimeString(),
                             ]),
                         ]);
+                        \App\Services\PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment->fresh());
                         $completedCount++;
                     } elseif ($statusCheck['TransactionStatus'] === 'FAILED') {
                         $payment->update([

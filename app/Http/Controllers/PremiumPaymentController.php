@@ -104,7 +104,7 @@ class PremiumPaymentController extends Controller
                         'payment_date' => now(),
                     ]);
 
-                    Payment::create([
+                    $payment = Payment::create([
                         'payment_reference' => $paymentReference,
                         'invoice_id' => null,
                         'policy_id' => $policy->id,
@@ -122,6 +122,7 @@ class PremiumPaymentController extends Controller
                         'payment_notes' => ($validated['notes'] ?? 'Premium payment (mobile money)') . ' [LOCAL AUTO-COMPLETE]',
                         'processed_by' => $user->id,
                     ]);
+                    \App\Services\PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment);
 
                     DB::commit();
 
@@ -200,7 +201,7 @@ class PremiumPaymentController extends Controller
             ]);
 
             // Create Payment record for accounting
-            Payment::create([
+            $payment = Payment::create([
                 'payment_reference' => $paymentReference,
                 'invoice_id' => null,
                 'policy_id' => $policy->id,
@@ -218,6 +219,7 @@ class PremiumPaymentController extends Controller
                 'payment_notes' => $validated['notes'] ?? 'Premium payment (cash/bank)',
                 'processed_by' => $user->id,
             ]);
+            \App\Services\PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment);
 
             DB::commit();
 
