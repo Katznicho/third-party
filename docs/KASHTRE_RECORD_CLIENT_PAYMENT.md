@@ -100,3 +100,18 @@ curl -X POST "http://your-third-party.test/api/v1/payments/record-client-portion
 4. **Verify:** In the third-party app, check **Payments** (new row) and the **client’s account** (balance/transactions) for that policy’s principal member.
 
 **Full E2E (Collect payment in Kashtre → third party updated):** Implement in Kashtre: after payment is completed (Yo success in production or auto-complete locally), call this same endpoint with the invoice’s client portion data. Then test by doing a full Collect payment in Kashtre and confirming the payment appears in the third party.
+
+---
+
+## Third party → Kashtre: Notify so Kashtre’s 2 sections update
+
+Two of the four sections live **in Kashtre** (e.g. Kashtre’s payments list and Kashtre’s client account statement). When the third party records a client-portion payment (via the form or via the API above), it **calls Kashtre’s API** so Kashtre can update those 2 sections.
+
+**Kashtre must expose:**
+
+- **URL:** `POST {KASHTRE_BASE}/api/v1/third-party/client-portion-recorded`  
+  (Override with `KASHTRE_RECORD_CLIENT_PORTION_PATH` in the third party’s `.env` if needed.)
+- **Body (JSON):**  
+  `insurance_company_id`, `policy_number`, `amount`, `payment_reference`, `client_id` (third-party client id), optional: `kashtre_invoice_id`, `authorization_reference`, `mobile_money_number`, `payment_date`.
+
+**What Kashtre should do when it receives this:** Create or update the payment record in Kashtre and update the client’s account/statement so the payment appears in (1) Kashtre’s payments list and (2) Kashtre’s client account statement. The third party calls this automatically after recording the payment locally.

@@ -37,6 +37,7 @@ return [
 
     'kashtre' => [
         'api_url' => env('KASHTRE_API_URL', 'https://demo.kashtre.com'),
+        'record_client_portion_path' => env('KASHTRE_RECORD_CLIENT_PORTION_PATH', '/api/v1/third-party/client-portion-recorded'),
     ],
 
     'marzsms' => [

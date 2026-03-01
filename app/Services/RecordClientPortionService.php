@@ -14,11 +14,12 @@ use Illuminate\Support\Str;
 class RecordClientPortionService
 {
     /**
-     * Record a client-portion payment: create Payment, Transaction, update ClientAccount.
-     * Same logic as API record-client-portion. Records appear in:
-     * - /payments
-     * - /clients/{id}/account-statement (and /balance-statement/{id})
-     * - /third-party-vendors/{id} (when connected_business_id is set)
+     * Record a client-portion payment. This single action updates all 4 statements:
+     *
+     * 1. /payments                          – new row (we create Payment)
+     * 2. /clients/{id}/account-statement    – new transaction + balance (we create Transaction, update ClientAccount)
+     * 3. /balance-statement/{id}            – same data as (2), redirects to account-statement
+     * 4. /third-party-vendors/{id}          – new row (Payment has payment_metadata.source = 'kashtre')
      *
      * @param array $validated Must include: insurance_company_id, policy_number, amount, payment_reference.
      *                         Optional: payment_method, mobile_money_number, kashtre_invoice_id, authorization_reference, connected_business_id.

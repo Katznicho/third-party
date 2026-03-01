@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Client;
 use App\Models\ClientAccount;
 use App\Models\Transaction;
+use App\Services\KashtreApiService;
 use App\Services\RecordClientPortionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -295,6 +296,23 @@ class PaymentController extends Controller
                     'success' => false,
                     'message' => $result['message'] ?? 'Failed to record',
                 ], $status);
+            }
+
+            // Notify Kashtre (external) so it can update its 2 sections: payments + client account statement
+            $kashtrePayload = [
+                'insurance_company_id' => $validated['insurance_company_id'],
+                'policy_number' => $validated['policy_number'],
+                'amount' => $validated['amount'],
+                'payment_reference' => $validated['payment_reference'],
+                'client_id' => $result['client_id'],
+                'kashtre_invoice_id' => $validated['kashtre_invoice_id'] ?? null,
+                'authorization_reference' => $validated['authorization_reference'] ?? null,
+                'mobile_money_number' => $validated['mobile_money_number'] ?? null,
+                'payment_date' => $validated['payment_date'] ?? now()->format('Y-m-d'),
+            ];
+            $notify = app(KashtreApiService::class)->notifyClientPortionRecorded($kashtrePayload);
+            if (!$notify['success']) {
+                Log::warning('[ThirdParty] Kashtre was not notified of client-portion payment', $notify);
             }
 
             return response()->json([

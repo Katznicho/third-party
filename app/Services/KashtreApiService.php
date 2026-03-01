@@ -264,4 +264,55 @@ class KashtreApiService
             ];
         }
     }
+
+    /**
+     * Notify Kashtre that a client-portion payment was recorded (so Kashtre can update its 2 sections:
+     * Kashtre payments list and Kashtre client account statement).
+     * Call this after recording the payment in the third-party app.
+     *
+     * @param array $payload insurance_company_id, policy_number, amount, payment_reference, [kashtre_invoice_id], [client_id], [mobile_money_number], [payment_date]
+     * @return array{success: bool, message?: string}
+     */
+    public function notifyClientPortionRecorded(array $payload)
+    {
+        $path = config('services.kashtre.record_client_portion_path', '/api/v1/third-party/client-portion-recorded');
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = $baseUrl . $path;
+
+        try {
+            Log::info('KashtreApiService: Notifying Kashtre of client-portion payment', [
+                'url' => $url,
+                'payment_reference' => $payload['payment_reference'] ?? null,
+            ]);
+
+            $response = Http::timeout(15)
+                ->acceptJson()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($url, $payload);
+
+            if ($response->successful()) {
+                Log::info('KashtreApiService: Kashtre notified of client-portion payment');
+                return ['success' => true];
+            }
+
+            Log::warning('KashtreApiService: Kashtre client-portion notification failed', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            return [
+                'success' => false,
+                'message' => $response->json()['message'] ?? 'Kashtre returned ' . $response->status(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: Exception notifying Kashtre of client-portion payment', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
 }
