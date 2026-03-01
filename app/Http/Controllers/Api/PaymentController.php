@@ -254,4 +254,177 @@ class PaymentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Record client portion payment (from Kashtre when "Collect payment" is completed).
+     * Looks up client by policy_number + insurance_company_id, then creates Payment, Transaction, and updates ClientAccount
+     * so the payment reflects on the third-party client account and in Payments.
+     */
+    public function recordClientPortionPayment(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'insurance_company_id' => 'required|exists:insurance_companies,id',
+                'policy_number' => 'required|string|max:64',
+                'amount' => 'required|numeric|min:0.01',
+                'payment_reference' => 'required|string|max:255|unique:payments,payment_reference',
+                'kashtre_invoice_id' => 'nullable|string|max:64',
+                'authorization_reference' => 'nullable|string|max:64',
+                'payment_method' => 'nullable|in:cash,bank_transfer,mobile_money,cheque,card,credit,other',
+                'mobile_money_number' => 'nullable|string|max:255',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $validated = $validator->validated();
+            $validated['payment_method'] = $validated['payment_method'] ?? 'mobile_money';
+            $validated['payment_date'] = now()->format('Y-m-d');
+            $validated['status'] = 'completed';
+
+            $policy = \App\Models\Policy::where('insurance_company_id', $validated['insurance_company_id'])
+                ->where('policy_number', trim($validated['policy_number']))
+                ->with('principalMember')
+                ->first();
+
+            if (!$policy) {
+                Log::warning('[ThirdParty] recordClientPortionPayment: Policy not found', [
+                    'insurance_company_id' => $validated['insurance_company_id'],
+                    'policy_number' => $validated['policy_number'],
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Policy not found for this insurance company and policy number.',
+                ], 404);
+            }
+
+            $client = $policy->principalMember;
+            if (!$client) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No principal member found for this policy.',
+                ], 404);
+            }
+
+            DB::beginTransaction();
+
+            $paymentData = [
+                'payment_reference' => $validated['payment_reference'],
+                'invoice_id' => null,
+                'client_id' => $client->id,
+                'policy_id' => $policy->id,
+                'payment_type' => 'full_payment',
+                'amount' => $validated['amount'],
+                'paid_amount' => $validated['amount'],
+                'balance_amount' => 0,
+                'payment_method' => $validated['payment_method'],
+                'mobile_money_number' => $validated['mobile_money_number'] ?? null,
+                'transaction_id' => null,
+                'status' => $validated['status'],
+                'payment_date' => $validated['payment_date'],
+                'received_date' => now(),
+                'payment_notes' => 'Client portion (invoice) – from Kashtre. Ref: ' . ($validated['authorization_reference'] ?? $validated['kashtre_invoice_id'] ?? ''),
+                'payment_metadata' => [
+                    'source' => 'kashtre',
+                    'kashtre_invoice_id' => $validated['kashtre_invoice_id'] ?? null,
+                    'authorization_reference' => $validated['authorization_reference'] ?? null,
+                    'client_portion' => true,
+                    'insurance_company_id' => $validated['insurance_company_id'],
+                ],
+                'processed_by' => null,
+            ];
+
+            $payment = Payment::create($paymentData);
+
+            $account = ClientAccount::where('client_id', $client->id)
+                ->where('insurance_company_id', $validated['insurance_company_id'])
+                ->first();
+            if (!$account) {
+                $insuranceCompany = \App\Models\InsuranceCompany::find($validated['insurance_company_id']);
+                if ($insuranceCompany) {
+                    $accountNumber = ClientAccount::generateAccountNumber($insuranceCompany);
+                    $account = ClientAccount::create([
+                        'client_id' => $client->id,
+                        'insurance_company_id' => $validated['insurance_company_id'],
+                        'account_number' => $accountNumber,
+                        'account_type' => 'individual',
+                        'status' => 'active',
+                        'opening_balance' => 0,
+                        'current_balance' => 0,
+                        'total_debits' => 0,
+                        'total_credits' => 0,
+                        'available_balance' => 0,
+                        'opened_date' => now(),
+                    ]);
+                }
+            }
+
+            $transaction = null;
+            if ($account) {
+                $balanceBefore = (float) ($account->current_balance ?? 0);
+                $balanceAfter = $balanceBefore + (float) $validated['amount'];
+
+                $transaction = Transaction::create([
+                    'client_id' => $client->id,
+                    'policy_id' => $policy->id,
+                    'invoice_id' => null,
+                    'payment_id' => $payment->id,
+                    'type' => 'copayment',
+                    'transaction_date' => now(),
+                    'transaction_number' => 'TXN-' . strtoupper(Str::random(8)) . '-' . time(),
+                    'description' => 'Client portion payment (invoice) – from Kashtre',
+                    'reference_number' => $validated['payment_reference'],
+                    'amount' => $validated['amount'],
+                    'debit_amount' => 0,
+                    'credit_amount' => $validated['amount'],
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                    'transaction_status' => 'cleared',
+                    'payment_method' => $validated['payment_method'],
+                    'service_category_id' => null,
+                ]);
+
+                $account->update([
+                    'current_balance' => $balanceAfter,
+                    'total_credits' => ($account->total_credits ?? 0) + $validated['amount'],
+                    'available_balance' => $balanceAfter,
+                    'last_transaction_date' => now(),
+                ]);
+
+                Log::info('[ThirdParty] Client portion payment recorded', [
+                    'payment_id' => $payment->id,
+                    'client_id' => $client->id,
+                    'account_id' => $account->id,
+                    'amount' => $validated['amount'],
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Client portion payment recorded. Reflected on client account and in Payments.',
+                'data' => [
+                    'payment_id' => $payment->id,
+                    'transaction_id' => $transaction?->id,
+                ],
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('[ThirdParty] recordClientPortionPayment failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to record client portion payment',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

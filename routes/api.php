@@ -74,6 +74,9 @@ Route::prefix('v1')->group(function () {
     // Create payment responsibility payment (for Kashtre integration)
     Route::post('/payments/responsibility', [\App\Http\Controllers\Api\PaymentController::class, 'createPaymentResponsibility'])->name('api.payments.responsibility.create');
 
+    // Record client portion payment (Kashtre calls after "Collect payment" succeeds)
+    Route::post('/payments/record-client-portion', [\App\Http\Controllers\Api\PaymentController::class, 'recordClientPortionPayment'])->name('api.payments.record-client-portion');
+
     // Invoice authorization (Kashtre sends invoice; third-party returns client_total and insurance_total)
     Route::post('/invoice-authorization/request', [\App\Http\Controllers\Api\InvoiceAuthorizationController::class, 'request'])->name('api.invoice-authorization.request');
     
