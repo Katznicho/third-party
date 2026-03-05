@@ -71,6 +71,9 @@ class ClientController extends Controller
             'telemedicine_only' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
             'insurance_company_id' => 'nullable|exists:insurance_companies,id',
+            'insurance_payable_percentage' => 'nullable|numeric|min:0|max:100',
+            'premium_grace_days' => 'nullable|integer|min:0|max:365',
+            'active_period_days' => 'nullable|integer|min:0|max:3650',
         ];
         
         // Dynamic rules based on required fields
@@ -653,7 +656,10 @@ class ClientController extends Controller
                         }
                     } else {
                         // Non–mobile money: create pending payment; staff updates manually within grace period
-                        $graceDays = $insuranceCompany->getGracePeriodForMethod($premiumPaymentMethod);
+                        // Use client-specific grace if set, otherwise company + method grace
+                        $clientGraceDays = $client->premium_grace_days;
+                        $methodGraceDays = $insuranceCompany->getGracePeriodForMethod($premiumPaymentMethod);
+                        $graceDays = is_null($clientGraceDays) ? $methodGraceDays : max(0, min(365, (int) $clientGraceDays));
                         $dueAt = now()->addDays($graceDays);
 
                         Payment::create([
@@ -678,7 +684,10 @@ class ClientController extends Controller
                                 'insurance_company_id' => $insuranceCompany->id,
                             ],
                         ]);
-                        $successMessage .= ' Premium payment recorded as pending (' . $premiumPaymentMethod . '). Update payment manually within ' . $graceDays . ' day(s) (due by ' . $dueAt->toDateString() . ').';
+                        // Mark policy as pending_payment until premium is received
+                        $policy->update(['status' => 'pending_payment']);
+
+                        $successMessage .= ' Premium payment recorded as pending (' . $premiumPaymentMethod . '). Policy status is now pending payment. Update payment manually within ' . $graceDays . ' day(s) (due by ' . $dueAt->toDateString() . ').';
                     }
                 }
             } catch (\Exception $e) {

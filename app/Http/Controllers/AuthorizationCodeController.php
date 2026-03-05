@@ -38,4 +38,20 @@ class AuthorizationCodeController extends Controller
 
         return view('authorization-codes.index', compact('authorizations'));
     }
+
+    /**
+     * Show full breakdown for a single authorization.
+     */
+    public function show(InsuranceAuthorization $authorization)
+    {
+        $user = auth()->user();
+        abort_unless($authorization->insurance_company_id === $user->insurance_company_id, 403);
+
+        $authorization->load(['policy', 'insuranceCompany']);
+
+        $metadata = $authorization->metadata ?? [];
+        $breakdown = $authorization->breakdown ?? [];
+
+        return view('authorization-codes.show', compact('authorization', 'metadata', 'breakdown'));
+    }
 }

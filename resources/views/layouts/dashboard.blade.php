@@ -144,6 +144,17 @@
                     Authorization Codes
                 </a>
 
+                <!-- Deductible Ledger -->
+                <a 
+                    href="{{ route('policy-deductible-ledgers.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('policy-deductible-ledgers.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6a2 2 0 012-2h8M9 9V5a2 2 0 012-2h8m-6 18h6"></path>
+                    </svg>
+                    Deductible Ledger
+                </a>
+
                 <!-- Service Providers -->
                 <a 
                     href="{{ route('connected-companies.index') }}" 

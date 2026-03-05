@@ -53,6 +53,10 @@ Route::middleware('auth')->group(function () {
     
     // Authorization Codes (invoice authorizations from Kashtre for third parties to track)
     Route::get('/authorization-codes', [\App\Http\Controllers\AuthorizationCodeController::class, 'index'])->name('authorization-codes.index');
+    Route::get('/authorization-codes/{authorization}', [\App\Http\Controllers\AuthorizationCodeController::class, 'show'])->name('authorization-codes.show');
+    // Deductible Ledger (tracks how deductible moves per authorization/invoice)
+    Route::get('/deductible-ledger', [\App\Http\Controllers\PolicyDeductibleLedgerController::class, 'index'])->name('policy-deductible-ledgers.index');
+    Route::get('/deductible-ledger/{ledger}', [\App\Http\Controllers\PolicyDeductibleLedgerController::class, 'show'])->name('policy-deductible-ledgers.show');
 
     // Invoices
     Route::get('/invoices', [\App\Http\Controllers\InvoiceController::class, 'index'])->name('invoices.index');
@@ -64,6 +68,7 @@ Route::middleware('auth')->group(function () {
     // Payments (custom routes first so they are not matched as payments/{payment})
     Route::get('/payments/record-client-portion', [\App\Http\Controllers\PaymentController::class, 'recordClientPortionForm'])->name('payments.record-client-portion');
     Route::post('/payments/record-client-portion', [\App\Http\Controllers\PaymentController::class, 'storeRecordClientPortion'])->name('payments.record-client-portion.store');
+    Route::post('/payments/{payment}/store-tid', [\App\Http\Controllers\PaymentController::class, 'storeTid'])->name('payments.store-tid');
     Route::resource('payments', \App\Http\Controllers\PaymentController::class);
     Route::post('/payments/{payment}/mark-received', [\App\Http\Controllers\PaymentController::class, 'markReceived'])->name('payments.mark-received');
 

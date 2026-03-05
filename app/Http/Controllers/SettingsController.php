@@ -62,18 +62,25 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'payment_methods' => 'nullable|array',
             'payment_methods.*' => 'string|in:' . implode(',', $allowedKeys),
+            // grace_periods kept for backward compatibility but not exposed in UI anymore
             'grace_periods' => 'nullable|array',
             'grace_periods.*' => 'nullable|integer|min:0|max:365',
         ]);
 
-        $gracePeriods = [];
-        foreach ($allowedKeys as $key) {
-            $gracePeriods[$key] = isset($validated['grace_periods'][$key])
-                ? (int) $validated['grace_periods'][$key]
-                : 0;
+        $insuranceCompany = $user->insuranceCompany;
+
+        // Keep existing grace periods (or set to 0) – they are no longer edited in UI
+        $existingGrace = $insuranceCompany->payment_grace_periods ?? [];
+        $gracePeriods = $existingGrace;
+        if (isset($validated['grace_periods'])) {
+            $gracePeriods = [];
+            foreach ($allowedKeys as $key) {
+                $gracePeriods[$key] = isset($validated['grace_periods'][$key])
+                    ? (int) $validated['grace_periods'][$key]
+                    : 0;
+            }
         }
 
-        $insuranceCompany = $user->insuranceCompany;
         $insuranceCompany->update([
             'payment_methods' => $validated['payment_methods'] ?? [],
             'payment_grace_periods' => $gracePeriods,

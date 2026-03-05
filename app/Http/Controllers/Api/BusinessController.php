@@ -776,7 +776,7 @@ class BusinessController extends Controller
                 return $result;
             }
             
-            // Step 1: Check if policy number exists
+            // Step 1: Check if policy number exists (for this insurance company only)
             // Normalize policy number (trim, uppercase, remove extra spaces)
             $normalizedPolicyNumber = strtoupper(trim($policyNumber));
             
@@ -786,12 +786,11 @@ class BusinessController extends Controller
                 'normalized_policy_number' => $normalizedPolicyNumber,
             ]);
             
-            // Try exact match first
-                $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
+            // Try exact match first (any status) – status is returned for display/decisions on Kashtre side
+            $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
                 ->where('policy_number', $normalizedPolicyNumber)
-                    ->where('status', 'active')
-                    ->with(['principalMember', 'insuranceCompany'])
-                    ->first();
+                ->with(['principalMember', 'insuranceCompany'])
+                ->first();
 
             \Illuminate\Support\Facades\Log::info('Policy lookup attempt 1 (exact match)', [
                 'insurance_company_id' => $insuranceCompanyId,
@@ -800,11 +799,10 @@ class BusinessController extends Controller
                 'policy_id' => $policy ? $policy->id : null,
             ]);
 
-            // If not found, try case-insensitive search
+            // If not found, try case-insensitive search (still scoped to this insurance company, any status)
             if (!$policy) {
                 $policy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
                     ->whereRaw('UPPER(TRIM(policy_number)) = ?', [strtoupper(trim($policyNumber))])
-                    ->where('status', 'active')
                     ->with(['principalMember', 'insuranceCompany'])
                     ->first();
                 
@@ -816,70 +814,8 @@ class BusinessController extends Controller
                 ]);
             }
             
-            // If still not found, try searching across ALL insurance companies (for debugging)
+            // If still not found for this insurance company, treat as client not found
             if (!$policy) {
-                $policyAnywhere = \App\Models\Policy::where(function($query) use ($normalizedPolicyNumber, $policyNumber) {
-                    $query->where('policy_number', $normalizedPolicyNumber)
-                          ->orWhereRaw('UPPER(TRIM(policy_number)) = ?', [strtoupper(trim($policyNumber))]);
-                })
-                ->where('status', 'active')
-                ->with(['principalMember', 'insuranceCompany'])
-                ->first();
-                
-                if ($policyAnywhere) {
-                    \Illuminate\Support\Facades\Log::warning('⚠️ Policy found but with DIFFERENT insurance company!', [
-                        'searched_insurance_company_id' => $insuranceCompanyId,
-                        'searched_insurance_company_name' => $insuranceCompany->name ?? 'N/A',
-                        'searched_insurance_company_code' => $insuranceCompany->code ?? 'N/A',
-                        'found_policy_insurance_company_id' => $policyAnywhere->insurance_company_id,
-                        'found_policy_insurance_company_name' => $policyAnywhere->insuranceCompany->name ?? 'N/A',
-                        'found_policy_insurance_company_code' => $policyAnywhere->insuranceCompany->code ?? 'N/A',
-                        'policy_number' => $policyNumber,
-                        'normalized_policy_number' => $normalizedPolicyNumber,
-                        'policy_id' => $policyAnywhere->id,
-                        'policy_status' => $policyAnywhere->status,
-                    ]);
-                    
-                    // Check if there's a business connection between the two insurance companies
-                    $connection = \App\Models\BusinessConnection::where(function($query) use ($insuranceCompanyId, $policyAnywhere) {
-                        $query->where('insurance_company_id', $insuranceCompanyId)
-                              ->where('connected_business_id', $policyAnywhere->insurance_company_id);
-                    })->orWhere(function($query) use ($insuranceCompanyId, $policyAnywhere) {
-                        $query->where('insurance_company_id', $policyAnywhere->insurance_company_id)
-                              ->where('connected_business_id', $insuranceCompanyId);
-                    })->first();
-                    
-                    if ($connection) {
-                        \Illuminate\Support\Facades\Log::info('✅ Business connection exists between insurance companies', [
-                            'connection_id' => $connection->id,
-                            'connection_type' => $connection->connection_type,
-                        ]);
-                        
-                        // If there's a connection, allow the policy lookup
-                        $policy = $policyAnywhere;
-                    }
-                }
-            }
-            
-            // If still not found, check if policy exists but is inactive
-            if (!$policy) {
-                $inactivePolicy = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
-                    ->whereRaw('UPPER(TRIM(policy_number)) = ?', [strtoupper(trim($policyNumber))])
-                    ->with(['principalMember', 'insuranceCompany'])
-                    ->first();
-                
-                if ($inactivePolicy) {
-                    \Illuminate\Support\Facades\Log::warning('Policy found but inactive', [
-                        'policy_number' => $policyNumber,
-                        'status' => $inactivePolicy->status,
-                    ]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Policy number found but is not active. Status: ' . $inactivePolicy->status,
-                        'exists' => true,
-                    ], 404);
-                }
-                
                 // Debug: Check what policies exist for this insurance company (last 10)
                 $recentPolicies = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
                     ->orderBy('created_at', 'desc')
@@ -902,7 +838,7 @@ class BusinessController extends Controller
                 
                 $errorResponse = [
                     'success' => false,
-                    'message' => 'Policy number not found or inactive.',
+                    'message' => 'Client not found.',
                     'exists' => false,
                 ];
                 
@@ -987,12 +923,12 @@ class BusinessController extends Controller
                 }
             }
             
-            // If verification failed, return error
+            // If verification failed (name and/or DOB mismatch), treat as "client not found"
             if ($verificationStatus === 'rejected' && !empty($errors)) {
                 $errorResponse = [
                     'success' => false,
-                    'message' => 'Policy number found, but verification failed: ' . implode('; ', $errors),
-                    'exists' => true,
+                    'message' => 'Client not found.',
+                    'exists' => false,
                     'verification_status' => 'rejected',
                     'errors' => $errors,
                 ];

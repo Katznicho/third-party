@@ -901,6 +901,78 @@
                 </div>
             </div>
 
+            <!-- Percentage payable by insurance -->
+            <div class="border border-slate-200 rounded-lg p-4 bg-white">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Percentage payable by insurance</label>
+                <p class="text-xs text-slate-600 mb-3">
+                    Percentage of each eligible invoice that is paid by the insurance company.
+                    Default is 100% (insurance pays everything except deductible / copay / coinsurance).
+                </p>
+                <div>
+                    <label for="insurance_payable_percentage" class="block text-sm font-medium text-slate-700 mb-1">
+                        Percentage payable by insurance (%)
+                    </label>
+                    <input
+                        type="number"
+                        name="insurance_payable_percentage"
+                        id="insurance_payable_percentage"
+                        value="{{ old('insurance_payable_percentage', isset($client) ? ($client->insurance_payable_percentage ?? 100) : 100) }}"
+                        placeholder="Enter percentage payable by insurance"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                </div>
+            </div>
+
+            <!-- Grace period and active period -->
+            <div class="border border-slate-200 rounded-lg p-4 bg-white">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Grace and active periods</label>
+                <p class="text-xs text-slate-600 mb-3">
+                    Configure how long the client can stay in <strong>pending payment</strong> before the account can be frozen/suspended,
+                    and how long the cover stays <strong>active</strong> after payment is received.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="premium_grace_days" class="block text-sm font-medium text-slate-700 mb-1">
+                            Grace period (days) before freezing/suspension
+                        </label>
+                        <input
+                            type="number"
+                            name="premium_grace_days"
+                            id="premium_grace_days"
+                            value="{{ old('premium_grace_days', isset($client) ? $client->premium_grace_days : null) }}"
+                            placeholder="e.g. 30"
+                            min="0"
+                            max="365"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                        <p class="text-xs text-slate-500 mt-1">
+                            If empty, the insurance company's default grace period per payment method is used.
+                        </p>
+                    </div>
+                    <div>
+                        <label for="active_period_days" class="block text-sm font-medium text-slate-700 mb-1">
+                            Active period (days) after payment
+                        </label>
+                        <input
+                            type="number"
+                            name="active_period_days"
+                            id="active_period_days"
+                            value="{{ old('active_period_days', isset($client) ? $client->active_period_days : null) }}"
+                            placeholder="e.g. 365"
+                            min="0"
+                            max="3650"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                        <p class="text-xs text-slate-500 mt-1">
+                            If empty, the policy inception and expiry dates determine the active period.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Deductible Option -->
             <div class="border border-slate-200 rounded-lg p-4 bg-white">
                 <label class="block text-sm font-medium text-slate-700 mb-2">Deductible</label>

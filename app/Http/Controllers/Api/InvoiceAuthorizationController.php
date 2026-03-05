@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\InsuranceCompany;
 use App\Models\Policy;
+use App\Models\PolicyDeductibleLedger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -86,36 +86,68 @@ class InvoiceAuthorizationController extends Controller
             ], 422);
         }
 
-        // Amount to collect = deductible (policy amount) + co-pay (policy amount per visit) + 10% of invoice. Leave the invoice alone.
-        $deductibleAmount = $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : 0;
+        // === NEW AUTHORIZATION LOGIC ===
+        // We treat the total_amount from Kashtre as the approved amount for this visit (after coverage rules).
+        $approvedAmount = max(0.0, (float) $totalAmount);
+
+        // Policy-level settings
+        $deductibleAmountPolicy = $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : 0;
         $copayAmount = (float) ($policy->copay_amount ?? 0);
         $copayMaxLimit = $policy->copay_max_limit !== null ? (float) $policy->copay_max_limit : null;
         $coinsurancePct = (float) ($policy->coinsurance_percentage ?? 0);
 
-        // 1) Deductible = policy deductible amount (e.g. 100,000)
-        $deductiblePortion = $deductibleAmount;
+        // Effective outstanding deductible before this visit:
+        // if Kashtre sends a remaining amount, trust it; otherwise fall back to policy deductible.
+        if ($policy->has_deductible) {
+            $effectiveDeductibleBefore = $deductibleRemaining !== null
+                ? max(0.0, (float) $deductibleRemaining)
+                : max(0.0, $deductibleAmountPolicy);
+        } else {
+            $effectiveDeductibleBefore = 0.0;
+        }
 
-        // 2) Co-pay = policy co-pay per visit (e.g. 20,000), respecting max limit if provided
+        // 1) Raw co-pay for this visit (respecting max limit / room left this period)
         $copayCapThisVisit = $copayAmount;
         if ($copayMaxLimit !== null && $copayMaxLimit > 0) {
             $copayRoomLeft = max(0, $copayMaxLimit - $copayUsedThisPeriod);
             $copayCapThisVisit = min($copayAmount, $copayRoomLeft);
         }
-        $copayPortion = $copayCapThisVisit;
+        $copayRaw = max(0.0, (float) $copayCapThisVisit);
 
-        // 3) Coinsurance = policy % of invoice (e.g. 10% of invoice)
-        $coinsurancePortion = $totalAmount > 0 && $coinsurancePct > 0
-            ? round($totalAmount * ($coinsurancePct / 100), 2)
-            : 0;
+        // 2) Raw coinsurance based on approved amount
+        $coinsuranceRaw = $approvedAmount > 0 && $coinsurancePct > 0
+            ? round($approvedAmount * ($coinsurancePct / 100), 2)
+            : 0.0;
 
-        // Total to collect from client = deductible + co-pay + 10% of invoice (invoice left alone)
+        // 3) Raw deductible this visit cannot exceed both remaining deductible and approved amount
+        $deductibleRaw = 0.0;
+        if ($policy->has_deductible && $approvedAmount > 0) {
+            $deductibleRaw = min($effectiveDeductibleBefore, $approvedAmount);
+        }
+
+        // 4) Allocate client share from the approved amount without exceeding it.
+        //    Order: co-pay first, then coinsurance, then deductible (so co-pay is always honoured when possible).
+        $remainingForClient = $approvedAmount;
+
+        $copayPortion = min($copayRaw, $remainingForClient);
+        $remainingForClient -= $copayPortion;
+
+        $coinsurancePortion = min($coinsuranceRaw, $remainingForClient);
+        $remainingForClient -= $coinsurancePortion;
+
+        $deductiblePortion = min($deductibleRaw, $remainingForClient);
+        $remainingForClient -= $deductiblePortion;
+
+        // Client total is the sum of the three portions; insurer pays the rest of the approved amount.
         $clientTotal = round($deductiblePortion + $copayPortion + $coinsurancePortion, 2);
-        // Insurance pays the remainder of the invoice (e.g. 90% when client coinsurance is 10%)
-        $insuranceTotal = round(max(0, $totalAmount - $coinsurancePortion), 2);
+        $insuranceTotal = round(max(0, $approvedAmount - $clientTotal), 2);
 
-        // Amount that reduces deductible remaining (for Kashtre to track): deductible + optionally copay/coinsurance per settings
+        // 5) Amount that reduces deductible: deductible this visit + any copay/coinsurance that contribute
         $amountThatReducesDeductible = $deductiblePortion + $policy->calculateDeductibleContribution($copayPortion, $coinsurancePortion);
+        $deductibleBefore = $effectiveDeductibleBefore;
+        $deductibleAfter = max(0, $deductibleBefore - $amountThatReducesDeductible);
 
+        // Breakdown for UI
         $breakdown = [
             'deductible' => $deductiblePortion,
             'copay' => $copayPortion,
@@ -124,12 +156,13 @@ class InvoiceAuthorizationController extends Controller
         ];
 
         Log::info('[InsuranceAuth] Calculation complete', [
-            'total_amount' => $totalAmount,
-            'deductible_remaining_sent' => $deductibleRemaining,
+            'approved_amount' => $approvedAmount,
+            'deductible_remaining_before' => $deductibleBefore,
             'deductible_portion' => $deductiblePortion,
             'copay_portion' => $copayPortion,
             'coinsurance_portion' => $coinsurancePortion,
             'amount_that_reduces_deductible' => $amountThatReducesDeductible,
+            'deductible_remaining_after' => $deductibleAfter,
             'client_total' => $clientTotal,
             'insurance_total' => $insuranceTotal,
             'breakdown' => $breakdown,
@@ -143,7 +176,7 @@ class InvoiceAuthorizationController extends Controller
             'policy_id' => $policy->id,
             'kashtre_invoice_id' => $validated['kashtre_invoice_id'],
             'external_invoice_number' => $validated['invoice_number'],
-            'total_amount' => $totalAmount,
+            'total_amount' => $approvedAmount,
             'client_total' => $clientTotal,
             'insurance_total' => $insuranceTotal,
             'breakdown' => $breakdown,
@@ -154,11 +187,26 @@ class InvoiceAuthorizationController extends Controller
             'completed_at' => now(),
             'metadata' => [
                 'items' => $validated['items'] ?? [],
-                'deductible_remaining_sent' => $deductibleRemaining,
+                'deductible_remaining_before' => $deductibleBefore,
+                'deductible_remaining_after' => $deductibleAfter,
                 'amount_that_reduces_deductible' => $amountThatReducesDeductible,
                 'copay_contributes_to_deductible' => $policy->copayContributesToDeductible(),
                 'coinsurance_contributes_to_deductible' => $policy->coinsuranceContributesToDeductible(),
             ],
+        ]);
+
+        // Create ledger entry so insurer can see how deductible moves over time
+        PolicyDeductibleLedger::create([
+            'insurance_company_id' => $insuranceCompanyId,
+            'policy_id' => $policy->id,
+            'authorization_id' => $auth->id,
+            'kashtre_invoice_id' => $validated['kashtre_invoice_id'],
+            'external_invoice_number' => $validated['invoice_number'],
+            'change_type' => 'invoice',
+            'deductible_before' => $deductibleBefore,
+            'amount_that_reduces_deductible' => $amountThatReducesDeductible,
+            'deductible_after' => $deductibleAfter,
+            'notes' => null,
         ]);
 
         Log::info('[InsuranceAuth] Authorization saved and response sent', [

@@ -182,6 +182,74 @@
                 </div>
             </div>
 
+            <!-- Payment percentages, grace period & deductible contribution -->
+            <div class="border-t border-slate-200 pt-6 mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Payment percentages & periods -->
+                <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 space-y-3">
+                    <h3 class="text-sm font-semibold text-slate-900 mb-2">Payment percentages & periods</h3>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-700">Percentage payable by insurance:</span>
+                        <span class="font-semibold text-slate-900">
+                            {{ number_format($client->insurance_payable_percentage ?? 100, 2) }}%
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-700">Coinsurance percentage (client pays):</span>
+                        <span class="font-semibold text-slate-900">
+                            {{ $policy->coinsurance_percentage !== null ? number_format($policy->coinsurance_percentage, 2) . '%' : 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-700">Grace period before freezing/suspension:</span>
+                        <span class="font-semibold text-slate-900">
+                            @if(!is_null($client->premium_grace_days))
+                                {{ $client->premium_grace_days }} day(s)
+                            @else
+                                Uses company payment grace per method
+                            @endif
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-700">Active period after payment:</span>
+                        <span class="font-semibold text-slate-900">
+                            @if(!is_null($client->active_period_days))
+                                {{ $client->active_period_days }} day(s)
+                            @else
+                                Uses policy inception & expiry dates
+                            @endif
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Deductible Contribution Settings -->
+                <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 space-y-3">
+                    <h3 class="text-sm font-semibold text-slate-900 mb-2">Deductible Contribution Settings</h3>
+                    <p class="text-xs text-slate-600">
+                        Configure whether copay and coinsurance payments count towards meeting the deductible.
+                    </p>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-start justify-between">
+                            <div class="mr-3">
+                                <p class="font-medium text-slate-800">Copay contributes to deductible</p>
+                                <p class="text-xs text-slate-500">Copay amounts will count towards meeting the deductible.</p>
+                            </div>
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $policy->copayContributesToDeductible() ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600' }}">
+                                {{ $policy->copayContributesToDeductible() ? 'Yes' : 'No' }}
+                            </span>
+                        </div>
+                        <div class="flex items-start justify-between">
+                            <div class="mr-3">
+                                <p class="font-medium text-slate-800">Coinsurance contributes to deductible</p>
+                                <p class="text-xs text-slate-500">Coinsurance amounts will count towards meeting the deductible.</p>
+                            </div>
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $policy->coinsuranceContributesToDeductible() ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600' }}">
+                                {{ $policy->coinsuranceContributesToDeductible() ? 'Yes' : 'No' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             @php
                 $policyPremiumPayments = isset($premiumPayments) ? $premiumPayments->where('policy_id', $policy->id) : collect();
                 $paymentMethodLabels = \App\Models\InsuranceCompany::getPaymentMethodOptions();
@@ -195,7 +263,7 @@
                     <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                             <div>
-                                <span class="text-xs font-medium text-slate-500 uppercase">Reference</span>
+                                <span class="text-xs font-medium text-slate-500 uppercase">PRN (Payment Reference)</span>
                                 <p class="text-sm font-mono text-slate-900">{{ $pmt->payment_reference }}</p>
                             </div>
                             <div>
@@ -210,7 +278,7 @@
                                 @endphp
                                 <p class="text-sm text-slate-900">{{ $methodLabel }}</p>
                             </div>
-                            <div>
+                            <div class="md:col-span-2">
                                 <span class="text-xs font-medium text-slate-500 uppercase">Status</span>
                                 <p class="text-sm">
                                     <span class="px-2 py-1 text-xs font-semibold rounded-full
@@ -271,20 +339,112 @@
                         </form>
                         @endif
                         @if($pmt->status === 'pending' && $pmt->payment_method !== 'mobile_money')
-                        <div class="mt-3 pt-3 border-t border-slate-200">
-                            <button type="button" onclick="document.getElementById('mark-received-{{ $pmt->id }}').classList.toggle('hidden')" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700">Mark payment as received</button>
-                            <div id="mark-received-{{ $pmt->id }}" class="hidden mt-3 p-4 bg-white rounded-lg border border-slate-200 max-w-md">
-                                <form action="{{ route('payments.mark-received', $pmt) }}" method="POST">
-                                    @csrf
-                                    <label for="mark-received-reason-{{ $pmt->id }}" class="block text-sm font-medium text-slate-700 mb-2">Reason <span class="text-red-500">*</span></label>
-                                    <textarea name="reason" id="mark-received-reason-{{ $pmt->id }}" rows="3" required maxlength="500" placeholder="e.g. Cash received at branch on 26 Feb 2025" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"></textarea>
-                                    <p class="mt-1 text-xs text-slate-500 mb-3">Provide a brief reason for marking this payment as received. This will be saved on the payment record.</p>
-                                    <div class="flex gap-2">
-                                        <button type="submit" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700">Confirm & mark received</button>
-                                        <button type="button" onclick="document.getElementById('mark-received-{{ $pmt->id }}').classList.add('hidden')" class="px-3 py-1.5 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
-                                    </div>
-                                </form>
+                        <div class="mt-3 pt-3 border-t border-slate-200 space-y-4">
+                            <p class="text-xs text-slate-600">
+                                Ask the client to pay using the <strong>PRN</strong> above. Then follow the two steps below when you get the bank slip.
+                            </p>
+
+                            {{-- Step 1: Enter TID --}}
+                            @if(empty($pmt->transaction_id))
+                            <div class="space-y-2">
+                                <h4 class="text-sm font-semibold text-slate-900">Step 1: Enter TID (Bank transaction ID)</h4>
+                                <button type="button"
+                                        onclick="document.getElementById('enter-tid-{{ $pmt->id }}').classList.toggle('hidden')"
+                                        class="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-700 text-white hover:bg-slate-800">
+                                    Enter TID
+                                </button>
+                                <div id="enter-tid-{{ $pmt->id }}" class="hidden mt-3 p-4 bg-white rounded-lg border border-slate-200 max-w-md">
+                                    <form action="{{ route('payments.store-tid', $pmt) }}" method="POST">
+                                        @csrf
+                                        <label for="tid-{{ $pmt->id }}" class="block text-sm font-medium text-slate-700 mb-1">
+                                            TID / Bank Transaction ID <span class="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="transaction_id"
+                                            id="tid-{{ $pmt->id }}"
+                                            required
+                                            maxlength="255"
+                                            placeholder="e.g. BANK-TXN-123456"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 text-sm mb-3"
+                                        >
+                                        <label for="tid-reason-{{ $pmt->id }}" class="block text-sm font-medium text-slate-700 mb-1">
+                                            Notes (optional)
+                                        </label>
+                                        <textarea
+                                            name="reason"
+                                            id="tid-reason-{{ $pmt->id }}"
+                                            rows="2"
+                                            maxlength="500"
+                                            placeholder="e.g. TID from Stanbic teller at Acacia branch"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 text-sm"
+                                        ></textarea>
+                                        <p class="mt-1 text-xs text-slate-500 mb-3">
+                                            This step only records the TID. Status remains <strong>Pending</strong>.
+                                        </p>
+                                        <div class="flex gap-2">
+                                            <button type="submit" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-700 text-white hover:bg-slate-800">
+                                                Save TID
+                                            </button>
+                                            <button type="button"
+                                                    onclick="document.getElementById('enter-tid-{{ $pmt->id }}').classList.add('hidden')"
+                                                    class="px-3 py-1.5 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
+                            @else
+                            <div class="space-y-1">
+                                <h4 class="text-sm font-semibold text-slate-900">Step 1: TID recorded</h4>
+                                <p class="text-xs text-slate-700">
+                                    TID: <span class="font-mono font-semibold">{{ $pmt->transaction_id }}</span>
+                                </p>
+                            </div>
+                            @endif
+
+                            {{-- Step 2: Verify & mark as paid (only when TID is present) --}}
+                            @if(!empty($pmt->transaction_id))
+                            <div class="space-y-2 border-t border-dashed border-slate-200 pt-3">
+                                <h4 class="text-sm font-semibold text-slate-900">Step 2: Verify & mark as paid</h4>
+                                <button type="button"
+                                        onclick="document.getElementById('verify-payment-{{ $pmt->id }}').classList.toggle('hidden')"
+                                        class="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700">
+                                    Verify & mark as paid
+                                </button>
+                                <div id="verify-payment-{{ $pmt->id }}" class="hidden mt-3 p-4 bg-white rounded-lg border border-slate-200 max-w-md">
+                                    <form action="{{ route('payments.mark-received', $pmt) }}" method="POST">
+                                        @csrf
+                                        <label for="verify-reason-{{ $pmt->id }}" class="block text-sm font-medium text-slate-700 mb-2">
+                                            Verification notes <span class="text-red-500">*</span>
+                                        </label>
+                                        <textarea
+                                            name="reason"
+                                            id="verify-reason-{{ $pmt->id }}"
+                                            rows="3"
+                                            required
+                                            maxlength="500"
+                                            placeholder="e.g. Verified in bank portal – batch 123, value date 26 Feb 2026"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                                        ></textarea>
+                                        <p class="mt-1 text-xs text-slate-500 mb-3">
+                                            After verification, the payment will be marked <strong>Completed</strong> and the policy will become <strong>Active</strong>.
+                                        </p>
+                                        <div class="flex gap-2">
+                                            <button type="submit" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700">
+                                                Confirm & mark paid
+                                            </button>
+                                            <button type="button"
+                                                    onclick="document.getElementById('verify-payment-{{ $pmt->id }}').classList.add('hidden')"
+                                                    class="px-3 py-1.5 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            @endif
                         </div>
                         @endif
                     </div>

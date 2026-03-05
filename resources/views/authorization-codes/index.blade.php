@@ -60,14 +60,22 @@
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Total (UGX)</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Client (UGX)</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Insurance (UGX)</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Deductible</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Co‑pay</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Co‑insurance</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Policy</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Requested</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Completed</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
                     @forelse($authorizations as $auth)
+                        @php
+                            $breakdown = $auth->breakdown ?? [];
+                            $meta = $auth->metadata ?? [];
+                        @endphp
                         <tr class="hover:bg-slate-50">
                             <td class="px-4 py-3 text-sm font-mono text-slate-900">{{ $auth->authorization_reference }}</td>
                             <td class="px-4 py-3 text-sm font-mono font-semibold text-blue-700">{{ $auth->confirmation_code ?? '–' }}</td>
@@ -76,6 +84,15 @@
                             <td class="px-4 py-3 text-sm text-right text-slate-900">{{ number_format($auth->total_amount ?? 0, 2) }}</td>
                             <td class="px-4 py-3 text-sm text-right text-slate-900">{{ number_format($auth->client_total ?? 0, 2) }}</td>
                             <td class="px-4 py-3 text-sm text-right text-slate-900">{{ number_format($auth->insurance_total ?? 0, 2) }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-slate-700">
+                                UGX {{ number_format($breakdown['deductible'] ?? 0, 2) }}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right text-slate-700">
+                                UGX {{ number_format($breakdown['copay'] ?? 0, 2) }}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right text-slate-700">
+                                UGX {{ number_format($breakdown['coinsurance'] ?? 0, 2) }}
+                            </td>
                             <td class="px-4 py-3 text-sm text-slate-700">{{ $auth->policy?->policy_number ?? '–' }}</td>
                             <td class="px-4 py-3">
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full
@@ -87,10 +104,43 @@
                             </td>
                             <td class="px-4 py-3 text-sm text-slate-600">{{ $auth->requested_at?->format('d M Y H:i') ?? '–' }}</td>
                             <td class="px-4 py-3 text-sm text-slate-600">{{ $auth->completed_at?->format('d M Y H:i') ?? '–' }}</td>
+                            <td class="px-4 py-3 text-sm text-right">
+                                <a href="{{ route('authorization-codes.show', $auth) }}"
+                                   class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100">
+                                    View
+                                </a>
+                            </td>
                         </tr>
+                        @if(!empty($meta['amount_that_reduces_deductible']))
+                            <tr class="bg-slate-50/60">
+                                <td colspan="15" class="px-4 py-2 text-xs text-slate-600">
+                                    <span class="font-semibold">How we got here:</span>
+                                    Client total ({{ number_format($auth->client_total ?? 0, 2) }}) =
+                                    Deductible {{ number_format($breakdown['deductible'] ?? 0, 2) }}
+                                    @if(($breakdown['copay'] ?? 0) > 0)
+                                        + Co‑pay {{ number_format($breakdown['copay'] ?? 0, 2) }}
+                                    @endif
+                                    @if(($breakdown['coinsurance'] ?? 0) > 0)
+                                        + Co‑insurance {{ number_format($breakdown['coinsurance'] ?? 0, 2) }}
+                                    @endif
+                                    . Amount that reduces deductible:
+                                    <span class="font-semibold">
+                                        UGX {{ number_format($meta['amount_that_reduces_deductible'], 2) }}
+                                    </span>
+                                    (deductible this visit
+                                    @if(!empty($meta['copay_contributes_to_deductible']) && ($breakdown['copay'] ?? 0) > 0)
+                                        + co‑pay
+                                    @endif
+                                    @if(!empty($meta['coinsurance_contributes_to_deductible']) && ($breakdown['coinsurance'] ?? 0) > 0)
+                                        + co‑insurance
+                                    @endif
+                                    ).
+                                </td>
+                            </tr>
+                        @endif
                     @empty
                         <tr>
-                            <td colspan="11" class="px-4 py-8 text-center text-slate-500">No authorization codes found.</td>
+                            <td colspan="15" class="px-4 py-8 text-center text-slate-500">No authorization codes found.</td>
                         </tr>
                     @endforelse
                 </tbody>

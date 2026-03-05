@@ -109,8 +109,48 @@ class PaymentController extends Controller
     }
 
     /**
-     * Mark a premium payment as received (for Bank, Cash, Card etc. – manual recording).
-     * Requires a reason. Updates payment to completed and activates the policy.
+     * Step 1 for Bank/Cash: store TID on a pending premium payment (no status change).
+     */
+    public function storeTid(Request $request, Payment $payment)
+    {
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+
+        if ($payment->payment_type !== 'premium_payment') {
+            return redirect()->back()->with('error', 'This action only applies to premium payments.');
+        }
+        if ($payment->status !== 'pending') {
+            return redirect()->back()->with('error', 'This payment is not pending.');
+        }
+
+        $request->validate([
+            'transaction_id' => ['required', 'string', 'max:255'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ], [
+            'transaction_id.required' => 'Please enter the bank TID / reference number.',
+        ]);
+
+        $payment->load('policy');
+        if (!$payment->policy || $payment->policy->insurance_company_id != $insuranceCompanyId) {
+            abort(403, 'You do not have access to this payment.');
+        }
+
+        $existingNotes = $payment->payment_notes ? trim($payment->payment_notes) . "\n" : '';
+        $notePrefix = 'TID recorded: ' . $request->input('transaction_id');
+        $reason = trim((string) $request->input('reason'));
+        $newNotes = $existingNotes . $notePrefix . ($reason ? ' (' . $reason . ')' : '');
+
+        $payment->update([
+            'transaction_id' => $request->input('transaction_id'),
+            'payment_notes' => $newNotes,
+        ]);
+
+        return redirect()->route('clients.show', $payment->client_id)
+            ->with('success', 'TID recorded. You can now verify and mark this payment as paid.');
+    }
+
+    /**
+     * Step 2 for Bank/Cash: verify and mark a pending premium payment as received.
+     * Updates payment to completed and activates the policy.
      */
     public function markReceived(Request $request, Payment $payment)
     {
@@ -126,7 +166,7 @@ class PaymentController extends Controller
         $request->validate([
             'reason' => ['required', 'string', 'max:500'],
         ], [
-            'reason.required' => 'Please provide a reason for marking this payment as received.',
+            'reason.required' => 'Please provide a reason for approving this payment.',
         ]);
 
         $payment->load('policy');
@@ -136,7 +176,7 @@ class PaymentController extends Controller
 
         $reason = trim($request->input('reason'));
         $existingNotes = $payment->payment_notes ? trim($payment->payment_notes) . "\n" : '';
-        $newNotes = $existingNotes . 'Marked as received: ' . $reason;
+        $newNotes = $existingNotes . 'Verified & marked as received: ' . $reason;
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $newNotes) {
             $amount = $payment->amount;
@@ -160,7 +200,7 @@ class PaymentController extends Controller
         });
 
         return redirect()->route('clients.show', $payment->client_id)
-            ->with('success', 'Payment marked as received. Policy is now active.');
+            ->with('success', 'Payment verified and marked as received. Policy is now active.');
     }
 
     /**
