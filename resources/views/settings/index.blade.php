@@ -1636,6 +1636,29 @@
         document.getElementById('test_dob1').value = date1.toISOString().split('T')[0];
         document.getElementById('test_dob2').value = date2.toISOString().split('T')[0];
     }
+
+    function updateApprovalLevelVisibility() {
+        const levels = parseInt(document.getElementById('invoice_authorization_levels')?.value || '1');
+        for (let i = 1; i <= 3; i++) {
+            const el = document.getElementById('approval-level-' + i);
+            if (el) {
+                el.classList.toggle('hidden', i > levels);
+            }
+        }
+    }
+
+    function filterApprovers(input, level) {
+        const term = input.value.toLowerCase();
+        document.querySelectorAll('.approver-row-' + level).forEach(function(row) {
+            const name = row.getAttribute('data-name') || '';
+            const email = row.getAttribute('data-email') || '';
+            row.style.display = (name.includes(term) || email.includes(term)) ? '' : 'none';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        updateApprovalLevelVisibility();
+    });
 </script>
 
             <!-- Authorization Settings Tab -->
@@ -1643,7 +1666,7 @@
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <h2 class="text-xl font-bold text-slate-900 mb-4">Authorization Settings</h2>
                     <p class="text-sm text-slate-600 mb-6">
-                        Configure automatic authorization, rejection, and manual review thresholds for pre-authorizations.
+                        Configure automatic authorization, rejection, manual review thresholds, and multi-level approval for pre-authorizations.
                     </p>
 
                     <form action="{{ route('settings.update-authorization') }}" method="POST" class="space-y-6">
@@ -1658,7 +1681,7 @@
                                 <p class="text-xs text-slate-600 mt-1">Automatically approve or reject pre-authorizations based on amount thresholds</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="enable_auto_authorization" value="1" 
+                                <input type="checkbox" name="enable_auto_authorization" value="1"
                                     {{ old('enable_auto_authorization', $insuranceCompany->enable_auto_authorization ?? true) ? 'checked' : '' }}
                                     class="sr-only peer">
                                 <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -1667,42 +1690,24 @@
 
                         <!-- Auto-Approve Maximum Amount -->
                         <div>
-                            <label for="auto_approve_max_amount" class="block text-sm font-medium text-slate-700 mb-2">
-                                Auto-Approve Maximum Amount (UGX)
-                            </label>
-                            <input 
-                                type="number" 
-                                name="auto_approve_max_amount" 
-                                id="auto_approve_max_amount" 
+                            <label for="auto_approve_max_amount" class="block text-sm font-medium text-slate-700 mb-2">Auto-Approve Maximum Amount (UGX)</label>
+                            <input type="number" name="auto_approve_max_amount" id="auto_approve_max_amount"
                                 value="{{ old('auto_approve_max_amount', $insuranceCompany->auto_approve_max_amount ?? '') }}"
-                                step="0.01"
-                                min="0"
+                                step="0.01" min="0"
                                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="e.g., 500000"
-                            >
-                            <p class="text-xs text-slate-500 mt-2">
-                                Pre-authorizations with amounts ≤ this value will be automatically approved. Leave empty to disable auto-approval.
-                            </p>
+                                placeholder="e.g., 500000">
+                            <p class="text-xs text-slate-500 mt-2">Pre-authorizations with amounts &le; this value will be automatically approved. Leave empty to disable.</p>
                         </div>
 
                         <!-- Auto-Reject Minimum Amount -->
                         <div>
-                            <label for="auto_reject_min_amount" class="block text-sm font-medium text-slate-700 mb-2">
-                                Auto-Reject Minimum Amount (UGX)
-                            </label>
-                            <input 
-                                type="number" 
-                                name="auto_reject_min_amount" 
-                                id="auto_reject_min_amount" 
+                            <label for="auto_reject_min_amount" class="block text-sm font-medium text-slate-700 mb-2">Auto-Reject Minimum Amount (UGX)</label>
+                            <input type="number" name="auto_reject_min_amount" id="auto_reject_min_amount"
                                 value="{{ old('auto_reject_min_amount', $insuranceCompany->auto_reject_min_amount ?? '') }}"
-                                step="0.01"
-                                min="0"
+                                step="0.01" min="0"
                                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="e.g., 5000000"
-                            >
-                            <p class="text-xs text-slate-500 mt-2">
-                                Pre-authorizations with amounts ≥ this value will be automatically rejected. Leave empty to disable auto-rejection.
-                            </p>
+                                placeholder="e.g., 5000000">
+                            <p class="text-xs text-slate-500 mt-2">Pre-authorizations with amounts &ge; this value will be automatically rejected. Leave empty to disable.</p>
                         </div>
 
                         <!-- Require Manual Review Above Amount -->
@@ -1712,7 +1717,7 @@
                                 <p class="text-xs text-slate-600 mt-1">Flag pre-authorizations above a certain amount for manual review</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="require_manual_review_above_amount" value="1" 
+                                <input type="checkbox" name="require_manual_review_above_amount" value="1"
                                     {{ old('require_manual_review_above_amount', $insuranceCompany->require_manual_review_above_amount ?? true) ? 'checked' : '' }}
                                     class="sr-only peer">
                                 <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -1721,22 +1726,13 @@
 
                         <!-- Manual Review Threshold Amount -->
                         <div>
-                            <label for="manual_review_threshold_amount" class="block text-sm font-medium text-slate-700 mb-2">
-                                Manual Review Threshold Amount (UGX)
-                            </label>
-                            <input 
-                                type="number" 
-                                name="manual_review_threshold_amount" 
-                                id="manual_review_threshold_amount" 
+                            <label for="manual_review_threshold_amount" class="block text-sm font-medium text-slate-700 mb-2">Manual Review Threshold Amount (UGX)</label>
+                            <input type="number" name="manual_review_threshold_amount" id="manual_review_threshold_amount"
                                 value="{{ old('manual_review_threshold_amount', $insuranceCompany->manual_review_threshold_amount ?? '') }}"
-                                step="0.01"
-                                min="0"
+                                step="0.01" min="0"
                                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="e.g., 1000000"
-                            >
-                            <p class="text-xs text-slate-500 mt-2">
-                                Pre-authorizations with amounts > this value will be flagged for manual review. Leave empty to disable.
-                            </p>
+                                placeholder="e.g., 1000000">
+                            <p class="text-xs text-slate-500 mt-2">Pre-authorizations with amounts &gt; this value will be flagged for manual review. Leave empty to disable.</p>
                         </div>
 
                         <!-- Info Box -->
@@ -1748,13 +1744,107 @@
                                 <div class="text-sm text-blue-800">
                                     <p class="font-semibold mb-1">How Authorization Works:</p>
                                     <ul class="list-disc list-inside space-y-1 text-xs">
-                                        <li>If amount ≤ Auto-Approve Max: <strong>Automatically Approved</strong></li>
-                                        <li>If amount ≥ Auto-Reject Min: <strong>Automatically Rejected</strong></li>
-                                        <li>If amount > Manual Review Threshold: <strong>Flagged for Manual Review</strong></li>
+                                        <li>If amount &le; Auto-Approve Max: <strong>Automatically Approved</strong></li>
+                                        <li>If amount &ge; Auto-Reject Min: <strong>Automatically Rejected</strong></li>
+                                        <li>If amount &gt; Manual Review Threshold: <strong>Flagged for Manual Review</strong></li>
                                         <li>Otherwise: <strong>Flagged for Manual Review</strong></li>
                                     </ul>
                                 </div>
                             </div>
+                        </div>
+
+                        <hr class="border-slate-200">
+
+                        <!-- Manual Approval Workflow -->
+                        <div class="border border-blue-200 rounded-lg p-5 bg-blue-50/30">
+                            <h3 class="text-base font-semibold text-slate-900 mb-2">Manual Approval Workflow</h3>
+                            <p class="text-xs text-slate-600 mb-4">Set the number of approval levels and assign users to each level. Pre-authorizations flagged for manual review must be approved at each level in order.</p>
+
+                            <div class="mb-4">
+                                <label for="invoice_authorization_levels" class="block text-sm font-medium text-slate-700 mb-1">Number of approval levels</label>
+                                <select name="invoice_authorization_levels" id="invoice_authorization_levels"
+                                        onchange="updateApprovalLevelVisibility()"
+                                        class="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="1" {{ old('invoice_authorization_levels', $insuranceCompany->invoice_authorization_levels ?? 1) == 1 ? 'selected' : '' }}>1 Level</option>
+                                    <option value="2" {{ old('invoice_authorization_levels', $insuranceCompany->invoice_authorization_levels ?? 1) == 2 ? 'selected' : '' }}>2 Levels</option>
+                                    <option value="3" {{ old('invoice_authorization_levels', $insuranceCompany->invoice_authorization_levels ?? 1) == 3 ? 'selected' : '' }}>3 Levels</option>
+                                </select>
+                            </div>
+
+                            @php
+                                $levelLabels = [1 => 'Level 1 – First Reviewer', 2 => 'Level 2 – Second Reviewer', 3 => 'Level 3 – Final Approver'];
+                                $levelBg = [1 => 'bg-green-50 border-green-200', 2 => 'bg-yellow-50 border-yellow-200', 3 => 'bg-blue-50 border-blue-200'];
+                                $levelRing = [1 => 'green', 2 => 'yellow', 3 => 'blue'];
+                                $currentLevels = (int) old('invoice_authorization_levels', $insuranceCompany->invoice_authorization_levels ?? 1);
+                            @endphp
+
+                            @foreach([1, 2, 3] as $lvl)
+                                <div id="approval-level-{{ $lvl }}" class="approval-level-section mb-4 p-4 rounded-lg border {{ $levelBg[$lvl] }} {{ $lvl > $currentLevels ? 'hidden' : '' }}">
+                                    <h5 class="text-sm font-semibold text-slate-900 mb-2">{{ $levelLabels[$lvl] }}</h5>
+                                    <p class="text-xs text-slate-500 mb-2">Select users who can approve at this level.</p>
+                                    <div class="mb-2">
+                                        <input type="text" placeholder="Search by name or email…" oninput="filterApprovers(this, {{ $lvl }})"
+                                               class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-{{ $levelRing[$lvl] }}-500">
+                                    </div>
+                                    <div id="approvers-list-{{ $lvl }}" class="space-y-1 max-h-40 overflow-y-auto">
+                                        @foreach($users as $u)
+                                            <label class="flex items-center space-x-2 approver-row-{{ $lvl }} cursor-pointer" data-name="{{ strtolower($u->name) }}" data-email="{{ strtolower($u->email) }}">
+                                                <input type="checkbox"
+                                                       name="approvers_level_{{ $lvl }}[]"
+                                                       value="{{ $u->id }}"
+                                                       {{ $insuranceCompany->preAuthorizationApprovers->where('level', $lvl)->where('user_id', $u->id)->count() > 0 ? 'checked' : '' }}
+                                                       class="h-4 w-4 text-{{ $levelRing[$lvl] }}-600 focus:ring-{{ $levelRing[$lvl] }}-500 border-slate-300 rounded">
+                                                <span class="text-sm text-slate-900">{{ $u->name }} <span class="text-slate-500 text-xs">({{ $u->email }})</span></span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endforeach
+
+                            <div class="mt-2 p-3 rounded-lg bg-slate-100 border border-slate-200">
+                                <p class="text-xs text-slate-700"><strong>How it works:</strong> When a pre-authorization is flagged for manual review, it must be approved at Level 1 first. If you have 2 or 3 levels, it then moves to Level 2 (and Level 3) for additional approval before it is fully approved.</p>
+                            </div>
+                        </div>
+
+                        <hr class="border-slate-200">
+
+                        <!-- Invoice Clearing -->
+                        <div>
+                            <label for="invoice_clearing_trigger" class="block text-sm font-medium text-slate-700 mb-2">Invoice clearing trigger</label>
+                            <p class="text-xs text-slate-500 mb-2">When to treat an invoice as "cleared". This can be used for reporting and notifications.</p>
+                            <select name="invoice_clearing_trigger" id="invoice_clearing_trigger"
+                                    class="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">— Not set —</option>
+                                <option value="on_client_portion_paid" {{ old('invoice_clearing_trigger', $insuranceCompany->invoice_clearing_trigger ?? '') === 'on_client_portion_paid' ? 'selected' : '' }}>When client portion is paid</option>
+                                <option value="on_full_payment" {{ old('invoice_clearing_trigger', $insuranceCompany->invoice_clearing_trigger ?? '') === 'on_full_payment' ? 'selected' : '' }}>When full payment is received</option>
+                                <option value="on_fulfillment" {{ old('invoice_clearing_trigger', $insuranceCompany->invoice_clearing_trigger ?? '') === 'on_fulfillment' ? 'selected' : '' }}>When all items are fulfilled</option>
+                                <option value="manual" {{ old('invoice_clearing_trigger', $insuranceCompany->invoice_clearing_trigger ?? '') === 'manual' ? 'selected' : '' }}>Manual only</option>
+                            </select>
+                        </div>
+
+                        <!-- Authorization validity -->
+                        <div>
+                            <label for="authorization_valid_days" class="block text-sm font-medium text-slate-700 mb-2">Authorization validity (days)</label>
+                            <p class="text-xs text-slate-500 mb-2">Number of days an authorization is valid. Leave empty for no expiry.</p>
+                            <input type="number" name="authorization_valid_days" id="authorization_valid_days"
+                                   min="1" max="365" placeholder="e.g., 30"
+                                   value="{{ old('authorization_valid_days', $insuranceCompany->authorization_valid_days ?? '') }}"
+                                   class="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <!-- Re-authorize if edited -->
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                            <div>
+                                <label class="text-sm font-medium text-slate-900">Re-authorize if invoice edited</label>
+                                <p class="text-xs text-slate-600 mt-1">If items or amounts change after authorization, require a new authorization</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="hidden" name="require_reauthorize_if_edited" value="0">
+                                <input type="checkbox" name="require_reauthorize_if_edited" value="1"
+                                    {{ old('require_reauthorize_if_edited', $insuranceCompany->require_reauthorize_if_edited ?? false) ? 'checked' : '' }}
+                                    class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
                         </div>
 
                         <!-- Submit Button -->

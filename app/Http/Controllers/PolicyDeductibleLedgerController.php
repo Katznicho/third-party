@@ -7,10 +7,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class PolicyDeductibleLedgerController extends Controller
+
 {
     public function index(Request $request)
     {
-        $user = Auth::user();
+        $user =   Auth::user();
         $insuranceCompany = $user->insuranceCompany;
 
         $query = PolicyDeductibleLedger::with(['policy'])
@@ -24,6 +25,8 @@ class PolicyDeductibleLedgerController extends Controller
             });
         }
 
+
+
         if ($request->filled('invoice_number')) {
             $invoiceNumber = $request->get('invoice_number');
             $query->where('external_invoice_number', 'like', '%' . $invoiceNumber . '%');
@@ -33,6 +36,8 @@ class PolicyDeductibleLedgerController extends Controller
 
         return view('policy-deductible-ledgers.index', compact('ledgers'));
     }
+
+    
 
     public function show(PolicyDeductibleLedger $ledger)
     {

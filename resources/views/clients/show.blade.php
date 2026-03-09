@@ -210,7 +210,7 @@
                         </span>
                     </div>
                     <div class="flex justify-between items-center text-sm">
-                        <span class="text-slate-700">Active period after payment:</span>
+                        <span class="text-slate-700">Active period:</span>
                         <span class="font-semibold text-slate-900">
                             @if(!is_null($client->active_period_days))
                                 {{ $client->active_period_days }} day(s)

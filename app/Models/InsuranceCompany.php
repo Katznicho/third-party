@@ -52,6 +52,10 @@ class InsuranceCompany extends Model
         'auto_reject_min_amount',
         'require_manual_review_above_amount',
         'manual_review_threshold_amount',
+        'invoice_authorization_levels',
+        'invoice_clearing_trigger',
+        'authorization_valid_days',
+        'require_reauthorize_if_edited',
         'payment_responsibility_collection',
         'payment_methods',
         'payment_grace_periods',
@@ -95,6 +99,9 @@ class InsuranceCompany extends Model
             'auto_reject_min_amount' => 'decimal:2',
             'require_manual_review_above_amount' => 'boolean',
             'manual_review_threshold_amount' => 'decimal:2',
+            'invoice_authorization_levels' => 'integer',
+            'authorization_valid_days' => 'integer',
+            'require_reauthorize_if_edited' => 'boolean',
             'payment_methods' => 'array',
             'payment_grace_periods' => 'array',
         // Legacy fields (kept for backward compatibility)
@@ -121,6 +128,11 @@ class InsuranceCompany extends Model
     {
         return $this->hasMany(BusinessConnection::class, 'insurance_company_id')
             ->with('connectedBusiness');
+    }
+
+    public function preAuthorizationApprovers()
+    {
+        return $this->hasMany(PreAuthorizationApprover::class);
     }
 
     public function connectedTo()

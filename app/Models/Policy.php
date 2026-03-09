@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -116,6 +117,69 @@ class Policy extends Model
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    /**
+     * A policy is authorizable if it's active, OR if it's pending payment
+     * but still within the grace period.
+     */
+    public function isAuthorizable(): bool
+    {
+        if ($this->status === 'active') {
+            return true;
+        }
+
+        if ($this->status === 'pending_payment') {
+            return $this->isWithinGracePeriod();
+        }
+
+        return false;
+    }
+
+    public function isWithinGracePeriod(): bool
+    {
+        $pendingPayment = Payment::where('policy_id', $this->id)
+            ->where('status', 'pending')
+            ->latest()
+            ->first();
+
+        if ($pendingPayment) {
+            $dueAt = $pendingPayment->payment_metadata['due_at'] ?? null;
+            if ($dueAt) {
+                return now()->lte(Carbon::parse($dueAt)->endOfDay());
+            }
+        }
+
+        $client = $this->principalMember;
+        $graceDays = $client?->premium_grace_days;
+
+        if ($graceDays === null && $this->insuranceCompany) {
+            $paymentMethod = $pendingPayment->payment_method ?? 'cash';
+            $graceDays = $this->insuranceCompany->getGracePeriodForMethod($paymentMethod);
+        }
+
+        if ($graceDays !== null && $graceDays > 0) {
+            return now()->lte($this->created_at->addDays($graceDays)->endOfDay());
+        }
+
+        return false;
+    }
+
+    public function getGracePeriodEnd(): ?Carbon
+    {
+        $pendingPayment = Payment::where('policy_id', $this->id)
+            ->where('status', 'pending')
+            ->latest()
+            ->first();
+
+        if ($pendingPayment) {
+            $dueAt = $pendingPayment->payment_metadata['due_at'] ?? null;
+            if ($dueAt) {
+                return Carbon::parse($dueAt)->endOfDay();
+            }
+        }
+
+        return null;
     }
 
     public function isExpired(): bool

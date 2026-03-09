@@ -139,6 +139,11 @@ class PreAuthorization extends Model
         return $this->hasMany(AuthorizationAuditLog::class);
     }
 
+    public function authorizationApprovals(): HasMany
+    {
+        return $this->hasMany(PreAuthorizationApproval::class)->orderBy('level');
+    }
+
     public function isPending(): bool
     {
         return $this->status === 'pending';

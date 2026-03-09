@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\InsuranceCompany;
+use App\Models\PreAuthorizationApprover;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class SettingsController extends Controller
 {
@@ -18,8 +21,12 @@ class SettingsController extends Controller
         }
 
         $insuranceCompany = $user->insuranceCompany;
-        
-        return view('settings.index', compact('insuranceCompany'));
+        $insuranceCompany->load('preAuthorizationApprovers');
+        $users = User::where('insurance_company_id', $insuranceCompany->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+
+        return view('settings.index', compact('insuranceCompany', 'users'));
     }
 
     /**
@@ -223,16 +230,46 @@ class SettingsController extends Controller
             'auto_reject_min_amount' => 'nullable|numeric|min:0',
             'require_manual_review_above_amount' => 'nullable|boolean',
             'manual_review_threshold_amount' => 'nullable|numeric|min:0',
+            'invoice_authorization_levels' => 'required|integer|min:1|max:3',
+            'approvers_level_1' => 'nullable|array',
+            'approvers_level_1.*' => 'integer|exists:users,id',
+            'approvers_level_2' => 'nullable|array',
+            'approvers_level_2.*' => 'integer|exists:users,id',
+            'approvers_level_3' => 'nullable|array',
+            'approvers_level_3.*' => 'integer|exists:users,id',
+            'invoice_clearing_trigger' => 'nullable|string|in:on_client_portion_paid,on_full_payment,on_fulfillment,manual',
+            'authorization_valid_days' => 'nullable|integer|min:1|max:365',
+            'require_reauthorize_if_edited' => 'nullable|boolean',
         ]);
 
         $insuranceCompany = $user->insuranceCompany;
-        $insuranceCompany->update([
-            'enable_auto_authorization' => $request->boolean('enable_auto_authorization', true),
-            'auto_approve_max_amount' => $validated['auto_approve_max_amount'] ?? null,
-            'auto_reject_min_amount' => $validated['auto_reject_min_amount'] ?? null,
-            'require_manual_review_above_amount' => $request->boolean('require_manual_review_above_amount', true),
-            'manual_review_threshold_amount' => $validated['manual_review_threshold_amount'] ?? null,
-        ]);
+
+        DB::transaction(function () use ($insuranceCompany, $validated, $request) {
+            $insuranceCompany->update([
+                'enable_auto_authorization' => $request->boolean('enable_auto_authorization', true),
+                'auto_approve_max_amount' => $validated['auto_approve_max_amount'] ?? null,
+                'auto_reject_min_amount' => $validated['auto_reject_min_amount'] ?? null,
+                'require_manual_review_above_amount' => $request->boolean('require_manual_review_above_amount', true),
+                'manual_review_threshold_amount' => $validated['manual_review_threshold_amount'] ?? null,
+                'invoice_authorization_levels' => (int) $validated['invoice_authorization_levels'],
+                'invoice_clearing_trigger' => $validated['invoice_clearing_trigger'] ?? null,
+                'authorization_valid_days' => $validated['authorization_valid_days'] ?? null,
+                'require_reauthorize_if_edited' => $request->boolean('require_reauthorize_if_edited', false),
+            ]);
+
+            PreAuthorizationApprover::where('insurance_company_id', $insuranceCompany->id)->delete();
+            $levels = (int) $validated['invoice_authorization_levels'];
+            for ($lvl = 1; $lvl <= $levels; $lvl++) {
+                $userIds = $validated["approvers_level_{$lvl}"] ?? [];
+                foreach ($userIds as $userId) {
+                    PreAuthorizationApprover::create([
+                        'insurance_company_id' => $insuranceCompany->id,
+                        'user_id' => (int) $userId,
+                        'level' => $lvl,
+                    ]);
+                }
+            }
+        });
 
         $tab = $request->input('current_tab', 'authorization');
         return redirect()->route('settings.index', ['tab' => $tab])

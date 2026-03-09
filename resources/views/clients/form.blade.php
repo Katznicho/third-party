@@ -954,7 +954,7 @@
                     </div>
                     <div>
                         <label for="active_period_days" class="block text-sm font-medium text-slate-700 mb-1">
-                            Active period (days) after payment
+                            Active period
                         </label>
                         <input
                             type="number"
@@ -1306,7 +1306,8 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <div>
                 <label for="desired_start_date" class="block text-sm font-medium text-slate-700 mb-1">Desired Start Date</label>
-                <input type="date" name="desired_start_date" id="desired_start_date" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="date" name="desired_start_date" id="desired_start_date" value="{{ old('desired_start_date', now()->format('Y-m-d')) }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-slate-500 mt-1">Defaults to today. Coverage and benefits start from this date.</p>
             </div>
             <div>
                 <label for="agent_broker_name" class="block text-sm font-medium text-slate-700 mb-1">Agent/Broker Name (if applicable)</label>
@@ -1528,7 +1529,7 @@
             deductible_amount: '100000',
             
             // Declaration
-            desired_start_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+            desired_start_date: new Date().toISOString().split('T')[0],
             agent_broker_name: 'Test Agent'
         };
 
