@@ -94,8 +94,30 @@ class AuthorizationReviewController extends Controller
             ->pluck('level')
             ->toArray();
 
+        $approversByLevel = PreAuthorizationApprover::where('insurance_company_id', $insuranceCompanyId)
+            ->with('user')
+            ->get()
+            ->groupBy('level');
+
+        // Look up the InsuranceAuthorization linked to this pre-auth (same policy, pending_review, matching invoice number)
+        $insuranceAuth = null;
+        $invoiceNumber = null;
+        if (preg_match('/Invoice\s+(\S+)/', $preAuthorization->request_description ?? '', $m)) {
+            $invoiceNumber = $m[1];
+            $insuranceAuth = \App\Models\InsuranceAuthorization::where('policy_id', $preAuthorization->policy_id)
+                ->where('external_invoice_number', $invoiceNumber)
+                ->first();
+        }
+        if (!$insuranceAuth) {
+            $insuranceAuth = \App\Models\InsuranceAuthorization::where('policy_id', $preAuthorization->policy_id)
+                ->where('status', 'pending_review')
+                ->latest()
+                ->first();
+        }
+
         return view('authorization-review.show', compact(
-            'preAuthorization', 'auditLogs', 'totalLevels', 'nextLevel', 'userApproverLevels'
+            'preAuthorization', 'auditLogs', 'totalLevels', 'nextLevel', 'userApproverLevels',
+            'approversByLevel', 'insuranceAuth', 'invoiceNumber'
         ));
     }
 

@@ -92,6 +92,7 @@
                     <thead class="bg-slate-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Invoice #</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Authorization #</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Policy</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Client</th>
@@ -100,7 +101,8 @@
                             @if($totalLevels > 1)
                                 <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Approval progress</th>
                             @endif
-                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider"></th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-slate-200">
@@ -108,13 +110,6 @@
                             @php
                                 $approvedLevels = $preAuth->authorizationApprovals->where('action', 'approved')->pluck('level')->toArray();
                                 $rejectedLevel = $preAuth->authorizationApprovals->where('action', 'rejected')->first();
-                                $nextLvl = null;
-                                if ($preAuth->status === 'pending') {
-                                    for ($l = 1; $l <= $totalLevels; $l++) {
-                                        if (!in_array($l, $approvedLevels)) { $nextLvl = $l; break; }
-                                    }
-                                }
-                                $canAct = $nextLvl && in_array($nextLvl, $userApproverLevels);
                             @endphp
                             <tr class="hover:bg-slate-50">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
@@ -124,6 +119,15 @@
                                     @else
                                         {{ $preAuth->created_at->format('M d, Y H:i') }}
                                     @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">
+                                    @php
+                                        $invoiceNum = null;
+                                        if (preg_match('/Invoice\s+(\S+)/', $preAuth->request_description ?? '', $_m)) {
+                                            $invoiceNum = $_m[1];
+                                        }
+                                    @endphp
+                                    {{ $invoiceNum ?? '—' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="text-sm font-medium text-slate-900">{{ $preAuth->authorization_number ?? '—' }}</span>
@@ -149,18 +153,17 @@
                                         </div>
                                     </td>
                                 @endif
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                    <a href="{{ route('authorization-review.show', $preAuth) }}" class="text-blue-600 hover:text-blue-900">View</a>
-                                    @if($preAuth->status === 'pending' && $canAct)
-                                        <form action="{{ route('authorization-review.approve', $preAuth) }}" method="POST" class="inline">
-                                            @csrf
-                                            <button type="submit" onclick="return confirm('Approve{{ $totalLevels > 1 ? ' (Level ' . $nextLvl . ')' : '' }}?');"
-                                                    class="text-green-600 hover:text-green-900">
-                                                Approve{{ $totalLevels > 1 ? ' L' . $nextLvl : '' }}
-                                            </button>
-                                        </form>
-                                        <button onclick="openRejectModal({{ $preAuth->id }})" class="text-red-600 hover:text-red-900">Reject</button>
-                                    @endif
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full
+                                        {{ $preAuth->status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ($preAuth->status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800') }}">
+                                        {{ ucfirst($preAuth->status ?? 'pending') }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="{{ route('authorization-review.show', $preAuth) }}"
+                                       class="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition text-xs font-semibold">
+                                        View
+                                    </a>
                                 </td>
                             </tr>
                         @endforeach
@@ -188,35 +191,4 @@
     </div>
 </div>
 
-<!-- Reject Modal -->
-<div id="reject-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 hidden">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <h3 class="text-lg font-semibold text-slate-900 mb-3">Reject pre-authorization</h3>
-        <form id="reject-form" method="POST" class="space-y-3">
-            @csrf
-            <div>
-                <label for="reject_reason" class="block text-sm font-medium text-slate-700 mb-1">Reason (required)</label>
-                <textarea name="rejection_reason" id="reject_reason" rows="3" maxlength="1000" required
-                          class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Reason for rejection"></textarea>
-            </div>
-            <div class="flex justify-end space-x-2">
-                <button type="button" onclick="closeRejectModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">Reject</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-function openRejectModal(preAuthId) {
-    const form = document.getElementById('reject-form');
-    form.action = '/authorization-review/' + preAuthId + '/reject';
-    document.getElementById('reject-modal').classList.remove('hidden');
-}
-function closeRejectModal() {
-    document.getElementById('reject-modal').classList.add('hidden');
-    document.getElementById('reject_reason').value = '';
-}
-</script>
 @endsection

@@ -273,6 +273,53 @@ class KashtreApiService
      * @param array $payload insurance_company_id, policy_number, amount, payment_reference, [kashtre_invoice_id], [client_id], [mobile_money_number], [payment_date]
      * @return array{success: bool, message?: string}
      */
+    /**
+     * Notify Kashtre that an authorization decision has been made (approved/rejected)
+     * so it can update the invoice and display the result to the user.
+     */
+    public function notifyAuthorizationDecision(array $payload): array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = $baseUrl . '/api/v1/insurance/authorization-decision';
+
+        try {
+            Log::info('KashtreApiService: Sending authorization decision to Kashtre', [
+                'url' => $url,
+                'decision' => $payload['decision'] ?? null,
+                'kashtre_invoice_id' => $payload['kashtre_invoice_id'] ?? null,
+            ]);
+
+            $response = Http::timeout(15)
+                ->acceptJson()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($url, $payload);
+
+            if ($response->successful()) {
+                Log::info('KashtreApiService: Kashtre acknowledged authorization decision');
+                return ['success' => true];
+            }
+
+            Log::warning('KashtreApiService: Kashtre authorization-decision callback failed', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            return [
+                'success' => false,
+                'message' => $response->json()['message'] ?? 'Kashtre returned ' . $response->status(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: Exception sending authorization decision to Kashtre', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
     public function notifyClientPortionRecorded(array $payload)
     {
         $path = config('services.kashtre.record_client_portion_path', '/api/v1/third-party/client-portion-recorded');

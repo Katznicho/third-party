@@ -98,8 +98,10 @@ class SimpleAuthorizationService
                 $preAuthorization->generateApprovalId();
             }
 
-            // Log the decision
             $this->logDecision($preAuthorization, 'manually_approved', $approvedAmount, $notes);
+
+            $this->syncInsuranceAuthorization($preAuthorization, 'completed', $approvedAmount);
+            $this->notifyKashtreOfDecision($preAuthorization, 'approved', $approvedAmount);
 
             return true;
         } catch (\Exception $e) {
@@ -124,8 +126,10 @@ class SimpleAuthorizationService
                 'authorization_method' => 'manual',
             ]);
 
-            // Log the decision
             $this->logDecision($preAuthorization, 'manually_rejected', 0, null, $rejectionReason);
+
+            $this->syncInsuranceAuthorization($preAuthorization, 'rejected', 0);
+            $this->notifyKashtreOfDecision($preAuthorization, 'rejected', 0, $rejectionReason);
 
             return true;
         } catch (\Exception $e) {
@@ -134,6 +138,124 @@ class SimpleAuthorizationService
                 'error' => $e->getMessage(),
             ]);
             return false;
+        }
+    }
+
+    /**
+     * Update the corresponding InsuranceAuthorization record after a manual decision.
+     */
+    protected function syncInsuranceAuthorization(PreAuthorization $preAuthorization, string $newStatus, float $approvedAmount): void
+    {
+        $invoiceNumber = null;
+        if (preg_match('/Invoice\s+(\S+)/', $preAuthorization->request_description ?? '', $m)) {
+            $invoiceNumber = $m[1];
+        }
+
+        $insuranceAuth = null;
+        if ($invoiceNumber) {
+            $insuranceAuth = \App\Models\InsuranceAuthorization::where('policy_id', $preAuthorization->policy_id)
+                ->where('external_invoice_number', $invoiceNumber)
+                ->first();
+        }
+        if (!$insuranceAuth) {
+            $insuranceAuth = \App\Models\InsuranceAuthorization::where('policy_id', $preAuthorization->policy_id)
+                ->where('status', 'pending_review')
+                ->latest()
+                ->first();
+        }
+
+        if (!$insuranceAuth) {
+            Log::warning('SimpleAuthorizationService: No InsuranceAuthorization found to sync', [
+                'pre_authorization_id' => $preAuthorization->id,
+                'invoice_number' => $invoiceNumber,
+            ]);
+            return;
+        }
+
+        $updateData = [
+            'status' => $newStatus,
+            'completed_at' => now(),
+        ];
+
+        if ($newStatus === 'completed' && $approvedAmount < (float) $insuranceAuth->insurance_total) {
+            $diff = round((float) $insuranceAuth->insurance_total - $approvedAmount, 2);
+            $updateData['insurance_total'] = $approvedAmount;
+            $updateData['client_total'] = round((float) $insuranceAuth->client_total + $diff, 2);
+        }
+
+        $insuranceAuth->update($updateData);
+
+        if ($newStatus === 'completed') {
+            $policyBenefit = null;
+            $meta = $insuranceAuth->metadata ?? [];
+            if (!empty($meta['policy_benefit_id'])) {
+                $policyBenefit = \App\Models\PolicyBenefit::find($meta['policy_benefit_id']);
+            }
+            if ($policyBenefit) {
+                $policyBenefit->used_amount = (float) $policyBenefit->used_amount + $approvedAmount;
+                $policyBenefit->updateRemainingAmount();
+                Log::info('SimpleAuthorizationService: Policy benefit updated after manual approval', [
+                    'benefit_id' => $policyBenefit->id,
+                    'used_amount' => $policyBenefit->used_amount,
+                    'remaining_amount' => $policyBenefit->remaining_amount,
+                ]);
+            }
+        }
+
+        Log::info('SimpleAuthorizationService: InsuranceAuthorization synced', [
+            'insurance_authorization_id' => $insuranceAuth->id,
+            'new_status' => $newStatus,
+            'approved_amount' => $approvedAmount,
+        ]);
+    }
+
+    /**
+     * Notify Kashtre that the authorization decision has been made so it can update
+     * the invoice and optionally show the insurance modal to the user.
+     */
+    protected function notifyKashtreOfDecision(PreAuthorization $preAuthorization, string $decision, float $approvedAmount, ?string $rejectionReason = null): void
+    {
+        $invoiceNumber = null;
+        if (preg_match('/Invoice\s+(\S+)/', $preAuthorization->request_description ?? '', $m)) {
+            $invoiceNumber = $m[1];
+        }
+
+        $insuranceAuth = null;
+        if ($invoiceNumber) {
+            $insuranceAuth = \App\Models\InsuranceAuthorization::where('policy_id', $preAuthorization->policy_id)
+                ->where('external_invoice_number', $invoiceNumber)
+                ->first();
+        }
+
+        $payload = [
+            'authorization_reference' => $insuranceAuth->authorization_reference ?? null,
+            'confirmation_code' => $insuranceAuth->confirmation_code ?? null,
+            'kashtre_invoice_id' => $insuranceAuth->kashtre_invoice_id ?? null,
+            'external_invoice_number' => $invoiceNumber,
+            'decision' => $decision,
+            'approved_amount' => $approvedAmount,
+            'insurance_total' => $insuranceAuth ? (float) $insuranceAuth->insurance_total : $approvedAmount,
+            'client_total' => $insuranceAuth ? (float) $insuranceAuth->client_total : 0,
+            'breakdown' => $insuranceAuth->breakdown ?? null,
+            'rejection_reason' => $rejectionReason,
+            'decided_at' => now()->toIso8601String(),
+        ];
+
+        try {
+            $kashtreApi = app(KashtreApiService::class);
+            $result = $kashtreApi->notifyAuthorizationDecision($payload);
+
+            Log::info('SimpleAuthorizationService: Kashtre notified of authorization decision', [
+                'decision' => $decision,
+                'kashtre_invoice_id' => $payload['kashtre_invoice_id'],
+                'result' => $result,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('SimpleAuthorizationService: Failed to notify Kashtre of authorization decision (non-blocking)', [
+                'decision' => $decision,
+                'kashtre_invoice_id' => $payload['kashtre_invoice_id'],
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
