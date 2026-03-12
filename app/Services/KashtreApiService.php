@@ -18,6 +18,81 @@ class KashtreApiService
     }
 
     /**
+     * Get excluded items for a specific Kashtre business and insurance company.
+     */
+    public function getExcludedItemsForProvider(int $businessId, int $insuranceCompanyId): array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-payers/{$insuranceCompanyId}/excluded-items";
+
+        try {
+            $response = Http::timeout(20)
+                ->acceptJson()
+                ->get($url);
+
+            if ($response->successful()) {
+                return $response->json('data') ?? [];
+            }
+
+            Log::warning('KashtreApiService: Failed to fetch excluded items', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: Exception while fetching excluded items', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return [];
+    }
+
+    /**
+     * Get all items for a specific Kashtre business.
+     */
+    public function getItemsForBusiness(int $businessId): array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/items";
+
+        try {
+            Log::info('KashtreApiService: Fetching items for business', [
+                'url' => $url,
+                'business_id' => $businessId,
+            ]);
+
+            $response = Http::timeout(20)
+                ->acceptJson()
+                ->get($url);
+
+            if ($response->successful()) {
+                $data = $response->json('data') ?? [];
+                Log::info('KashtreApiService: Items fetched from Kashtre', [
+                    'business_id' => $businessId,
+                    'count' => is_array($data) ? count($data) : 0,
+                ]);
+                return $data;
+            }
+
+            Log::warning('KashtreApiService: Failed to fetch items from Kashtre', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: Exception while fetching items from Kashtre', [
+                'url' => $url,
+                'business_id' => $businessId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return [];
+    }
+
+    /**
      * Get invoices for an insurance company
      */
     public function getInvoicesForInsuranceCompany($insuranceCompanyId)

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\PreAuthorization;
 use App\Models\InsuranceCompany;
 use App\Models\AuthorizationAuditLog;
+use App\Services\KashtreApiService;
 use Illuminate\Support\Facades\Log;
 
 class SimpleAuthorizationService
@@ -229,7 +230,6 @@ class SimpleAuthorizationService
 
         $payload = [
             'authorization_reference' => $insuranceAuth->authorization_reference ?? null,
-            'confirmation_code' => $insuranceAuth->confirmation_code ?? null,
             'kashtre_invoice_id' => $insuranceAuth->kashtre_invoice_id ?? null,
             'external_invoice_number' => $invoiceNumber,
             'decision' => $decision,

@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function () {
     // Clients
     Route::resource('clients', \App\Http\Controllers\ClientController::class);
     Route::get('/clients/{client}/account-statement', [\App\Http\Controllers\ClientController::class, 'accountStatement'])->name('clients.account-statement');
+    Route::post('/clients/{client}/local-exclusions', [\App\Http\Controllers\ClientController::class, 'storeLocalExclusion'])->name('clients.local-exclusions.store');
     Route::post('/clients/{client}/check-mobile-money-payments', [\App\Http\Controllers\ClientController::class, 'checkMobileMoneyPayments'])->name('clients.check-mobile-money-payments');
     Route::get('/clients/{client}/pay-premium', [\App\Http\Controllers\PremiumPaymentController::class, 'showPayPremium'])->name('clients.pay-premium');
     Route::post('/clients/{client}/pay-premium', [\App\Http\Controllers\PremiumPaymentController::class, 'processPayPremium'])->name('clients.pay-premium.process');
@@ -85,6 +86,8 @@ Route::middleware('auth')->group(function () {
     
     // Service Providers
     Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
+    Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');
+    Route::post('/connected-companies/{connectionId}/local-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeLocalExclusion'])->name('connected-companies.local-exclusions.store');
     
     // Vendor Code Email
     Route::get('/vendor-code/send', [\App\Http\Controllers\VendorCodeController::class, 'create'])->name('vendor-code.create');

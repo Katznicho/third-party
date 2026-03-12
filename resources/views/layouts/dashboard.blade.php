@@ -122,6 +122,11 @@
                     Pre-Authorizations
                 </a>
 
+                <!-- Financial Section Label -->
+                <div class="mt-4 px-4 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
+                    Financial
+                </div>
+
                 <!-- Authorization Review -->
                 <a 
                     href="{{ route('authorization-review.index') }}" 
@@ -142,6 +147,17 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
                     </svg>
                     Authorization Codes
+                </a>
+
+                <!-- Rejected Invoices -->
+                <a 
+                    href="{{ route('authorization-codes.index', ['status' => 'rejected']) }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->fullUrlIs(route('authorization-codes.index', ['status' => 'rejected'])) ? 'bg-red-900/20 text-red-300' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Rejected Invoices
                 </a>
 
                 <!-- Deductible Ledger -->

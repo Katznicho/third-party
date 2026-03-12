@@ -239,6 +239,7 @@ class SettingsController extends Controller
             'approvers_level_3.*' => 'integer|exists:users,id',
             'invoice_clearing_trigger' => 'nullable|string|in:on_client_portion_paid,on_full_payment,on_fulfillment,manual',
             'authorization_valid_days' => 'nullable|integer|min:1|max:365',
+            'authorization_valid_unit' => 'nullable|string|in:minutes,hours,days',
             'require_reauthorize_if_edited' => 'nullable|boolean',
         ]);
 
@@ -254,6 +255,7 @@ class SettingsController extends Controller
                 'invoice_authorization_levels' => (int) $validated['invoice_authorization_levels'],
                 'invoice_clearing_trigger' => $validated['invoice_clearing_trigger'] ?? null,
                 'authorization_valid_days' => $validated['authorization_valid_days'] ?? null,
+                'authorization_valid_unit' => $validated['authorization_valid_unit'] ?? 'days',
                 'require_reauthorize_if_edited' => $request->boolean('require_reauthorize_if_edited', false),
             ]);
 

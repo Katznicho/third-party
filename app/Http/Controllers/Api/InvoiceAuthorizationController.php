@@ -10,6 +10,9 @@ use App\Models\InsuranceCompany;
 use App\Models\ServiceCategory;
 use App\Models\PreAuthorization;
 use App\Models\AuthorizationAuditLog;
+use App\Models\BusinessConnection;
+use App\Models\ConnectedCompanyServiceExclusion;
+use App\Models\ClientLocalExclusion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -57,6 +60,9 @@ class InvoiceAuthorizationController extends Controller
             'items.*.quantity' => 'nullable|numeric',
             'items.*.price' => 'nullable|numeric',
             'items.*.total_amount' => 'nullable|numeric',
+            'items.*.code' => 'nullable|string|max:255',
+            'items.*.kashtre_excluded' => 'nullable|boolean',
+            'connected_business_id' => 'nullable|integer',
         ]);
 
         $insuranceCompanyId = (int) $validated['insurance_company_id'];
@@ -65,6 +71,8 @@ class InvoiceAuthorizationController extends Controller
         $deductibleRemaining = isset($validated['deductible_remaining']) ? (float) $validated['deductible_remaining'] : 0;
         $copayUsedThisPeriod = isset($validated['copay_used_this_period']) ? (float) $validated['copay_used_this_period'] : 0;
         $servicesCategory = $validated['services_category'] ?? null;
+        $connectedBusinessId = isset($validated['connected_business_id']) ? (int) $validated['connected_business_id'] : null;
+        $itemsPayload = $validated['items'] ?? [];
 
         // ── Look up policy ──
 
@@ -184,9 +192,124 @@ class InvoiceAuthorizationController extends Controller
             }
         }
 
+        // ── Exclusion checks (provider-level and client-level) ──
+
+        $excludedAmount = 0.0;
+        $excludedItemDetails = [];
+
+        // 1) Provider-level local exclusions (ConnectedCompanyServiceExclusion)
+        if ($connectedBusinessId) {
+            $connection = BusinessConnection::where('insurance_company_id', $insuranceCompanyId)
+                ->where('connected_business_id', $connectedBusinessId)
+                ->first();
+
+            if ($connection) {
+                $serviceExclusions = ConnectedCompanyServiceExclusion::where('insurance_company_id', $insuranceCompanyId)
+                    ->where('business_connection_id', $connection->id)
+                    ->where('is_active', true)
+                    ->get();
+
+                if ($serviceExclusions->isNotEmpty() && !empty($itemsPayload)) {
+                    $excludedCodes = $serviceExclusions->pluck('service_code')->filter()->unique()->values()->all();
+
+                    foreach ($itemsPayload as $item) {
+                        $code = $item['code'] ?? null;
+                        if (!$code || !in_array($code, $excludedCodes, true)) {
+                            continue;
+                        }
+
+                        $quantity = (float) ($item['quantity'] ?? 1);
+                        $price = (float) ($item['price'] ?? 0);
+                        $lineTotal = (float) ($item['total_amount'] ?? ($price * $quantity));
+
+                        $excludedAmount += $lineTotal;
+                        $excludedItemDetails[] = [
+                            'name' => $item['name'] ?? $code,
+                            'code' => $code,
+                            'amount' => $lineTotal,
+                            'reason_scope' => 'provider',
+                        ];
+                    }
+                }
+            }
+        }
+
+        // 2) Client-level local exclusions (ClientLocalExclusion) – match by item name
+        $client = $policy->principalMember;
+        if ($client && !empty($itemsPayload)) {
+            $clientLocalExclusions = ClientLocalExclusion::where('insurance_company_id', $insuranceCompanyId)
+                ->where('client_id', $client->id)
+                ->get();
+
+            if ($clientLocalExclusions->isNotEmpty()) {
+                // Collect all excluded item names from reasons (split by ';')
+                $nameSet = [];
+                foreach ($clientLocalExclusions as $cle) {
+                    $reason = trim((string) $cle->reason);
+                    if ($reason === '') {
+                        continue;
+                    }
+                    $parts = array_map('trim', explode(';', $reason));
+                    foreach ($parts as $part) {
+                        if ($part !== '') {
+                            $nameSet[$part] = true;
+                        }
+                    }
+                }
+
+                if (!empty($nameSet)) {
+                    $excludedNames = array_keys($nameSet);
+
+                    foreach ($itemsPayload as $item) {
+                        $name = trim((string) ($item['name'] ?? ''));
+                        if ($name === '' || !in_array($name, $excludedNames, true)) {
+                            continue;
+                        }
+
+                        $quantity = (float) ($item['quantity'] ?? 1);
+                        $price = (float) ($item['price'] ?? 0);
+                        $lineTotal = (float) ($item['total_amount'] ?? ($price * $quantity));
+
+                        $excludedAmount += $lineTotal;
+                        $excludedItemDetails[] = [
+                            'name' => $name,
+                            'code' => $item['code'] ?? null,
+                            'amount' => $lineTotal,
+                            'reason_scope' => 'client',
+                        ];
+                    }
+                }
+            }
+        }
+
+        // 3) Kashtre-side third-party exclusions (flagged as kashtre_excluded in payload)
+        if (!empty($itemsPayload)) {
+            foreach ($itemsPayload as $item) {
+                if (empty($item['kashtre_excluded'])) {
+                    continue;
+                }
+
+                $quantity = (float) ($item['quantity'] ?? 1);
+                $price = (float) ($item['price'] ?? 0);
+                $lineTotal = (float) ($item['total_amount'] ?? ($price * $quantity));
+
+                $excludedAmount += $lineTotal;
+                $excludedItemDetails[] = [
+                    'name' => $item['name'] ?? ($item['code'] ?? 'Excluded item'),
+                    'code' => $item['code'] ?? null,
+                    'amount' => $lineTotal,
+                    'reason_scope' => 'kashtre',
+                ];
+            }
+        }
+
+        // Cap excludedAmount at totalAmount to avoid negatives
+        $excludedAmount = min($excludedAmount, $totalAmount);
+
         // ── Financial split calculation (deductible / copay / coinsurance) ──
 
-        $approvedAmount = max(0.0, (float) $totalAmount);
+        // Only the non-excluded part can be covered by insurance
+        $approvedAmount = max(0.0, (float) $totalAmount - $excludedAmount);
 
         // If we have a policy benefit, cap the insurable amount at the remaining benefit
         $benefitCap = null;
@@ -236,8 +359,9 @@ class InvoiceAuthorizationController extends Controller
 
         $deductiblePortion = min($deductibleRaw, $remainingForClient);
 
-        $clientTotal = round($deductiblePortion + $copayPortion + $coinsurancePortion, 2);
-        $insuranceTotal = round(max(0, $approvedAmount - $clientTotal), 2);
+        $clientTotalCore = round($deductiblePortion + $copayPortion + $coinsurancePortion, 2);
+        $insuranceTotal = round(max(0, $approvedAmount - $clientTotalCore), 2);
+        $clientTotal = $clientTotalCore;
 
         // Cap insurance portion at the remaining category benefit
         $benefitExcess = 0;
@@ -248,6 +372,11 @@ class InvoiceAuthorizationController extends Controller
             $benefitWarnings[] = "Insurance portion capped at remaining benefit ({$benefitCap}). Client pays additional {$benefitExcess}.";
         }
 
+        // Add fully excluded items to client total (insurance never pays for these)
+        if ($excludedAmount > 0) {
+            $clientTotal = round($clientTotal + $excludedAmount, 2);
+        }
+
         $amountThatReducesDeductible = $deductiblePortion + $policy->calculateDeductibleContribution($copayPortion, $coinsurancePortion);
         $deductibleBefore = $effectiveDeductibleBefore;
         $deductibleAfter = max(0, $deductibleBefore - $amountThatReducesDeductible);
@@ -256,8 +385,9 @@ class InvoiceAuthorizationController extends Controller
             'deductible' => $deductiblePortion,
             'copay' => $copayPortion,
             'coinsurance' => $coinsurancePortion,
-            'excluded' => 0,
+            'excluded' => $excludedAmount,
             'benefit_excess' => $benefitExcess,
+            'excluded_items' => $excludedItemDetails,
         ];
 
         Log::info('[InsuranceAuth] Financial split calculated', [
@@ -279,7 +409,6 @@ class InvoiceAuthorizationController extends Controller
         ]);
 
         $authorizationReference = 'AUTH-' . strtoupper(Str::random(12));
-        $confirmationCode = strtoupper(Str::random(6));
 
         $recordStatus = match ($authorizationStatus) {
             'auto_approved' => 'completed',
@@ -297,7 +426,7 @@ class InvoiceAuthorizationController extends Controller
             'insurance_total' => $insuranceTotal,
             'breakdown' => $breakdown,
             'status' => $recordStatus,
-            'confirmation_code' => $confirmationCode,
+            'confirmation_code' => null,
             'authorization_reference' => $authorizationReference,
             'requested_at' => now(),
             'completed_at' => $authorizationStatus === 'auto_approved' ? now() : null,
@@ -319,6 +448,7 @@ class InvoiceAuthorizationController extends Controller
                 'coinsurance_contributes_to_deductible' => $policy->coinsuranceContributesToDeductible(),
                 'authorization_status' => $authorizationStatus,
                 'warnings' => $benefitWarnings,
+                'excluded_items' => $excludedItemDetails,
             ],
         ]);
 
@@ -411,7 +541,6 @@ class InvoiceAuthorizationController extends Controller
         $response = [
             'success' => true,
             'authorization_reference' => $authorizationReference,
-            'confirmation_code' => $confirmationCode,
             'authorization_status' => $authorizationStatus,
             'client_total' => $clientTotal,
             'insurance_total' => $insuranceTotal,

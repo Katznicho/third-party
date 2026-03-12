@@ -1808,28 +1808,26 @@
 
                         <hr class="border-slate-200">
 
-                        <!-- Invoice Clearing -->
-                        <div>
-                            <label for="invoice_clearing_trigger" class="block text-sm font-medium text-slate-700 mb-2">Invoice clearing trigger</label>
-                            <p class="text-xs text-slate-500 mb-2">When to treat an invoice as "cleared". This can be used for reporting and notifications.</p>
-                            <select name="invoice_clearing_trigger" id="invoice_clearing_trigger"
-                                    class="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">— Not set —</option>
-                                <option value="on_client_portion_paid" {{ old('invoice_clearing_trigger', $insuranceCompany->invoice_clearing_trigger ?? '') === 'on_client_portion_paid' ? 'selected' : '' }}>When client portion is paid</option>
-                                <option value="on_full_payment" {{ old('invoice_clearing_trigger', $insuranceCompany->invoice_clearing_trigger ?? '') === 'on_full_payment' ? 'selected' : '' }}>When full payment is received</option>
-                                <option value="on_fulfillment" {{ old('invoice_clearing_trigger', $insuranceCompany->invoice_clearing_trigger ?? '') === 'on_fulfillment' ? 'selected' : '' }}>When all items are fulfilled</option>
-                                <option value="manual" {{ old('invoice_clearing_trigger', $insuranceCompany->invoice_clearing_trigger ?? '') === 'manual' ? 'selected' : '' }}>Manual only</option>
-                            </select>
-                        </div>
-
                         <!-- Authorization validity -->
                         <div>
-                            <label for="authorization_valid_days" class="block text-sm font-medium text-slate-700 mb-2">Authorization validity (days)</label>
-                            <p class="text-xs text-slate-500 mb-2">Number of days an authorization is valid. Leave empty for no expiry.</p>
-                            <input type="number" name="authorization_valid_days" id="authorization_valid_days"
-                                   min="1" max="365" placeholder="e.g., 30"
-                                   value="{{ old('authorization_valid_days', $insuranceCompany->authorization_valid_days ?? '') }}"
-                                   class="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <label for="authorization_valid_days" class="block text-sm font-medium text-slate-700 mb-2">Authorization validity period</label>
+                            <p class="text-xs text-slate-500 mb-2">How long an authorization stays valid. Leave empty for no expiry.</p>
+                            <div class="flex items-center gap-3">
+                                <input type="number" name="authorization_valid_days" id="authorization_valid_days"
+                                       min="1" max="365" placeholder="e.g., 30"
+                                       value="{{ old('authorization_valid_days', $insuranceCompany->authorization_valid_days ?? '') }}"
+                                       class="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <select name="authorization_valid_unit" id="authorization_valid_unit"
+                                        class="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    @php
+                                        $validUnit = old('authorization_valid_unit', $insuranceCompany->authorization_valid_unit ?? 'days');
+                                    @endphp
+                                    <option value="minutes" {{ $validUnit === 'minutes' ? 'selected' : '' }}>Minutes</option>
+                                    <option value="hours" {{ $validUnit === 'hours' ? 'selected' : '' }}>Hours</option>
+                                    <option value="days" {{ $validUnit === 'days' ? 'selected' : '' }}>Days</option>
+                                </select>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">Example: 30 + Days = 30 days, 4 + Hours = 4 hours.</p>
                         </div>
 
                         <!-- Re-authorize if edited -->

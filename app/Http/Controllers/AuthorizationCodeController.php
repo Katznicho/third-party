@@ -22,13 +22,17 @@ class AuthorizationCodeController extends Controller
             ->orderByDesc('requested_at');
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $status = $request->status;
+            if ($status === 'rejected') {
+                $query->where('status', 'rejected');
+            } else {
+                $query->where('status', $status);
+            }
         }
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('authorization_reference', 'like', "%{$search}%")
-                    ->orWhere('confirmation_code', 'like', "%{$search}%")
                     ->orWhere('external_invoice_number', 'like', "%{$search}%")
                     ->orWhere('kashtre_invoice_id', 'like', "%{$search}%");
             });

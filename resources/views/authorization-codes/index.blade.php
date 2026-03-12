@@ -37,7 +37,7 @@
                     <option value="">All</option>
                     <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
                     <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
-                    <option value="failed" {{ request('status') === 'failed' ? 'selected' : '' }}>Failed</option>
+                    <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
                 </select>
             </div>
             <div class="flex items-end gap-2">
@@ -54,7 +54,6 @@
                 <thead class="bg-slate-50">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Authorization Reference</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Confirmation Code</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invoice #</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Kashtre Invoice ID</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Total (UGX)</th>
@@ -78,7 +77,6 @@
                         @endphp
                         <tr class="hover:bg-slate-50">
                             <td class="px-4 py-3 text-sm font-mono text-slate-900">{{ $auth->authorization_reference }}</td>
-                            <td class="px-4 py-3 text-sm font-mono font-semibold text-blue-700">{{ $auth->confirmation_code ?? '–' }}</td>
                             <td class="px-4 py-3 text-sm text-slate-700">{{ $auth->external_invoice_number ?? '–' }}</td>
                             <td class="px-4 py-3 text-sm text-slate-600">{{ $auth->kashtre_invoice_id ?? '–' }}</td>
                             <td class="px-4 py-3 text-sm text-right text-slate-900">{{ number_format($auth->total_amount ?? 0, 2) }}</td>

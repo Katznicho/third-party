@@ -29,19 +29,24 @@
     <!-- Service Providers -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         @if($connections->count() > 0)
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+            <div class="divide-y divide-slate-200">
                 @foreach($connections as $connection)
-                    <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 hover:shadow-md transition duration-150">
-                        <div class="flex items-center justify-between mb-2">
+                    <div class="p-6 flex items-center justify-between">
+                        <div>
                             <h3 class="text-lg font-semibold text-slate-900 truncate" title="{{ $connection->connected_business_name ?? 'Kashtre Business' }}">
                                 {{ $connection->connected_business_name ?? 'Kashtre Business' }}
                             </h3>
-                        </div>
-                        <div class="pt-2 border-t border-slate-200 flex items-center justify-between">
-                            <span class="text-xs text-slate-500">
+                            <p class="text-xs text-slate-500 mt-1">
                                 Connected {{ $connection->created_at->diffForHumans() }}
-                            </span>
-                            <a href="{{ route('third-party-vendors.show', $connection->connected_business_id ?? $connection->id) }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <a href="{{ route('connected-companies.show', $connection->id) }}"
+                               class="inline-flex items-center px-3 py-1.5 border border-slate-300 text-xs font-medium rounded-md text-slate-700 hover:bg-slate-50">
+                                View details
+                            </a>
+                            <a href="{{ route('third-party-vendors.show', $connection->connected_business_id ?? $connection->id) }}"
+                               class="text-xs font-medium text-blue-600 hover:text-blue-800">
                                 View payments →
                             </a>
                         </div>

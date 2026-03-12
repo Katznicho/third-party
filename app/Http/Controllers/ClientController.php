@@ -1218,11 +1218,11 @@ class ClientController extends Controller
     /**
      * Show client account statement
      */
-    public function accountStatement(Client $client)
+    public function accountStatement(Client $client, \App\Services\KashtreApiService $kashtreApi)
     {
         $user = auth()->user();
         $insuranceCompanyId = $user->insurance_company_id;
-        
+
         if (!$user->insuranceCompany) {
             return redirect()->route('dashboard')->with('error', 'You must be associated with an insurance company.');
         }
@@ -1241,6 +1241,51 @@ class ClientController extends Controller
         
         if (!$hasPolicy) {
             return redirect()->route('clients.index')->with('error', 'Client not found or you do not have access to this client.');
+        }
+
+        // Load any local exclusions configured for this client (for this insurer only)
+        $localExclusions = \App\Models\ClientLocalExclusion::where('client_id', $client->id)
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Build list of items that can be used as client-level exclusions.
+        // We reuse the same Kashtre items used on the connected companies exclusions screen.
+        $clientExclusionItems = collect();
+        $insuranceCompany = $user->insuranceCompany;
+
+        if ($insuranceCompany) {
+            $connections = $insuranceCompany->connectedCompanies;
+
+            foreach ($connections as $connection) {
+                $businessId = (int) $connection->connected_business_id;
+                if ($businessId <= 0) {
+                    continue;
+                }
+
+                $items = collect($kashtreApi->getItemsForBusiness($businessId));
+                if ($items->isEmpty()) {
+                    continue;
+                }
+
+                $clientExclusionItems = $clientExclusionItems->merge($items);
+            }
+
+            // Keep unique items by id if available, otherwise by name
+            if ($clientExclusionItems->isNotEmpty()) {
+                if ($clientExclusionItems->first() && array_key_exists('id', $clientExclusionItems->first())) {
+                    $clientExclusionItems = $clientExclusionItems->unique('id');
+                } else {
+                    $clientExclusionItems = $clientExclusionItems->unique('name');
+                }
+
+                $clientExclusionItems = $clientExclusionItems
+                    ->filter(function ($item) {
+                        return !empty($item['name'] ?? null);
+                    })
+                    ->sortBy('name')
+                    ->values();
+            }
         }
 
         // Get or create client account if it doesn't exist
@@ -1316,7 +1361,39 @@ class ClientController extends Controller
             'totalPaid',
             'totalBalance',
             'totalDebits',
-            'totalCredits'
+            'totalCredits',
+            'localExclusions',
+            'clientExclusionItems',
         ));
+    }
+
+    /**
+     * Store a local exclusion for a specific client (insurer-specific)
+     */
+    public function storeLocalExclusion(Request $request, Client $client)
+    {
+        $user = auth()->user();
+
+        if (!$user->insuranceCompany) {
+            return redirect()->route('clients.index')->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $validated = $request->validate([
+            'reasons' => ['required', 'array', 'min:1'],
+            'reasons.*' => ['required', 'string', 'max:255'],
+        ]);
+
+        // Combine multiple selected reasons into a single note for this client
+        $combinedReason = implode('; ', $validated['reasons']);
+
+        \App\Models\ClientLocalExclusion::create([
+            'insurance_company_id' => $user->insurance_company_id,
+            'client_id' => $client->id,
+            'reason' => $combinedReason,
+        ]);
+
+        return redirect()
+            ->route('clients.account-statement', $client)
+            ->with('success', 'Local exclusion for this client has been saved.');
     }
 }
