@@ -72,8 +72,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/invoices/{invoice}/generate-pdf', [\App\Http\Controllers\InvoiceController::class, 'generatePdf'])->name('invoices.generate-pdf');
     
     // Payments (custom routes first so they are not matched as payments/{payment})
-    Route::get('/payments/record-client-portion', [\App\Http\Controllers\PaymentController::class, 'recordClientPortionForm'])->name('payments.record-client-portion');
-    Route::post('/payments/record-client-portion', [\App\Http\Controllers\PaymentController::class, 'storeRecordClientPortion'])->name('payments.record-client-portion.store');
     Route::post('/payments/{payment}/store-tid', [\App\Http\Controllers\PaymentController::class, 'storeTid'])->name('payments.store-tid');
     Route::resource('payments', \App\Http\Controllers\PaymentController::class);
     Route::post('/payments/{payment}/mark-received', [\App\Http\Controllers\PaymentController::class, 'markReceived'])->name('payments.mark-received');
@@ -89,6 +87,9 @@ Route::middleware('auth')->group(function () {
     // Payment Responsibilities
     Route::resource('payment-responsibilities', \App\Http\Controllers\PaymentResponsibilityController::class);
     
+    // Roles & permissions
+    Route::resource('roles', \App\Http\Controllers\RoleController::class);
+
     // Service Providers
     Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
     Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');

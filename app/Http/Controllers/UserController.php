@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -28,7 +28,8 @@ class UserController extends Controller
      */
     public function create()
     {
-        return view('users.create');
+        $roles = Role::orderBy('name')->get();
+        return view('users.create', compact('roles'));
     }
 
     /**
@@ -40,19 +41,23 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|unique:users,username',
             'email' => 'required|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
+            'role_id' => 'nullable|exists:roles,id',
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
             'username' => $validated['username'],
             'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
             'insurance_company_id' => auth()->user()->insurance_company_id,
+            'role_id' => $validated['role_id'] ?? null,
         ]);
 
+        // Send password setup email
+        $token = app('auth.password.broker')->createToken($user);
+        $user->sendPasswordResetNotification($token);
+
         return redirect()->route('users.index')
-            ->with('success', 'User created successfully!');
+            ->with('success', 'User created successfully and password setup email sent.');
     }
 
     /**

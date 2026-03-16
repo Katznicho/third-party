@@ -11,9 +11,6 @@
             <h1 class="text-2xl font-bold text-slate-900">Payments</h1>
             <p class="text-slate-600 mt-1">Manage payments and receipts</p>
         </div>
-        <a href="{{ route('payments.record-client-portion') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
-            Record client portion collected
-        </a>
     </div>
 
     <!-- Payments Table -->
