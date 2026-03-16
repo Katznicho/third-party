@@ -7,11 +7,13 @@ use App\Models\Policy;
 use App\Models\PolicyBenefit;
 use App\Models\Plan;
 use App\Models\InsuranceCompany;
+use App\Models\PolicyDeductibleLedger;
 use App\Models\Payment;
 use App\Payments\YoAPI;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ClientController extends Controller
 {
@@ -1342,6 +1344,27 @@ class ClientController extends Controller
         $totalDebits = $transactions->where('type', 'debit')->sum('debit_amount');
         $totalCredits = $transactions->where('type', 'credit')->sum('credit_amount');
 
+        // Aggregate insurance authorization usage (deductible, co-pay, coinsurance, guarantees)
+        $policyIds = $client->policies()->where('insurance_company_id', $insuranceCompanyId)->pluck('id')->all();
+        $totalGuaranteed = 0;
+        $totalDeductibleUsed = 0;
+        $totalCopayUsed = 0;
+        $totalCoinsuranceUsed = 0;
+
+        if (!empty($policyIds)) {
+            $authorizations = \App\Models\InsuranceAuthorization::where('insurance_company_id', $insuranceCompanyId)
+                ->whereIn('policy_id', $policyIds)
+                ->get();
+
+            foreach ($authorizations as $auth) {
+                $breakdown = $auth->breakdown ?? [];
+                $totalGuaranteed += (float) ($auth->insurance_total ?? 0);
+                $totalDeductibleUsed += (float) ($breakdown['deductible'] ?? 0);
+                $totalCopayUsed += (float) ($breakdown['copay'] ?? 0);
+                $totalCoinsuranceUsed += (float) ($breakdown['coinsurance'] ?? 0);
+            }
+        }
+
         // Update account balances
         $account->update([
             'current_balance' => $totalCredits - $totalDebits,
@@ -1364,7 +1387,216 @@ class ClientController extends Controller
             'totalCredits',
             'localExclusions',
             'clientExclusionItems',
+            'totalGuaranteed',
+            'totalDeductibleUsed',
+            'totalCopayUsed',
+            'totalCoinsuranceUsed',
         ));
+    }
+
+    /**
+     * Show detailed guarantee (insurance portion) usage for a client.
+     */
+    public function guaranteeUsage(Client $client)
+    {
+        $user = auth()->user();
+        $insuranceCompanyId = $user->insurance_company_id;
+
+        if (!$user->insuranceCompany) {
+            return redirect()->route('dashboard')->with('error', 'You must be associated with an insurance company.');
+        }
+
+        // Ensure client belongs to this insurer
+        if (!$client->policies()->where('insurance_company_id', $insuranceCompanyId)->exists()) {
+            return redirect()->route('clients.index')->with('error', 'Client not found or you do not have access to this client.');
+        }
+
+        $policyIds = $client->policies()->where('insurance_company_id', $insuranceCompanyId)->pluck('id')->all();
+        $authorizations = collect();
+        $totalGuaranteed = 0;
+
+        if (!empty($policyIds)) {
+            $query = \App\Models\InsuranceAuthorization::where('insurance_company_id', $insuranceCompanyId)
+                ->whereIn('policy_id', $policyIds);
+
+            if ($search = request('search')) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('external_invoice_number', 'like', "%{$search}%")
+                        ->orWhere('status', 'like', "%{$search}%");
+                });
+            }
+
+            $authorizations = $query->orderByDesc('requested_at')->paginate(50)->withQueryString();
+            $totalGuaranteed = $authorizations->sum('insurance_total');
+        }
+
+        if (request('export') === 'pdf') {
+            $pdf = Pdf::loadView('clients.usage-guarantees', [
+                'client' => $client,
+                'authorizations' => $authorizations,
+                'totalGuaranteed' => $totalGuaranteed,
+                'isPdfExport' => true,
+            ])->setPaper('a4', 'portrait');
+
+            $fileName = 'authorized-guarantees-' . Str::slug($client->full_name ?? 'client') . '-' . now()->format('YmdHis') . '.pdf';
+
+            return $pdf->download($fileName);
+        }
+
+        return view('clients.usage-guarantees', [
+            'client' => $client,
+            'authorizations' => $authorizations,
+            'totalGuaranteed' => $totalGuaranteed,
+        ]);
+    }
+
+    /**
+     * Show detailed deductible usage for a client.
+     */
+    public function deductibleUsage(Client $client)
+    {
+        return $this->usageByMetric($client, 'deductible', 'clients.usage-deductible');
+    }
+
+    /**
+     * Show detailed co-pay usage for a client.
+     */
+    public function copayUsage(Client $client)
+    {
+        return $this->usageByMetric($client, 'copay', 'clients.usage-copay');
+    }
+
+    /**
+     * Show detailed coinsurance usage for a client.
+     */
+    public function coinsuranceUsage(Client $client)
+    {
+        return $this->usageByMetric($client, 'coinsurance', 'clients.usage-coinsurance');
+    }
+
+    /**
+     * Helper to render usage pages for deductible / copay / coinsurance.
+     */
+    protected function usageByMetric(Client $client, string $metric, string $view)
+    {
+        $user = auth()->user();
+        $insuranceCompanyId = $user->insurance_company_id;
+
+        if (!$user->insuranceCompany) {
+            return redirect()->route('dashboard')->with('error', 'You must be associated with an insurance company.');
+        }
+
+        // Ensure client belongs to this insurer
+        if (!$client->policies()->where('insurance_company_id', $insuranceCompanyId)->exists()) {
+            return redirect()->route('clients.index')->with('error', 'Client not found or you do not have access to this client.');
+        }
+
+        $policyIds = $client->policies()->where('insurance_company_id', $insuranceCompanyId)->pluck('id')->all();
+        $authorizations = collect();
+        $totalMetric = 0;
+
+        if (!empty($policyIds)) {
+            $allAuthsQuery = \App\Models\InsuranceAuthorization::where('insurance_company_id', $insuranceCompanyId)
+                ->whereIn('policy_id', $policyIds);
+
+            if ($search = request('search')) {
+                $allAuthsQuery->where(function ($q) use ($search) {
+                    $q->where('external_invoice_number', 'like', "%{$search}%");
+                });
+            }
+
+            $allAuths = $allAuthsQuery->orderByDesc('requested_at')->get();
+
+            $filtered = $allAuths->filter(function (\App\Models\InsuranceAuthorization $auth) use ($metric) {
+                $breakdown = $auth->breakdown ?? [];
+                return isset($breakdown[$metric]) && (float) $breakdown[$metric] > 0;
+            });
+
+            $totalMetric = $filtered->sum(function ($auth) use ($metric) {
+                $breakdown = $auth->breakdown ?? [];
+                return (float) ($breakdown[$metric] ?? 0);
+            });
+
+            // Paginate manually
+            $perPage = 50;
+            $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage() ?: 1;
+            $items = $filtered->forPage($page, $perPage)->values();
+
+            $authorizations = new \Illuminate\Pagination\LengthAwarePaginator(
+                $items,
+                $filtered->count(),
+                $perPage,
+                $page,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+        }
+
+        if (request('export') === 'pdf') {
+            $pdf = Pdf::loadView($view, [
+                'client' => $client,
+                'authorizations' => $authorizations,
+                'totalMetric' => $totalMetric,
+                'isPdfExport' => true,
+            ])->setPaper('a4', 'portrait');
+
+            $fileName = $metric . '-usage-' . Str::slug($client->full_name ?? 'client') . '-' . now()->format('YmdHis') . '.pdf';
+
+            return $pdf->download($fileName);
+        }
+
+        return view($view, [
+            'client' => $client,
+            'authorizations' => $authorizations,
+            'totalMetric' => $totalMetric,
+        ]);
+    }
+
+    /**
+     * Show deductible ledger movements for this specific client (per-insured view).
+     * Company-level ledger remains available via PolicyDeductibleLedgerController.
+     */
+    public function deductibleLedger(Client $client)
+    {
+        $user = auth()->user();
+        $insuranceCompany = $user->insuranceCompany;
+
+        if (!$insuranceCompany) {
+            return redirect()->route('dashboard')
+                ->with('error', 'You must be associated with an insurance company.');
+        }
+
+        // Ensure this client has policies with the current insurer
+        $policyIds = $client->policies()
+            ->where('insurance_company_id', $insuranceCompany->id)
+            ->pluck('id')
+            ->all();
+
+        if (empty($policyIds)) {
+            return redirect()->route('clients.account-statement', $client)
+                ->with('error', 'This client has no policies with your company.');
+        }
+
+        $query = PolicyDeductibleLedger::with(['policy'])
+            ->where('insurance_company_id', $insuranceCompany->id)
+            ->whereIn('policy_id', $policyIds)
+            ->orderByDesc('created_at');
+
+        if ($policyNumber = request('policy_number')) {
+            $query->whereHas('policy', function ($q) use ($policyNumber) {
+                $q->where('policy_number', 'like', '%' . $policyNumber . '%');
+            });
+        }
+
+        if ($invoiceNumber = request('invoice_number')) {
+            $query->where('external_invoice_number', 'like', '%' . $invoiceNumber . '%');
+        }
+
+        $ledgers = $query->paginate(20)->withQueryString();
+
+        return view('clients.deductible-ledger', [
+            'client' => $client,
+            'ledgers' => $ledgers,
+        ]);
     }
 
     /**

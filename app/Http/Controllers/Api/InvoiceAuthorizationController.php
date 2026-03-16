@@ -114,6 +114,48 @@ class InvoiceAuthorizationController extends Controller
                 'status' => $policy->status,
                 'grace_period_end' => $gracePeriodEnd?->toDateString(),
             ]);
+        } elseif ($policy->status === 'pending_payment' && !$isGracePeriod) {
+            Log::info('[InsuranceAuth] Grace period expired', [
+                'policy_id' => $policy->id,
+                'status' => $policy->status,
+                'grace_period_end' => $gracePeriodEnd?->toDateString(),
+                'now' => now()->toDateString(),
+                'stop_credit_after_grace' => $insuranceCompany->stop_credit_after_grace ?? false,
+            ]);
+        }
+
+        // If grace period has expired and insurer wants to stop credit, force client to pay everything
+        if (!$isGracePeriod && $policy->status === 'pending_payment' && ($insuranceCompany->stop_credit_after_grace ?? false)) {
+            Log::warning('[InsuranceAuth] Credit stopped after grace period — client pays full amount', [
+                'policy_id' => $policy->id,
+                'total_amount' => $totalAmount,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'authorization_reference' => 'AUTH-' . strtoupper(Str::random(12)),
+                'authorization_status' => 'auto_rejected',
+                'client_total' => (float) $totalAmount,
+                'insurance_total' => 0.0,
+                'breakdown' => [
+                    'deductible' => 0.0,
+                    'copay' => 0.0,
+                    'coinsurance' => 0.0,
+                    'excluded' => (float) $totalAmount,
+                    'benefit_excess' => 0.0,
+                    'excluded_items' => [],
+                ],
+                'policy_options' => [
+                    'has_deductible' => (bool) $policy->has_deductible,
+                    'deductible_amount' => $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : null,
+                    'copay_amount' => $policy->copay_amount ? (float) $policy->copay_amount : null,
+                    'copay_max_limit' => $policy->copay_max_limit,
+                    'coinsurance_percentage' => $policy->coinsurance_percentage ? (float) $policy->coinsurance_percentage : null,
+                ],
+                'warnings' => [
+                    'Premium grace period has expired. New invoices are not covered on credit; client must pay the full amount.',
+                ],
+            ]);
         }
 
         // ── Service category validation ──
@@ -432,6 +474,8 @@ class InvoiceAuthorizationController extends Controller
             'completed_at' => $authorizationStatus === 'auto_approved' ? now() : null,
             'metadata' => [
                 'items' => $validated['items'] ?? [],
+                'connected_business_id' => $connectedBusinessId,
+                'business_connection_id' => $connection->id ?? null,
                 'authorized_under_grace_period' => $isGracePeriod,
                 'grace_period_end' => $gracePeriodEnd?->toDateString(),
                 'services_category' => $servicesCategory,

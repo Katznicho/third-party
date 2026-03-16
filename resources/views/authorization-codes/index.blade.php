@@ -1,14 +1,24 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Authorization Codes')
-@section('page-title', 'Authorization Codes')
+@section('title', request('status') === 'rejected' ? 'Rejected items' : 'Authorization Codes')
+@section('page-title', request('status') === 'rejected' ? 'Rejected items' : 'Authorization Codes')
 
 @section('content')
 <div class="space-y-6">
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-slate-900">Authorization Codes</h1>
-            <p class="text-slate-600 mt-1">Invoice authorizations from Kashtre (third parties can track confirmation codes and references)</p>
+            <h1 class="text-2xl font-bold text-slate-900">
+                {{ request('status') === 'rejected' ? 'Rejected items' : 'Authorization Codes' }}
+            </h1>
+            @if(request('status') === 'rejected')
+                <p class="text-slate-600 mt-1">
+                    All transactions where the insurer rejected items or the entire invoice. Click into a row to see the rejected items.
+                </p>
+            @else
+                <p class="text-slate-600 mt-1">
+                    Invoice authorizations from Kashtre (third parties can track authorization references and financial splits).
+                </p>
+            @endif
         </div>
         <div class="text-sm text-slate-500">
             {{ $authorizations->total() }} authorization(s)
@@ -55,13 +65,15 @@
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Authorization Reference</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invoice #</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Kashtre Invoice ID</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Total (UGX)</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Client (UGX)</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Insurance (UGX)</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Deductible</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Co‑pay</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Co‑insurance</th>
+                        @if(request('status') === 'rejected')
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Rejected items</th>
+                        @endif
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Policy</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Requested</th>
@@ -78,7 +90,6 @@
                         <tr class="hover:bg-slate-50">
                             <td class="px-4 py-3 text-sm font-mono text-slate-900">{{ $auth->authorization_reference }}</td>
                             <td class="px-4 py-3 text-sm text-slate-700">{{ $auth->external_invoice_number ?? '–' }}</td>
-                            <td class="px-4 py-3 text-sm text-slate-600">{{ $auth->kashtre_invoice_id ?? '–' }}</td>
                             <td class="px-4 py-3 text-sm text-right text-slate-900">{{ number_format($auth->total_amount ?? 0, 2) }}</td>
                             <td class="px-4 py-3 text-sm text-right text-slate-900">{{ number_format($auth->client_total ?? 0, 2) }}</td>
                             <td class="px-4 py-3 text-sm text-right text-slate-900">{{ number_format($auth->insurance_total ?? 0, 2) }}</td>
@@ -91,6 +102,16 @@
                             <td class="px-4 py-3 text-sm text-right text-slate-700">
                                 UGX {{ number_format($breakdown['coinsurance'] ?? 0, 2) }}
                             </td>
+                            @if(request('status') === 'rejected')
+                                @php
+                                    $allItems = $meta['items'] ?? [];
+                                    $excludedItems = $meta['excluded_items'] ?? ($breakdown['excluded_items'] ?? []);
+                                    $rejectedCount = !empty($excludedItems) ? count($excludedItems) : count($allItems);
+                                @endphp
+                                <td class="px-4 py-3 text-sm text-right text-red-700 font-semibold">
+                                    {{ $rejectedCount }}
+                                </td>
+                            @endif
                             <td class="px-4 py-3 text-sm text-slate-700">{{ $auth->policy?->policy_number ?? '–' }}</td>
                             <td class="px-4 py-3">
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full

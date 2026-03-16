@@ -1845,6 +1845,24 @@
                             </label>
                         </div>
 
+                        <!-- Stop credit after grace period -->
+                        <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg mt-4">
+                            <div>
+                                <label class="text-sm font-medium text-red-900">Stop credit when grace period expires</label>
+                                <p class="text-xs text-red-700 mt-1">
+                                    When enabled, once the premium grace period ends, new invoices for this insurer's policies will not be covered on credit.
+                                    The full amount will be payable by the client.
+                                </p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="hidden" name="stop_credit_after_grace" value="0">
+                                <input type="checkbox" name="stop_credit_after_grace" value="1"
+                                    {{ old('stop_credit_after_grace', $insuranceCompany->stop_credit_after_grace ?? false) ? 'checked' : '' }}
+                                    class="sr-only peer">
+                                <div class="w-11 h-6 bg-red-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-red-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                            </label>
+                        </div>
+
                         <!-- Submit Button -->
                         <div class="flex justify-end">
                             <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">

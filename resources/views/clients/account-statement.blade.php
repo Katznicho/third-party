@@ -26,11 +26,11 @@
 
     <!-- Account Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <a href="{{ route('clients.usage.guarantees', $client) }}" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 block hover:bg-slate-50 transition">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-slate-600">Total Invoices</p>
-                    <p class="text-2xl font-bold text-slate-900 mt-1">UGX {{ number_format($totalInvoices, 2) }}</p>
+                    <p class="text-sm text-slate-600">Authorized transactions (guaranteed amounts)</p>
+                    <p class="text-2xl font-bold text-slate-900 mt-1">UGX {{ number_format($totalGuaranteed ?? $totalInvoices, 2) }}</p>
                 </div>
                 <div class="p-3 bg-blue-100 rounded-lg">
                     <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -38,7 +38,7 @@
                     </svg>
                 </div>
             </div>
-        </div>
+        </a>
 
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div class="flex items-center justify-between">
@@ -83,6 +83,49 @@
         </div>
     </div>
 
+    <!-- Policy usage summary cards -->
+    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a href="{{ route('clients.usage.deductible', $client) }}" class="bg-white rounded-xl shadow-sm border border-amber-200 p-6 block hover:bg-amber-50 transition">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-600">Deductible used</p>
+                    <p class="text-2xl font-bold text-amber-700 mt-1">UGX {{ number_format($totalDeductibleUsed ?? 0, 2) }}</p>
+                </div>
+                <div class="p-3 bg-amber-50 rounded-lg">
+                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </a>
+        <a href="{{ route('clients.usage.copay', $client) }}" class="bg-white rounded-xl shadow-sm border border-blue-200 p-6 block hover:bg-blue-50 transition">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-600">Co-pay collected</p>
+                    <p class="text-2xl font-bold text-blue-700 mt-1">UGX {{ number_format($totalCopayUsed ?? 0, 2) }}</p>
+                </div>
+                <div class="p-3 bg-blue-50 rounded-lg">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-7a9 9 0 100 18 9 9 0 000-18z"></path>
+                    </svg>
+                </div>
+            </div>
+        </a>
+        <a href="{{ route('clients.usage.coinsurance', $client) }}" class="bg-white rounded-xl shadow-sm border border-indigo-200 p-6 block hover:bg-indigo-50 transition">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-600">Co-insurance (client share)</p>
+                    <p class="text-2xl font-bold text-indigo-700 mt-1">UGX {{ number_format($totalCoinsuranceUsed ?? 0, 2) }}</p>
+                </div>
+                <div class="p-3 bg-indigo-50 rounded-lg">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582a2 2 0 011.789 1.106l1.171 2.342A2 2 0 0010.332 14H17"></path>
+                    </svg>
+                </div>
+            </div>
+        </a>
+    </div>
+
     <!-- Tabs Navigation -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="border-b border-slate-200">
@@ -100,6 +143,13 @@
                     class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                 >
                     Invoices
+                </button>
+                <button
+                    onclick="window.location.href='{{ route('clients.deductible-ledger', $client) }}'"
+                    id="account-tab-deductible-ledger"
+                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                >
+                    Deductible ledger
                 </button>
                 <button
                     onclick="switchAccountTab('local-exclusions')"

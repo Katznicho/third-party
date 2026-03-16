@@ -133,6 +133,22 @@
         </div>
     </div>
 
+    <!-- Financial card linking to independent page -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-900">Financial</h2>
+                <p class="text-xs text-slate-500 mt-1">
+                    View totals of guarantees, client portions and excluded amounts for this provider.
+                </p>
+            </div>
+            <a href="{{ route('connected-companies.financial', $connection->id) }}"
+               class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                Open financial summary
+            </a>
+        </div>
+    </div>
+
     <!-- Items available / excluded (two tabs) -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200">
         <div class="px-6 py-4 border-b border-slate-200">

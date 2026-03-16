@@ -60,6 +60,7 @@ class InsuranceCompany extends Model
         'payment_responsibility_collection',
         'payment_methods',
         'payment_grace_periods',
+        'stop_credit_after_grace',
         // Legacy fields (kept for backward compatibility)
         'enable_name_dob_verification',
         'enable_id_passport_verification',
@@ -106,6 +107,7 @@ class InsuranceCompany extends Model
             'require_reauthorize_if_edited' => 'boolean',
             'payment_methods' => 'array',
             'payment_grace_periods' => 'array',
+            'stop_credit_after_grace' => 'boolean',
         // Legacy fields (kept for backward compatibility)
             'enable_name_dob_verification' => 'boolean',
             'enable_id_passport_verification' => 'boolean',

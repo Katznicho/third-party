@@ -30,6 +30,11 @@ Route::middleware('auth')->group(function () {
     // Clients
     Route::resource('clients', \App\Http\Controllers\ClientController::class);
     Route::get('/clients/{client}/account-statement', [\App\Http\Controllers\ClientController::class, 'accountStatement'])->name('clients.account-statement');
+    Route::get('/clients/{client}/usage/guarantees', [\App\Http\Controllers\ClientController::class, 'guaranteeUsage'])->name('clients.usage.guarantees');
+    Route::get('/clients/{client}/usage/deductible', [\App\Http\Controllers\ClientController::class, 'deductibleUsage'])->name('clients.usage.deductible');
+    Route::get('/clients/{client}/usage/copay', [\App\Http\Controllers\ClientController::class, 'copayUsage'])->name('clients.usage.copay');
+    Route::get('/clients/{client}/usage/coinsurance', [\App\Http\Controllers\ClientController::class, 'coinsuranceUsage'])->name('clients.usage.coinsurance');
+    Route::get('/clients/{client}/deductible-ledger', [\App\Http\Controllers\ClientController::class, 'deductibleLedger'])->name('clients.deductible-ledger');
     Route::post('/clients/{client}/local-exclusions', [\App\Http\Controllers\ClientController::class, 'storeLocalExclusion'])->name('clients.local-exclusions.store');
     Route::post('/clients/{client}/check-mobile-money-payments', [\App\Http\Controllers\ClientController::class, 'checkMobileMoneyPayments'])->name('clients.check-mobile-money-payments');
     Route::get('/clients/{client}/pay-premium', [\App\Http\Controllers\PremiumPaymentController::class, 'showPayPremium'])->name('clients.pay-premium');
@@ -87,6 +92,7 @@ Route::middleware('auth')->group(function () {
     // Service Providers
     Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
     Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');
+    Route::get('/connected-companies/{connectionId}/financial', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financial'])->name('connected-companies.financial');
     Route::post('/connected-companies/{connectionId}/local-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeLocalExclusion'])->name('connected-companies.local-exclusions.store');
     
     // Vendor Code Email

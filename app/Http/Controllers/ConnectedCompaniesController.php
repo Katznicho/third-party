@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\ConnectedCompanyServiceExclusion;
 use App\Models\BusinessConnection;
+use App\Models\InsuranceAuthorization;
 use App\Services\KashtreApiService;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -137,6 +138,73 @@ class ConnectedCompaniesController extends Controller
             'excludedItems' => $excludedItems,
             'localExclusions' => $localExclusions,
             'items' => $paginatedItems,
+        ]);
+    }
+
+    /**
+     * Financial summary page for a specific connected company (provider).
+     */
+    public function financial(Request $request, int $connectionId)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+
+        if (!$insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        /** @var BusinessConnection|null $connection */
+        $connection = $insuranceCompany->connectedCompanies()
+            ->with('connectedBusiness')
+            ->findOrFail($connectionId);
+
+        $kashtreBusinessId = (int) $connection->connected_business_id;
+
+        $query = InsuranceAuthorization::where('insurance_company_id', $insuranceCompany->id);
+
+        if ($kashtreBusinessId > 0) {
+            $query->where('metadata->connected_business_id', $kashtreBusinessId);
+        }
+
+        if ($request->filled('invoice_number')) {
+            $invoice = $request->get('invoice_number');
+            $query->where('external_invoice_number', 'like', '%' . $invoice . '%');
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->get('status'));
+        }
+
+        if ($request->filled('from')) {
+            $query->whereDate('requested_at', '>=', $request->get('from'));
+        }
+
+        if ($request->filled('to')) {
+            $query->whereDate('requested_at', '<=', $request->get('to'));
+        }
+
+        $authorizations = $query->orderByDesc('requested_at')->paginate(25)->withQueryString();
+
+        $totalApproved = 0.0;
+        $totalGuaranteed = 0.0;
+        $totalClientPortion = 0.0;
+        $totalExcluded = 0.0;
+
+        foreach ($authorizations as $auth) {
+            $breakdown = $auth->breakdown ?? [];
+            $totalApproved += (float) ($auth->total_amount ?? 0);
+            $totalGuaranteed += (float) ($auth->insurance_total ?? 0);
+            $totalClientPortion += (float) ($auth->client_total ?? 0);
+            $totalExcluded += (float) ($breakdown['excluded'] ?? 0);
+        }
+
+        return view('connected-companies.financial', [
+            'insuranceCompany' => $insuranceCompany,
+            'connection' => $connection,
+            'authorizations' => $authorizations,
+            'totalApproved' => $totalApproved,
+            'totalGuaranteed' => $totalGuaranteed,
+            'totalClientPortion' => $totalClientPortion,
+            'totalExcluded' => $totalExcluded,
         ]);
     }
 

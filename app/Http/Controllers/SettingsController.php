@@ -240,6 +240,7 @@ class SettingsController extends Controller
             'invoice_clearing_trigger' => 'nullable|string|in:on_client_portion_paid,on_full_payment,on_fulfillment,manual',
             'authorization_valid_days' => 'nullable|integer|min:1|max:365',
             'authorization_valid_unit' => 'nullable|string|in:minutes,hours,days',
+            'stop_credit_after_grace' => 'nullable|boolean',
             'require_reauthorize_if_edited' => 'nullable|boolean',
         ]);
 
@@ -257,6 +258,7 @@ class SettingsController extends Controller
                 'authorization_valid_days' => $validated['authorization_valid_days'] ?? null,
                 'authorization_valid_unit' => $validated['authorization_valid_unit'] ?? 'days',
                 'require_reauthorize_if_edited' => $request->boolean('require_reauthorize_if_edited', false),
+                'stop_credit_after_grace' => $request->boolean('stop_credit_after_grace', false),
             ]);
 
             PreAuthorizationApprover::where('insurance_company_id', $insuranceCompany->id)->delete();
