@@ -9,11 +9,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('insurance_companies', function (Blueprint $table) {
-            if (!Schema::hasColumn('insurance_companies', 'authorization_valid_unit')) {
-                $table->string('authorization_valid_unit', 16)
-                    ->nullable()
-                    ->after('authorization_valid_days');
-            }
             if (!Schema::hasColumn('insurance_companies', 'stop_credit_after_grace_behavior')) {
                 $table->string('stop_credit_after_grace_behavior', 32)
                     ->nullable()
@@ -25,9 +20,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('insurance_companies', function (Blueprint $table) {
-            if (Schema::hasColumn('insurance_companies', 'authorization_valid_unit')) {
-                $table->dropColumn('authorization_valid_unit');
-            }
             if (Schema::hasColumn('insurance_companies', 'stop_credit_after_grace_behavior')) {
                 $table->dropColumn('stop_credit_after_grace_behavior');
             }

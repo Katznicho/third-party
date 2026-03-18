@@ -35,7 +35,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/clients/{client}/usage/copay', [\App\Http\Controllers\ClientController::class, 'copayUsage'])->name('clients.usage.copay');
     Route::get('/clients/{client}/usage/coinsurance', [\App\Http\Controllers\ClientController::class, 'coinsuranceUsage'])->name('clients.usage.coinsurance');
     Route::get('/clients/{client}/deductible-ledger', [\App\Http\Controllers\ClientController::class, 'deductibleLedger'])->name('clients.deductible-ledger');
-    Route::post('/clients/{client}/local-exclusions', [\App\Http\Controllers\ClientController::class, 'storeLocalExclusion'])->name('clients.local-exclusions.store');
     Route::post('/clients/{client}/check-mobile-money-payments', [\App\Http\Controllers\ClientController::class, 'checkMobileMoneyPayments'])->name('clients.check-mobile-money-payments');
     Route::get('/clients/{client}/pay-premium', [\App\Http\Controllers\PremiumPaymentController::class, 'showPayPremium'])->name('clients.pay-premium');
     Route::post('/clients/{client}/pay-premium', [\App\Http\Controllers\PremiumPaymentController::class, 'processPayPremium'])->name('clients.pay-premium.process');

@@ -1846,21 +1846,40 @@
                         </div>
 
                         <!-- Stop credit after grace period -->
-                        <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg mt-4">
-                            <div>
-                                <label class="text-sm font-medium text-red-900">Stop credit when grace period expires</label>
-                                <p class="text-xs text-red-700 mt-1">
-                                    When enabled, once the premium grace period ends, new invoices for this insurer's policies will not be covered on credit.
-                                    The full amount will be payable by the client.
+                        <div class="p-4 bg-red-50 rounded-lg mt-4">
+                            <label class="text-sm font-medium text-red-900 block">
+                                Stop credit when grace period expires
+                            </label>
+                            <p class="text-xs text-red-700 mt-1">
+                                Once the premium grace period ends, choose what should happen to new invoices for this insurer's policies.
+                            </p>
+
+                            <div class="mt-3 max-w-md">
+                                <label for="stop_credit_after_grace_behavior" class="block text-xs font-medium text-red-900 mb-1">
+                                    Behavior when grace period has expired
+                                </label>
+                                @php
+                                    $behavior = old('stop_credit_after_grace_behavior', $insuranceCompany->stop_credit_after_grace_behavior ?? 'client_pays_full');
+                                @endphp
+                                <select
+                                    name="stop_credit_after_grace_behavior"
+                                    id="stop_credit_after_grace_behavior"
+                                    class="w-full px-3 py-2 border border-red-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                                >
+                                    <option value="client_pays_full" {{ $behavior === 'client_pays_full' ? 'selected' : '' }}>
+                                        Client pays full amount (no credit)
+                                    </option>
+                                    <option value="manual_review" {{ $behavior === 'manual_review' ? 'selected' : '' }}>
+                                        Send for manual review
+                                    </option>
+                                    <option value="reject_invoice" {{ $behavior === 'reject_invoice' ? 'selected' : '' }}>
+                                        Reject invoice (no cover)
+                                    </option>
+                                </select>
+                                <p class="text-[11px] text-red-700 mt-1">
+                                    This only applies once the policy grace period has expired. While grace is active, normal authorization rules apply.
                                 </p>
                             </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="hidden" name="stop_credit_after_grace" value="0">
-                                <input type="checkbox" name="stop_credit_after_grace" value="1"
-                                    {{ old('stop_credit_after_grace', $insuranceCompany->stop_credit_after_grace ?? false) ? 'checked' : '' }}
-                                    class="sr-only peer">
-                                <div class="w-11 h-6 bg-red-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-red-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                            </label>
                         </div>
 
                         <!-- Submit Button -->
@@ -1872,4 +1891,5 @@
                     </form>
                 </div>
             </div>
+
 @endsection

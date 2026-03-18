@@ -151,13 +151,6 @@
                 >
                     Deductible ledger
                 </button>
-                <button
-                    onclick="switchAccountTab('local-exclusions')"
-                    id="account-tab-local-exclusions"
-                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                >
-                    Local exclusions
-                </button>
             </nav>
         </div>
 
@@ -322,76 +315,6 @@
                 @endif
             </div>
 
-            <!-- Local Exclusions Tab -->
-            <div id="account-content-local-exclusions" class="account-tab-content" style="display: none;">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-amber-200 p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <div>
-                                <h2 class="text-lg font-semibold text-slate-900">Local exclusions</h2>
-                                <p class="text-sm text-slate-600 mt-1">
-                                    These exclusions apply only to this client here.
-                                </p>
-                            </div>
-                        </div>
-
-                        @if(isset($localExclusions) && $localExclusions->count() > 0)
-                            <ul class="divide-y divide-slate-200">
-                                @foreach($localExclusions as $exclusion)
-                                    <li class="py-3">
-                                        <p class="text-sm text-slate-900">
-                                            {{ $exclusion->reason ?? 'Local exclusion' }}
-                                        </p>
-                                        <p class="text-xs text-slate-500 mt-1">
-                                            Added {{ $exclusion->created_at?->format('M d, Y H:i') ?? 'N/A' }}
-                                        </p>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p class="text-sm text-slate-500">No local exclusions for this client yet.</p>
-                        @endif
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h3 class="text-base font-semibold text-slate-900">Add local exclusions</h3>
-                        <p class="text-xs text-slate-500 mt-1">
-                            Select one or more notes that apply to this client.
-                        </p>
-
-                        <form action="{{ route('clients.local-exclusions.store', $client) }}" method="POST" class="mt-4 space-y-4">
-                            @csrf
-
-                            <div>
-                                <label for="reasons" class="block text-sm font-medium text-slate-700">Exclusions</label>
-                                <select
-                                    id="reasons"
-                                    name="reasons[]"
-                                    multiple
-                                    class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm client-exclusions-select"
-                                >
-                                    @if(isset($clientExclusionItems) && $clientExclusionItems->count() > 0)
-                                        @foreach($clientExclusionItems as $item)
-                                            <option value="{{ $item['name'] ?? '' }}">
-                                                {{ $item['name'] ?? '' }}
-                                            </option>
-                                        @endforeach
-                                    @endif
-                                </select>
-                                @error('reasons')
-                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div class="flex justify-end">
-                                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">
-                                    Save exclusions
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>

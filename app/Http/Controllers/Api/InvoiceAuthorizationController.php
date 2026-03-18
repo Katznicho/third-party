@@ -12,7 +12,7 @@ use App\Models\PreAuthorization;
 use App\Models\AuthorizationAuditLog;
 use App\Models\BusinessConnection;
 use App\Models\ConnectedCompanyServiceExclusion;
-use App\Models\ClientLocalExclusion;
+use App\Models\MedicalQuestionResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -124,13 +124,73 @@ class InvoiceAuthorizationController extends Controller
             ]);
         }
 
-        // If grace period has expired and insurer wants to stop credit, force client to pay everything
+        // If grace period has expired and insurer configured a behavior, apply it
         if (!$isGracePeriod && $policy->status === 'pending_payment' && ($insuranceCompany->stop_credit_after_grace ?? false)) {
-            Log::warning('[InsuranceAuth] Credit stopped after grace period — client pays full amount', [
+            $behavior = $insuranceCompany->stop_credit_after_grace_behavior ?? 'client_pays_full';
+
+            Log::warning('[InsuranceAuth] Grace period expired — applying configured behavior', [
                 'policy_id' => $policy->id,
                 'total_amount' => $totalAmount,
+                'behavior' => $behavior,
             ]);
 
+            if ($behavior === 'manual_review') {
+                return response()->json([
+                    'success' => true,
+                    'authorization_reference' => 'AUTH-' . strtoupper(Str::random(12)),
+                    'authorization_status' => 'pending_review',
+                    'client_total' => 0.0,
+                    'insurance_total' => 0.0,
+                    'breakdown' => [
+                        'deductible' => 0.0,
+                        'copay' => 0.0,
+                        'coinsurance' => 0.0,
+                        'excluded' => 0.0,
+                        'benefit_excess' => 0.0,
+                        'excluded_items' => [],
+                    ],
+                    'policy_options' => [
+                        'has_deductible' => (bool) $policy->has_deductible,
+                        'deductible_amount' => $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : null,
+                        'copay_amount' => $policy->copay_amount ? (float) $policy->copay_amount : null,
+                        'copay_max_limit' => $policy->copay_max_limit,
+                        'coinsurance_percentage' => $policy->coinsurance_percentage ? (float) $policy->coinsurance_percentage : null,
+                    ],
+                    'warnings' => [
+                        'Premium grace period has expired. This invoice has been sent for manual review.',
+                    ],
+                ]);
+            }
+
+            if ($behavior === 'reject_invoice') {
+                return response()->json([
+                    'success' => true,
+                    'authorization_reference' => 'AUTH-' . strtoupper(Str::random(12)),
+                    'authorization_status' => 'auto_rejected',
+                    'client_total' => 0.0,
+                    'insurance_total' => 0.0,
+                    'breakdown' => [
+                        'deductible' => 0.0,
+                        'copay' => 0.0,
+                        'coinsurance' => 0.0,
+                        'excluded' => (float) $totalAmount,
+                        'benefit_excess' => 0.0,
+                        'excluded_items' => [],
+                    ],
+                    'policy_options' => [
+                        'has_deductible' => (bool) $policy->has_deductible,
+                        'deductible_amount' => $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : null,
+                        'copay_amount' => $policy->copay_amount ? (float) $policy->copay_amount : null,
+                        'copay_max_limit' => $policy->copay_max_limit,
+                        'coinsurance_percentage' => $policy->coinsurance_percentage ? (float) $policy->coinsurance_percentage : null,
+                    ],
+                    'warnings' => [
+                        'Premium grace period has expired. This invoice has been rejected and is not covered by insurance.',
+                    ],
+                ]);
+            }
+
+            // Default / client_pays_full: client covers entire invoice, insurance total is zero
             return response()->json([
                 'success' => true,
                 'authorization_reference' => 'AUTH-' . strtoupper(Str::random(12)),
@@ -234,7 +294,7 @@ class InvoiceAuthorizationController extends Controller
             }
         }
 
-        // ── Exclusion checks (provider-level and client-level) ──
+        // ── Exclusion checks (provider-level, client-level via medical questions, and Kashtre-side) ──
 
         $excludedAmount = 0.0;
         $excludedItemDetails = [];
@@ -276,50 +336,66 @@ class InvoiceAuthorizationController extends Controller
             }
         }
 
-        // 2) Client-level local exclusions (ClientLocalExclusion) – match by item name
+        // 2) Client-level exclusions derived from medical questions (exclusion keywords)
         $client = $policy->principalMember;
         if ($client && !empty($itemsPayload)) {
-            $clientLocalExclusions = ClientLocalExclusion::where('insurance_company_id', $insuranceCompanyId)
+            $triggeredResponses = MedicalQuestionResponse::with('question')
                 ->where('client_id', $client->id)
+                ->where('triggers_exclusion', true)
                 ->get();
 
-            if ($clientLocalExclusions->isNotEmpty()) {
-                // Collect all excluded item names from reasons (split by ';')
-                $nameSet = [];
-                foreach ($clientLocalExclusions as $cle) {
-                    $reason = trim((string) $cle->reason);
-                    if ($reason === '') {
-                        continue;
-                    }
-                    $parts = array_map('trim', explode(';', $reason));
-                    foreach ($parts as $part) {
-                        if ($part !== '') {
-                            $nameSet[$part] = true;
-                        }
+            $keywordSet = [];
+            foreach ($triggeredResponses as $responseModel) {
+                $question = $responseModel->question;
+                if (!$question || !$question->has_exclusion_list) {
+                    continue;
+                }
+                // Ensure this question belongs to the same insurer
+                if ((int) $question->insurance_company_id !== $insuranceCompanyId) {
+                    continue;
+                }
+                $keywords = $question->exclusion_keywords ?? [];
+                foreach ($keywords as $kw) {
+                    $kw = trim((string) $kw);
+                    if ($kw !== '') {
+                        $keywordSet[strtolower($kw)] = true;
                     }
                 }
+            }
 
-                if (!empty($nameSet)) {
-                    $excludedNames = array_keys($nameSet);
+            if (!empty($keywordSet)) {
+                $keywords = array_keys($keywordSet);
 
-                    foreach ($itemsPayload as $item) {
-                        $name = trim((string) ($item['name'] ?? ''));
-                        if ($name === '' || !in_array($name, $excludedNames, true)) {
-                            continue;
-                        }
-
-                        $quantity = (float) ($item['quantity'] ?? 1);
-                        $price = (float) ($item['price'] ?? 0);
-                        $lineTotal = (float) ($item['total_amount'] ?? ($price * $quantity));
-
-                        $excludedAmount += $lineTotal;
-                        $excludedItemDetails[] = [
-                            'name' => $name,
-                            'code' => $item['code'] ?? null,
-                            'amount' => $lineTotal,
-                            'reason_scope' => 'client',
-                        ];
+                foreach ($itemsPayload as $item) {
+                    $name = trim((string) ($item['name'] ?? ''));
+                    if ($name === '') {
+                        continue;
                     }
+
+                    $nameLower = strtolower($name);
+                    $matchesKeyword = false;
+                    foreach ($keywords as $kw) {
+                        if (stripos($nameLower, $kw) !== false) {
+                            $matchesKeyword = true;
+                            break;
+                        }
+                    }
+
+                    if (!$matchesKeyword) {
+                        continue;
+                    }
+
+                    $quantity = (float) ($item['quantity'] ?? 1);
+                    $price = (float) ($item['price'] ?? 0);
+                    $lineTotal = (float) ($item['total_amount'] ?? ($price * $quantity));
+
+                    $excludedAmount += $lineTotal;
+                    $excludedItemDetails[] = [
+                        'name' => $name,
+                        'code' => $item['code'] ?? null,
+                        'amount' => $lineTotal,
+                        'reason_scope' => 'client_medical',
+                    ];
                 }
             }
         }

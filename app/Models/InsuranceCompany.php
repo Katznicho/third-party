@@ -53,7 +53,6 @@ class InsuranceCompany extends Model
         'require_manual_review_above_amount',
         'manual_review_threshold_amount',
         'invoice_authorization_levels',
-        'invoice_clearing_trigger',
         'authorization_valid_days',
         'authorization_valid_unit',
         'require_reauthorize_if_edited',
@@ -61,6 +60,7 @@ class InsuranceCompany extends Model
         'payment_methods',
         'payment_grace_periods',
         'stop_credit_after_grace',
+        'stop_credit_after_grace_behavior',
         // Legacy fields (kept for backward compatibility)
         'enable_name_dob_verification',
         'enable_id_passport_verification',
@@ -108,6 +108,7 @@ class InsuranceCompany extends Model
             'payment_methods' => 'array',
             'payment_grace_periods' => 'array',
             'stop_credit_after_grace' => 'boolean',
+            'stop_credit_after_grace_behavior' => 'string',
         // Legacy fields (kept for backward compatibility)
             'enable_name_dob_verification' => 'boolean',
             'enable_id_passport_verification' => 'boolean',
