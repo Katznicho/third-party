@@ -82,18 +82,6 @@
                 </div>
 
                 <div class="border-t border-slate-100 pt-3 space-y-3">
-                    <p>
-                        <span class="font-semibold text-slate-700">How client total is built:</span>
-                        <span class="text-slate-800">
-                            Client total = Deductible ({{ number_format($breakdown['deductible'] ?? 0, 2) }})
-                            @if(($breakdown['copay'] ?? 0) > 0)
-                                + Co‑pay ({{ number_format($breakdown['copay'] ?? 0, 2) }})
-                            @endif
-                            @if(($breakdown['coinsurance'] ?? 0) > 0)
-                                + Co‑insurance ({{ number_format($breakdown['coinsurance'] ?? 0, 2) }})
-                            @endif
-                        </span>
-                    </p>
                     @php
                         $amountReduces = $metadata['amount_that_reduces_deductible'] ?? null;
                         $dedBefore = $metadata['deductible_remaining_before'] ?? null;
@@ -108,37 +96,7 @@
                         $outstandingInvoice  = $remainingAfterCoins; // A' = approved - co-pay - co-ins
                         $v                   = $dedBefore !== null ? ($outstandingInvoice - $dedBefore) : null;
                     @endphp
-                    @if($amountReduces !== null)
-                        <div class="space-y-1">
-                            <p>
-                                <span class="font-semibold text-slate-700">Amount that reduces deductible:</span>
-                                <span class="text-blue-700 font-semibold">
-                                    UGX {{ number_format($amountReduces, 2) }}
-                                </span>
-                            </p>
-                            <p class="text-xs text-slate-500">
-                                This equals the deductible portion for this visit
-                                @if(!empty($metadata['copay_contributes_to_deductible']) && ($breakdown['copay'] ?? 0) > 0)
-                                    + co‑pay
-                                @endif
-                                @if(!empty($metadata['coinsurance_contributes_to_deductible']) && ($breakdown['coinsurance'] ?? 0) > 0)
-                                    + co‑insurance
-                                @endif
-                                for all parts configured to contribute to the deductible.
-                            </p>
-                        </div>
-                    @endif
-
-                    @if($dedBefore !== null && $dedAfter !== null)
-                        <div class="border border-slate-100 rounded-md p-3 bg-slate-50 space-y-1">
-                            <p class="text-xs font-semibold text-slate-700 uppercase">Deductible tracking</p>
-                            <p class="text-xs text-slate-600">
-                                Started with <strong>UGX {{ number_format($dedBefore, 2) }}</strong>,
-                                reduced by <strong>UGX {{ number_format($amountReduces ?? 0, 2) }}</strong>,
-                                leaving <strong>UGX {{ number_format($dedAfter, 2) }}</strong> outstanding.
-                            </p>
-                        </div>
-                    @endif
+                    {{-- Deductible helper explanation removed --}}
 
                     <div class="border border-slate-100 rounded-md p-3 bg-slate-50 space-y-1">
                         <p class="text-xs font-semibold text-slate-700 uppercase">Allocation of client share from approved amount</p>
@@ -206,45 +164,43 @@
                         $rejectedItems = $authorization->rejectedItems ?? collect();
                     @endphp
 
-                    @if($authorization->status === 'rejected')
+                    @if($rejectedItems->count() > 0)
                         <div class="border border-red-100 rounded-md p-3 bg-red-50/40 space-y-2">
                             <p class="text-xs font-semibold text-red-700 uppercase">Rejected items for this transaction</p>
-                            @if($rejectedItems->count() > 0)
-                                <p class="text-xs text-red-700">
-                                    These items were marked as not covered (local exclusions or Kashtre exclusions) and are fully payable by the client.
-                                </p>
-                                <div class="overflow-x-auto">
-                                    <table class="min-w-full text-xs divide-y divide-red-100">
-                                        <thead class="bg-red-50">
+                            <p class="text-xs text-red-700">
+                                These items were marked as not covered and are fully payable by the client.
+                            </p>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-xs divide-y divide-red-100">
+                                    <thead class="bg-red-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left font-semibold text-red-800">Item</th>
+                                            <th class="px-3 py-2 text-left font-semibold text-red-800">Code</th>
+                                            <th class="px-3 py-2 text-right font-semibold text-red-800">Amount (UGX)</th>
+                                            <th class="px-3 py-2 text-left font-semibold text-red-800">Scope</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-red-100">
+                                        @foreach($rejectedItems as $item)
                                             <tr>
-                                                <th class="px-3 py-2 text-left font-semibold text-red-800">Item</th>
-                                                <th class="px-3 py-2 text-left font-semibold text-red-800">Code</th>
-                                                <th class="px-3 py-2 text-right font-semibold text-red-800">Amount (UGX)</th>
-                                                <th class="px-3 py-2 text-left font-semibold text-red-800">Scope</th>
+                                                <td class="px-3 py-2 text-slate-800">{{ $item->item_name ?? '—' }}</td>
+                                                <td class="px-3 py-2 text-slate-600">{{ $item->item_code ?? '—' }}</td>
+                                                <td class="px-3 py-2 text-right text-red-700">
+                                                    UGX {{ number_format((float) ($item->amount ?? 0), 2) }}
+                                                </td>
+                                                <td class="px-3 py-2 text-slate-600 text-[11px]">
+                                                    {{ $item->reason_scope ?? 'Not covered' }}
+                                                </td>
                                             </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-red-100">
-                                            @foreach($rejectedItems as $item)
-                                                <tr>
-                                                    <td class="px-3 py-2 text-slate-800">{{ $item->item_name ?? '—' }}</td>
-                                                    <td class="px-3 py-2 text-slate-600">{{ $item->item_code ?? '—' }}</td>
-                                                    <td class="px-3 py-2 text-right text-red-700">
-                                                        UGX {{ number_format((float) ($item->amount ?? 0), 2) }}
-                                                    </td>
-                                                    <td class="px-3 py-2 text-slate-600 text-[11px]">
-                                                        {{ $item->reason_scope ?? 'Not covered' }}
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @else
-                                <p class="text-xs text-slate-600">
-                                    This transaction was rejected, but no rejected item lines were saved.
-                                </p>
-                            @endif
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+                    @else
+                        <p class="text-xs text-slate-600">
+                            This transaction has no rejected/excluded item lines saved.
+                        </p>
                     @endif
                 </div>
             </div>

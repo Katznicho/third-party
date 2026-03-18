@@ -154,33 +154,7 @@
                                 </a>
                             </td>
                         </tr>
-                        @if(!empty($meta['amount_that_reduces_deductible']))
-                            <tr class="bg-slate-50/60">
-                                <td colspan="15" class="px-4 py-2 text-xs text-slate-600">
-                                    <span class="font-semibold">How we got here:</span>
-                                    Client total ({{ number_format($auth->client_total ?? 0, 2) }}) =
-                                    Deductible {{ number_format($breakdown['deductible'] ?? 0, 2) }}
-                                    @if(($breakdown['copay'] ?? 0) > 0)
-                                        + Co‑pay {{ number_format($breakdown['copay'] ?? 0, 2) }}
-                                    @endif
-                                    @if(($breakdown['coinsurance'] ?? 0) > 0)
-                                        + Co‑insurance {{ number_format($breakdown['coinsurance'] ?? 0, 2) }}
-                                    @endif
-                                    . Amount that reduces deductible:
-                                    <span class="font-semibold">
-                                        UGX {{ number_format($meta['amount_that_reduces_deductible'], 2) }}
-                                    </span>
-                                    (deductible this visit
-                                    @if(!empty($meta['copay_contributes_to_deductible']) && ($breakdown['copay'] ?? 0) > 0)
-                                        + co‑pay
-                                    @endif
-                                    @if(!empty($meta['coinsurance_contributes_to_deductible']) && ($breakdown['coinsurance'] ?? 0) > 0)
-                                        + co‑insurance
-                                    @endif
-                                    ).
-                                </td>
-                            </tr>
-                        @endif
+                        {{-- Intentionally removed "How we got here" helper row --}}
                     @empty
                         <tr>
                             <td colspan="15" class="px-4 py-8 text-center text-slate-500">No authorization codes found.</td>

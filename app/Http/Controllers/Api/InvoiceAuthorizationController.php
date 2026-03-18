@@ -611,8 +611,8 @@ class InvoiceAuthorizationController extends Controller
             ],
         ]);
 
-        // Store rejected line items in a dedicated table for reliable list/detail display.
-        if ($recordStatus === 'rejected' && !empty($excludedItemDetails)) {
+        // Store excluded/rejected line items in a dedicated table for reliable list/detail display.
+        if (!empty($excludedItemDetails)) {
             $rows = collect($excludedItemDetails)->map(function ($item) use ($auth) {
                 return [
                     'insurance_authorization_id' => $auth->id,

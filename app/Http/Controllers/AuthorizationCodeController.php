@@ -24,7 +24,9 @@ class AuthorizationCodeController extends Controller
         if ($request->filled('status')) {
             $status = $request->status;
             if ($status === 'rejected') {
-                $query->where('status', 'rejected');
+                // "Rejected items" list is based on excluded/rejected line items existing,
+                // not only the authorization status.
+                $query->whereHas('rejectedItems');
             } else {
                 $query->where('status', $status);
             }
