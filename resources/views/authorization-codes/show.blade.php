@@ -170,33 +170,33 @@
 
                     @if($dedBefore !== null && $v !== null)
                         <div class="border border-slate-100 rounded-md p-3 bg-slate-50 space-y-1">
-                            <p class="text-xs font-semibold text-slate-700 uppercase">Deductible decision rule (your formula)</p>
+                            <p class="text-xs font-semibold text-slate-700 uppercase">Deductible decision rule (second method)</p>
                             <p class="text-xs text-slate-600">
                                 Step 0 – inputs:
                                 outstanding invoice amount after co‑pay and co‑insurance
-                                <strong>A' = UGX {{ number_format($outstandingInvoice, 2) }}</strong>,
+                                <strong>OI = UGX {{ number_format($outstandingInvoice, 2) }}</strong>,
                                 outstanding deductible
-                                <strong>D₀ = UGX {{ number_format($dedBefore, 2) }}</strong>.
+                                <strong>OD = UGX {{ number_format($dedBefore, 2) }}</strong>.
                             </p>
                             <p class="text-xs text-slate-600">
-                                Step 1 – compute <strong>v = A' − D₀</strong> =
+                                Step 1 – compute <strong>V = OI − OD</strong> =
                                 <strong>UGX {{ number_format($outstandingInvoice, 2) }}</strong> −
                                 <strong>UGX {{ number_format($dedBefore, 2) }}</strong>
                                 = <strong>UGX {{ number_format($v, 2) }}</strong>.
                             </p>
                             @if($v > 0)
                                 <p class="text-xs text-slate-600">
-                                    Because v &gt; 0, insurer pays this positive difference:
-                                    <strong>Insurer pays UGX {{ number_format($v, 2) }}</strong>,
-                                    and the client pays:
-                                    <strong>co‑pay + co‑insurance + D₀</strong>,
-                                    which matches the client total above.
+                                    Because <strong>V &gt; 0</strong>:
+                                    add <strong>OD</strong> to the client folder and <strong>V</strong> to the third‑party folder.
+                                    So insurer pays <strong>UGX {{ number_format($v, 2) }}</strong>,
+                                    and the client pays <strong>co‑pay + co‑insurance + OD</strong>.
                                 </p>
                             @else
                                 <p class="text-xs text-slate-600">
-                                    Because v ≤ 0, the outstanding deductible is greater than or equal to the outstanding invoice,
-                                    so <strong>insurer pays 0</strong> and the client pays the full approved amount (split into
-                                    deductible, co‑pay and co‑insurance as shown above).
+                                    Because <strong>V ≤ 0</strong>:
+                                    add <strong>OI</strong> to the client folder and <strong>0</strong> to the third‑party folder.
+                                    So insurer pays <strong>0</strong> and the client takes the full outstanding invoice portion (OI),
+                                    plus co‑pay and co‑insurance (if any).
                                 </p>
                             @endif
                         </div>

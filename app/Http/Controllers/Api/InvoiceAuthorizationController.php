@@ -393,16 +393,33 @@ class InvoiceAuthorizationController extends Controller
 
         $remainingForClient = $approvedAmount;
 
+        // Step 1: allocate fixed co-pay (client folder)
         $copayPortion = min($copayRaw, $remainingForClient);
         $remainingForClient -= $copayPortion;
 
+        // Step 2: allocate co-insurance percentage (client folder)
         $coinsurancePortion = min($coinsuranceRaw, $remainingForClient);
         $remainingForClient -= $coinsurancePortion;
 
-        $deductiblePortion = min($deductibleRaw, $remainingForClient);
+        // Step 3: deductible decision rule (second method)
+        // OI = outstanding invoice after co-pay & co-insurance
+        // OD = outstanding deductible
+        // V  = OI - OD
+        // If V > 0  => client pays OD, insurer pays V
+        // If V <= 0 => client pays OI, insurer pays 0
+        $oi = max(0.0, (float) $remainingForClient);
+        $od = max(0.0, (float) $effectiveDeductibleBefore);
+        $v = round($oi - $od, 2);
+
+        if ($v > 0) {
+            $deductiblePortion = min($od, $oi); // effectively OD
+            $insuranceTotal = $v;
+        } else {
+            $deductiblePortion = $oi; // client takes the whole outstanding invoice part
+            $insuranceTotal = 0.0;
+        }
 
         $clientTotalCore = round($deductiblePortion + $copayPortion + $coinsurancePortion, 2);
-        $insuranceTotal = round(max(0, $approvedAmount - $clientTotalCore), 2);
         $clientTotal = $clientTotalCore;
 
         // Cap insurance portion at the remaining category benefit
