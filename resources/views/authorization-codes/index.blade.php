@@ -104,12 +104,36 @@
                             </td>
                             @if(request('status') === 'rejected')
                                 @php
-                                    $allItems = $meta['items'] ?? [];
-                                    $excludedItems = $meta['excluded_items'] ?? ($breakdown['excluded_items'] ?? []);
-                                    $rejectedCount = !empty($excludedItems) ? count($excludedItems) : count($allItems);
+                                    $rejectedItems = $auth->rejectedItems ?? collect();
+                                    $rejectedCount = $rejectedItems->count();
+                                    $itemsToShow = $rejectedItems->take(3);
+                                    $moreCount = max(0, $rejectedCount - 3);
                                 @endphp
-                                <td class="px-4 py-3 text-sm text-right text-red-700 font-semibold">
-                                    {{ $rejectedCount }}
+                                <td class="px-4 py-3 text-sm text-right">
+                                    @if($rejectedCount === 0)
+                                        <span class="text-slate-500">—</span>
+                                    @else
+                                        <div class="text-xs text-red-700 space-y-1">
+                                            @foreach($itemsToShow as $item)
+                                                <div class="flex items-start justify-between gap-3">
+                                                    <div class="min-w-0 text-left">
+                                                        <div class="font-medium text-[12px]">{{ $item->item_name ?? '—' }}</div>
+                                                        @if(!empty($item->item_code))
+                                                            <div class="text-[11px] text-red-600">({{ $item->item_code }})</div>
+                                                        @endif
+                                                    </div>
+                                                    <div class="flex-shrink-0 text-right">
+                                                        UGX {{ number_format((float) ($item->amount ?? 0), 2) }}
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                            @if($moreCount > 0)
+                                                <div class="text-[11px] text-red-600">
+                                                    +{{ $moreCount }} more ({{ $rejectedCount }} total)
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </td>
                             @endif
                             <td class="px-4 py-3 text-sm text-slate-700">{{ $auth->policy?->policy_number ?? '–' }}</td>

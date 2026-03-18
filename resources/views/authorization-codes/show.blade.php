@@ -203,14 +203,13 @@
                     @endif
 
                     @php
-                        $allItems = $metadata['items'] ?? [];
-                        $excludedItems = $metadata['excluded_items'] ?? ($breakdown['excluded_items'] ?? []);
+                        $rejectedItems = $authorization->rejectedItems ?? collect();
                     @endphp
 
                     @if($authorization->status === 'rejected')
                         <div class="border border-red-100 rounded-md p-3 bg-red-50/40 space-y-2">
                             <p class="text-xs font-semibold text-red-700 uppercase">Rejected items for this transaction</p>
-                            @if(!empty($excludedItems))
+                            @if($rejectedItems->count() > 0)
                                 <p class="text-xs text-red-700">
                                     These items were marked as not covered (local exclusions or Kashtre exclusions) and are fully payable by the client.
                                 </p>
@@ -225,43 +224,15 @@
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-red-100">
-                                            @foreach($excludedItems as $item)
+                                            @foreach($rejectedItems as $item)
                                                 <tr>
-                                                    <td class="px-3 py-2 text-slate-800">{{ $item['name'] ?? '—' }}</td>
-                                                    <td class="px-3 py-2 text-slate-600">{{ $item['code'] ?? '—' }}</td>
+                                                    <td class="px-3 py-2 text-slate-800">{{ $item->item_name ?? '—' }}</td>
+                                                    <td class="px-3 py-2 text-slate-600">{{ $item->item_code ?? '—' }}</td>
                                                     <td class="px-3 py-2 text-right text-red-700">
-                                                        UGX {{ number_format($item['amount'] ?? 0, 2) }}
+                                                        UGX {{ number_format((float) ($item->amount ?? 0), 2) }}
                                                     </td>
                                                     <td class="px-3 py-2 text-slate-600 text-[11px]">
-                                                        {{ $item['reason_scope'] ?? 'Not covered' }}
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @elseif(!empty($allItems))
-                                <p class="text-xs text-red-700">
-                                    The insurer rejected this transaction. All items below are treated as rejected for tracking and follow‑up.
-                                </p>
-                                <div class="overflow-x-auto">
-                                    <table class="min-w-full text-xs divide-y divide-red-100">
-                                        <thead class="bg-red-50">
-                                            <tr>
-                                                <th class="px-3 py-2 text-left font-semibold text-red-800">Item</th>
-                                                <th class="px-3 py-2 text-left font-semibold text-red-800">Code</th>
-                                                <th class="px-3 py-2 text-right font-semibold text-red-800">Qty</th>
-                                                <th class="px-3 py-2 text-right font-semibold text-red-800">Amount (UGX)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-red-100">
-                                            @foreach($allItems as $item)
-                                                <tr>
-                                                    <td class="px-3 py-2 text-slate-800">{{ $item['name'] ?? '—' }}</td>
-                                                    <td class="px-3 py-2 text-slate-600">{{ $item['code'] ?? '—' }}</td>
-                                                    <td class="px-3 py-2 text-right text-slate-700">{{ $item['qty'] ?? $item['quantity'] ?? 1 }}</td>
-                                                    <td class="px-3 py-2 text-right text-red-700">
-                                                        UGX {{ number_format($item['amount'] ?? $item['total'] ?? 0, 2) }}
+                                                        {{ $item->reason_scope ?? 'Not covered' }}
                                                     </td>
                                                 </tr>
                                             @endforeach
@@ -270,7 +241,7 @@
                                 </div>
                             @else
                                 <p class="text-xs text-slate-600">
-                                    This transaction was rejected, but no item‑level payload was sent from Kashtre. You can still track the rejection at invoice level.
+                                    This transaction was rejected, but no rejected item lines were saved.
                                 </p>
                             @endif
                         </div>

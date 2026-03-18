@@ -46,4 +46,9 @@ class InsuranceAuthorization extends Model
     {
         return $this->belongsTo(Policy::class);
     }
+
+    public function rejectedItems()
+    {
+        return $this->hasMany(RejectedItem::class, 'insurance_authorization_id');
+    }
 }

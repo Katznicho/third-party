@@ -18,7 +18,7 @@ class AuthorizationCodeController extends Controller
         }
 
         $query = InsuranceAuthorization::where('insurance_company_id', $user->insurance_company_id)
-            ->with(['policy:id,policy_number', 'insuranceCompany:id,name,code'])
+            ->with(['policy:id,policy_number', 'insuranceCompany:id,name,code', 'rejectedItems'])
             ->orderByDesc('requested_at');
 
         if ($request->filled('status')) {
@@ -51,7 +51,7 @@ class AuthorizationCodeController extends Controller
         $user = auth()->user();
         abort_unless($authorization->insurance_company_id === $user->insurance_company_id, 403);
 
-        $authorization->load(['policy', 'insuranceCompany']);
+        $authorization->load(['policy', 'insuranceCompany', 'rejectedItems']);
 
         $metadata = $authorization->metadata ?? [];
         $breakdown = $authorization->breakdown ?? [];

@@ -13,6 +13,7 @@ use App\Models\AuthorizationAuditLog;
 use App\Models\BusinessConnection;
 use App\Models\ConnectedCompanyServiceExclusion;
 use App\Models\MedicalQuestionResponse;
+use App\Models\RejectedItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -125,8 +126,10 @@ class InvoiceAuthorizationController extends Controller
         }
 
         // If grace period has expired and insurer configured a behavior, apply it
+        // IMPORTANT: we still create an InsuranceAuthorization record so the insurer can track rejected transactions.
         if (!$isGracePeriod && $policy->status === 'pending_payment' && ($insuranceCompany->stop_credit_after_grace ?? false)) {
             $behavior = $insuranceCompany->stop_credit_after_grace_behavior ?? 'client_pays_full';
+            $authorizationReference = 'AUTH-' . strtoupper(Str::random(12));
 
             Log::warning('[InsuranceAuth] Grace period expired — applying configured behavior', [
                 'policy_id' => $policy->id,
@@ -134,87 +137,106 @@ class InvoiceAuthorizationController extends Controller
                 'behavior' => $behavior,
             ]);
 
-            if ($behavior === 'manual_review') {
-                return response()->json([
-                    'success' => true,
-                    'authorization_reference' => 'AUTH-' . strtoupper(Str::random(12)),
-                    'authorization_status' => 'pending_review',
-                    'client_total' => 0.0,
-                    'insurance_total' => 0.0,
-                    'breakdown' => [
-                        'deductible' => 0.0,
-                        'copay' => 0.0,
-                        'coinsurance' => 0.0,
-                        'excluded' => 0.0,
-                        'benefit_excess' => 0.0,
-                        'excluded_items' => [],
-                    ],
-                    'policy_options' => [
-                        'has_deductible' => (bool) $policy->has_deductible,
-                        'deductible_amount' => $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : null,
-                        'copay_amount' => $policy->copay_amount ? (float) $policy->copay_amount : null,
-                        'copay_max_limit' => $policy->copay_max_limit,
-                        'coinsurance_percentage' => $policy->coinsurance_percentage ? (float) $policy->coinsurance_percentage : null,
-                    ],
-                    'warnings' => [
-                        'Premium grace period has expired. This invoice has been sent for manual review.',
-                    ],
-                ]);
+            // If the invoice is not covered, treat all items as excluded for tracking follow-up.
+            $excludedItemsForGrace = [];
+            if ($behavior === 'client_pays_full' || $behavior === 'reject_invoice') {
+                $excludedItemsForGrace = collect($itemsPayload)->map(function ($item) {
+                    $name = $item['name'] ?? ($item['code'] ?? '—');
+                    $code = $item['code'] ?? null;
+                    $amount = (float) ($item['total_amount'] ?? (($item['price'] ?? 0) * ($item['quantity'] ?? 1)));
+
+                    return [
+                        'name' => $name,
+                        'code' => $code,
+                        'amount' => $amount,
+                        'reason_scope' => 'grace_expired',
+                    ];
+                })->values()->all();
             }
 
-            if ($behavior === 'reject_invoice') {
-                return response()->json([
-                    'success' => true,
-                    'authorization_reference' => 'AUTH-' . strtoupper(Str::random(12)),
-                    'authorization_status' => 'auto_rejected',
-                    'client_total' => 0.0,
-                    'insurance_total' => 0.0,
-                    'breakdown' => [
-                        'deductible' => 0.0,
-                        'copay' => 0.0,
-                        'coinsurance' => 0.0,
-                        'excluded' => (float) $totalAmount,
-                        'benefit_excess' => 0.0,
-                        'excluded_items' => [],
-                    ],
-                    'policy_options' => [
-                        'has_deductible' => (bool) $policy->has_deductible,
-                        'deductible_amount' => $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : null,
-                        'copay_amount' => $policy->copay_amount ? (float) $policy->copay_amount : null,
-                        'copay_max_limit' => $policy->copay_max_limit,
-                        'coinsurance_percentage' => $policy->coinsurance_percentage ? (float) $policy->coinsurance_percentage : null,
-                    ],
-                    'warnings' => [
-                        'Premium grace period has expired. This invoice has been rejected and is not covered by insurance.',
-                    ],
-                ]);
-            }
+            $authorizationStatus = $behavior === 'manual_review' ? 'pending_review' : 'auto_rejected';
+            $recordStatus = $authorizationStatus === 'auto_rejected' ? 'rejected' : 'pending_review';
 
-            // Default / client_pays_full: client covers entire invoice, insurance total is zero
-            return response()->json([
-                'success' => true,
-                'authorization_reference' => 'AUTH-' . strtoupper(Str::random(12)),
-                'authorization_status' => 'auto_rejected',
-                'client_total' => (float) $totalAmount,
-                'insurance_total' => 0.0,
-                'breakdown' => [
-                    'deductible' => 0.0,
-                    'copay' => 0.0,
-                    'coinsurance' => 0.0,
-                    'excluded' => (float) $totalAmount,
-                    'benefit_excess' => 0.0,
-                    'excluded_items' => [],
+            $clientTotal = $authorizationStatus === 'auto_rejected' ? (float) $totalAmount : 0.0;
+            $insuranceTotal = 0.0;
+
+            $breakdown = [
+                'deductible' => 0.0,
+                'copay' => 0.0,
+                'coinsurance' => 0.0,
+                'excluded' => $authorizationStatus === 'auto_rejected' ? (float) $totalAmount : 0.0,
+                'benefit_excess' => 0.0,
+                'excluded_items' => $excludedItemsForGrace,
+            ];
+
+            $policyOptions = [
+                'has_deductible' => (bool) $policy->has_deductible,
+                'deductible_amount' => $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : null,
+                'copay_amount' => $policy->copay_amount ? (float) $policy->copay_amount : null,
+                'copay_max_limit' => $policy->copay_max_limit,
+                'coinsurance_percentage' => $policy->coinsurance_percentage ? (float) $policy->coinsurance_percentage : null,
+            ];
+
+            $warnings = match ($behavior) {
+                'manual_review' => [
+                    'Premium grace period has expired. This invoice has been sent for manual review.',
                 ],
-                'policy_options' => [
-                    'has_deductible' => (bool) $policy->has_deductible,
-                    'deductible_amount' => $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : null,
-                    'copay_amount' => $policy->copay_amount ? (float) $policy->copay_amount : null,
-                    'copay_max_limit' => $policy->copay_max_limit,
-                    'coinsurance_percentage' => $policy->coinsurance_percentage ? (float) $policy->coinsurance_percentage : null,
+                'reject_invoice' => [
+                    'Premium grace period has expired. This invoice has been rejected and is not covered by insurance.',
                 ],
-                'warnings' => [
+                default => [
                     'Premium grace period has expired. New invoices are not covered on credit; client must pay the full amount.',
                 ],
+            };
+
+            // Create InsuranceAuthorization record for tracking.
+            $auth = \App\Models\InsuranceAuthorization::create([
+                'insurance_company_id' => $insuranceCompanyId,
+                'policy_id' => $policy->id,
+                'kashtre_invoice_id' => $validated['kashtre_invoice_id'],
+                'external_invoice_number' => $validated['invoice_number'],
+                'total_amount' => (float) $totalAmount,
+                'client_total' => (float) $clientTotal,
+                'insurance_total' => (float) $insuranceTotal,
+                'breakdown' => $breakdown,
+                'status' => $recordStatus,
+                'confirmation_code' => null,
+                'authorization_reference' => $authorizationReference,
+                'requested_at' => now(),
+                'completed_at' => $authorizationStatus === 'auto_rejected' ? now() : null,
+                'metadata' => [
+                    'items' => $validated['items'] ?? [],
+                    'connected_business_id' => $connectedBusinessId,
+                    'authorized_under_grace_period' => true,
+                    'grace_period_end' => $gracePeriodEnd?->toDateString(),
+                    'excluded_items' => $excludedItemsForGrace,
+                ],
+            ]);
+
+            // Create rejected item rows when rejected.
+            if ($recordStatus === 'rejected' && !empty($excludedItemsForGrace)) {
+                $rows = collect($excludedItemsForGrace)->map(function ($item) use ($auth) {
+                    return [
+                        'insurance_authorization_id' => $auth->id,
+                        'item_name' => $item['name'] ?? '—',
+                        'item_code' => $item['code'] ?? null,
+                        'amount' => (float) ($item['amount'] ?? 0),
+                        'reason_scope' => $item['reason_scope'] ?? 'grace_expired',
+                    ];
+                })->values()->all();
+
+                RejectedItem::insert($rows);
+            }
+
+            return response()->json([
+                'success' => true,
+                'authorization_reference' => $authorizationReference,
+                'authorization_status' => $authorizationStatus,
+                'client_total' => (float) $clientTotal,
+                'insurance_total' => (float) $insuranceTotal,
+                'breakdown' => $breakdown,
+                'policy_options' => $policyOptions,
+                'warnings' => $warnings,
             ]);
         }
 
@@ -588,6 +610,23 @@ class InvoiceAuthorizationController extends Controller
                 'excluded_items' => $excludedItemDetails,
             ],
         ]);
+
+        // Store rejected line items in a dedicated table for reliable list/detail display.
+        if ($recordStatus === 'rejected' && !empty($excludedItemDetails)) {
+            $rows = collect($excludedItemDetails)->map(function ($item) use ($auth) {
+                return [
+                    'insurance_authorization_id' => $auth->id,
+                    'item_name' => $item['name'] ?? '—',
+                    'item_code' => $item['code'] ?? null,
+                    'amount' => (float) ($item['amount'] ?? 0),
+                    'reason_scope' => $item['reason_scope'] ?? null,
+                ];
+            })->values()->all();
+
+            if (!empty($rows)) {
+                RejectedItem::insert($rows);
+            }
+        }
 
         // Update used/remaining on the policy benefit
         if ($policyBenefit && $authorizationStatus === 'auto_approved') {
