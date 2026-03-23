@@ -33,6 +33,8 @@ class BusinessController extends Controller
                 'code' => ['nullable', 'string', 'size:8', 'regex:/^[A-Z0-9]{8}$/', 'unique:insurance_companies,code'],
                 'email' => 'required|email|max:255',
                 'phone' => 'nullable|string|max:255',
+                'country_name' => 'nullable|string|max:120',
+                'currency_code' => 'nullable|string|max:10',
                 'address' => 'nullable|string',
                 'head_office_address' => 'nullable|string',
                 'postal_address' => 'nullable|string',
@@ -63,6 +65,10 @@ class BusinessController extends Controller
             }
 
             $validated = $validator->validated();
+            $currencyCode = strtoupper(trim((string) ($validated['currency_code'] ?? 'UGX')));
+            if ($currencyCode === '') {
+                $currencyCode = 'UGX';
+            }
 
             // Generate 8-character alphanumeric code if not provided
             if (empty($validated['code'])) {
@@ -96,6 +102,8 @@ class BusinessController extends Controller
                 'slug' => $slug,
                 'email' => $validated['email'],
                 'phone' => $validated['phone'] ?? null,
+                'country_name' => $validated['country_name'] ?? null,
+                'currency_code' => $currencyCode,
                 'head_office_address' => $headOfficeAddress,
                 'postal_address' => $validated['postal_address'] ?? null,
                 'website' => $validated['website'] ?? null,
@@ -149,6 +157,8 @@ class BusinessController extends Controller
                         'slug' => $insuranceCompany->slug,
                         'email' => $insuranceCompany->email,
                         'phone' => $insuranceCompany->phone,
+                        'country_name' => $insuranceCompany->country_name,
+                        'currency_code' => $insuranceCompany->currency_code ?? 'UGX',
                         'head_office_address' => $insuranceCompany->head_office_address,
                         'postal_address' => $insuranceCompany->postal_address,
                         'website' => $insuranceCompany->website,
@@ -202,6 +212,8 @@ class BusinessController extends Controller
                     'slug' => $insuranceCompany->slug,
                     'email' => $insuranceCompany->email,
                     'phone' => $insuranceCompany->phone,
+                    'country_name' => $insuranceCompany->country_name,
+                    'currency_code' => $insuranceCompany->currency_code ?? 'UGX',
                     'head_office_address' => $insuranceCompany->head_office_address,
                     'postal_address' => $insuranceCompany->postal_address,
                     'website' => $insuranceCompany->website,
@@ -244,6 +256,8 @@ class BusinessController extends Controller
                     'name' => $insuranceCompany->name,
                     'code' => $insuranceCompany->code,
                     'payment_responsibility_collection' => $insuranceCompany->payment_responsibility_collection ?? 'immediate',
+                    'country_name' => $insuranceCompany->country_name,
+                    'currency_code' => $insuranceCompany->currency_code ?? 'UGX',
                     'verification_settings' => [
                         'require_physical_id' => $insuranceCompany->require_physical_id ?? true,
                         'enable_method_1' => $insuranceCompany->enable_method_1 ?? true,
@@ -421,6 +435,8 @@ class BusinessController extends Controller
                 'slug' => $insuranceCompany->slug,
                 'email' => $insuranceCompany->email,
                 'phone' => $insuranceCompany->phone,
+                'country_name' => $insuranceCompany->country_name,
+                'currency_code' => $insuranceCompany->currency_code ?? 'UGX',
                 'address' => $insuranceCompany->head_office_address,
                 'description' => $insuranceCompany->description,
                 'is_active' => $insuranceCompany->is_active,
@@ -551,6 +567,8 @@ class BusinessController extends Controller
                         'slug' => $insuranceCompany->slug,
                         'email' => $insuranceCompany->email,
                         'phone' => $insuranceCompany->phone,
+                        'country_name' => $insuranceCompany->country_name,
+                        'currency_code' => $insuranceCompany->currency_code ?? 'UGX',
                         'head_office_address' => $insuranceCompany->head_office_address,
                         'postal_address' => $insuranceCompany->postal_address,
                         'website' => $insuranceCompany->website,

@@ -17,6 +17,8 @@ class InsuranceCompany extends Model
         'head_office_address',
         'postal_address',
         'phone',
+        'country_name',
+        'currency_code',
         'email',
         'website',
         'description',

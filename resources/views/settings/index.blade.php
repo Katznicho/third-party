@@ -256,6 +256,37 @@
                         @method('PUT')
                         <input type="hidden" name="current_tab" value="payment">
 
+                        <!-- Country & Currency -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3">Location & Currency</h3>
+                            <p class="text-xs text-slate-600 mb-4">Set insurer country and billing currency. Default currency is UGX.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="country_name" class="block text-sm font-medium text-slate-700 mb-2">Country</label>
+                                    <input
+                                        type="text"
+                                        name="country_name"
+                                        id="country_name"
+                                        value="{{ old('country_name', $insuranceCompany->country_name) }}"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="e.g. Uganda"
+                                    >
+                                </div>
+                                <div>
+                                    <label for="currency_code" class="block text-sm font-medium text-slate-700 mb-2">Currency Code</label>
+                                    <input
+                                        type="text"
+                                        name="currency_code"
+                                        id="currency_code"
+                                        value="{{ old('currency_code', strtoupper($insuranceCompany->currency_code ?? 'UGX')) }}"
+                                        class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="UGX"
+                                    >
+                                    <p class="text-xs text-slate-500 mt-1">If left blank, system uses UGX.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Payment Methods -->
                         <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
                             <h3 class="text-sm font-semibold text-slate-900 mb-3">Allowed Payment Methods</h3>

@@ -69,6 +69,8 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'payment_methods' => 'nullable|array',
             'payment_methods.*' => 'string|in:' . implode(',', $allowedKeys),
+            'country_name' => 'nullable|string|max:120',
+            'currency_code' => 'nullable|string|max:10',
             // grace_periods kept for backward compatibility but not exposed in UI anymore
             'grace_periods' => 'nullable|array',
             'grace_periods.*' => 'nullable|integer|min:0|max:365',
@@ -88,9 +90,16 @@ class SettingsController extends Controller
             }
         }
 
+        $currencyCode = strtoupper(trim((string) ($validated['currency_code'] ?? ($insuranceCompany->currency_code ?? 'UGX'))));
+        if ($currencyCode === '') {
+            $currencyCode = 'UGX';
+        }
+
         $insuranceCompany->update([
             'payment_methods' => $validated['payment_methods'] ?? [],
             'payment_grace_periods' => $gracePeriods,
+            'country_name' => $validated['country_name'] ?? $insuranceCompany->country_name,
+            'currency_code' => $currencyCode,
         ]);
 
         return redirect()->route('settings.index', ['tab' => 'payment'])
