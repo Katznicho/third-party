@@ -1455,6 +1455,30 @@
     </div>
 </form>
 
+@if($method === 'POST')
+<div id="duplicate-client-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+    <div class="w-full max-w-xl rounded-lg bg-white shadow-xl">
+        <div class="border-b border-slate-200 px-6 py-4">
+            <h3 class="text-lg font-semibold text-slate-900">Possible duplicate client found</h3>
+            <p class="mt-1 text-sm text-slate-600">Names and date of birth match an existing client record.</p>
+        </div>
+        <div class="space-y-2 px-6 py-4 text-sm text-slate-700">
+            <p><span class="font-medium">Name:</span> <span id="duplicate-client-name">-</span></p>
+            <p><span class="font-medium">DOB:</span> <span id="duplicate-client-dob">-</span></p>
+            <p><span class="font-medium">ID/Passport:</span> <span id="duplicate-client-id">-</span></p>
+        </div>
+        <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
+            <button type="button" id="duplicate-continue-manual" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                Continue manually
+            </button>
+            <button type="button" id="duplicate-autofill" class="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+                Auto-fill existing client
+            </button>
+        </div>
+    </div>
+</div>
+@endif
+
 <script>
 
     // Pass plan data to JavaScript
@@ -1465,6 +1489,109 @@
     
     let dependantCount = 1;
     let medicationCount = 1;
+
+    @if($method === 'POST')
+    const duplicateCheckUrl = "{{ route('clients.check-duplicate') }}";
+    const duplicateModal = document.getElementById('duplicate-client-modal');
+    const duplicateNameEl = document.getElementById('duplicate-client-name');
+    const duplicateDobEl = document.getElementById('duplicate-client-dob');
+    const duplicateIdEl = document.getElementById('duplicate-client-id');
+    const duplicateAutofillBtn = document.getElementById('duplicate-autofill');
+    const duplicateContinueBtn = document.getElementById('duplicate-continue-manual');
+    let duplicateClientPayload = null;
+    let duplicateCheckSuppressed = false;
+    let duplicateLastKey = null;
+
+    function normalizeForKey(value) {
+        return (value || '').trim().toUpperCase();
+    }
+
+    function setFieldValue(name, value) {
+        const field = document.querySelector(`[name="${name}"]`);
+        if (!field) return;
+        if (field.type === 'radio') {
+            const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+            if (radio) radio.checked = true;
+            return;
+        }
+        field.value = value ?? '';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function hideDuplicateModal() {
+        if (!duplicateModal) return;
+        duplicateModal.classList.add('hidden');
+        duplicateModal.classList.remove('flex');
+    }
+
+    function showDuplicateModal() {
+        if (!duplicateModal) return;
+        duplicateModal.classList.remove('hidden');
+        duplicateModal.classList.add('flex');
+    }
+
+    async function checkDuplicateClient() {
+        if (duplicateCheckSuppressed) return;
+        const firstName = document.getElementById('first_name')?.value?.trim();
+        const surname = document.getElementById('surname')?.value?.trim();
+        const dateOfBirth = document.getElementById('date_of_birth')?.value?.trim();
+
+        if (!firstName || !surname || !dateOfBirth) return;
+
+        const key = `${normalizeForKey(firstName)}|${normalizeForKey(surname)}|${dateOfBirth}`;
+        if (duplicateLastKey === key) return;
+        duplicateLastKey = key;
+
+        try {
+            const response = await fetch(`${duplicateCheckUrl}?first_name=${encodeURIComponent(firstName)}&surname=${encodeURIComponent(surname)}&date_of_birth=${encodeURIComponent(dateOfBirth)}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!response.ok) return;
+            const result = await response.json();
+            if (!result.duplicate || !result.client) return;
+
+            duplicateClientPayload = result.client;
+            duplicateNameEl.textContent = `${result.client.first_name || ''} ${result.client.surname || ''} ${result.client.other_names || ''}`.trim() || '-';
+            duplicateDobEl.textContent = result.client.date_of_birth || '-';
+            duplicateIdEl.textContent = result.client.id_passport_no || '-';
+            showDuplicateModal();
+        } catch (error) {
+            console.warn('Duplicate check failed', error);
+        }
+    }
+
+    duplicateAutofillBtn?.addEventListener('click', function () {
+        if (!duplicateClientPayload) return;
+        duplicateCheckSuppressed = true;
+        const fields = [
+            'title','surname','first_name','other_names','id_passport_no','tin','date_of_birth','marital_status',
+            'height','weight','employer_name','occupation','nationality','home_physical_address','office_physical_address',
+            'home_telephone','office_telephone','cell_phone','whatsapp_line','email','next_of_kin_surname',
+            'next_of_kin_first_name','next_of_kin_other_names','next_of_kin_title','next_of_kin_relation',
+            'next_of_kin_id_passport_no','next_of_kin_cell_phone','next_of_kin_email','next_of_kin_post_address',
+            'next_of_kin_physical_address'
+        ];
+        fields.forEach((field) => setFieldValue(field, duplicateClientPayload[field] ?? ''));
+        if (duplicateClientPayload.gender) {
+            const genderRadio = document.querySelector(`input[name="gender"][value="${duplicateClientPayload.gender}"]`);
+            if (genderRadio) genderRadio.checked = true;
+        }
+        hideDuplicateModal();
+    });
+
+    duplicateContinueBtn?.addEventListener('click', function () {
+        duplicateCheckSuppressed = true;
+        hideDuplicateModal();
+    });
+
+    ['first_name', 'surname', 'date_of_birth'].forEach((fieldId) => {
+        const el = document.getElementById(fieldId);
+        if (!el) return;
+        el.addEventListener('blur', checkDuplicateClient);
+        el.addEventListener('change', checkDuplicateClient);
+    });
+    @endif
 
     // Auto-generate form with test data
     function autoGenerateForm() {

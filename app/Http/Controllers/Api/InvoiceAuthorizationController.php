@@ -69,11 +69,12 @@ class InvoiceAuthorizationController extends Controller
         $insuranceCompanyId = (int) $validated['insurance_company_id'];
         $policyNumber = trim($validated['policy_number']);
         $totalAmount = (float) $validated['total_amount'];
-        $deductibleRemaining = isset($validated['deductible_remaining']) ? (float) $validated['deductible_remaining'] : 0;
+        $deductibleRemainingFromRequest = isset($validated['deductible_remaining']) ? (float) $validated['deductible_remaining'] : 0;
         $copayUsedThisPeriod = isset($validated['copay_used_this_period']) ? (float) $validated['copay_used_this_period'] : 0;
         $servicesCategory = $validated['services_category'] ?? null;
         $connectedBusinessId = isset($validated['connected_business_id']) ? (int) $validated['connected_business_id'] : null;
         $itemsPayload = $validated['items'] ?? [];
+        $connection = null;
 
         // ── Look up policy ──
 
@@ -461,14 +462,35 @@ class InvoiceAuthorizationController extends Controller
         }
 
         $deductibleAmountPolicy = $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : 0;
+
+        // Source of truth for deductible is third-party ledger.
+        // We only use request-provided deductible_remaining as a bootstrap fallback
+        // when no ledger record exists yet.
+        $latestLedger = null;
+        $deductibleRemainingAuthoritative = $deductibleAmountPolicy;
+        if ($policy->has_deductible) {
+            $latestLedger = PolicyDeductibleLedger::where('insurance_company_id', $insuranceCompanyId)
+                ->where('policy_id', $policy->id)
+                ->latest('id')
+                ->first();
+
+            if ($latestLedger) {
+                $deductibleRemainingAuthoritative = max(0.0, (float) ($latestLedger->deductible_after ?? $deductibleAmountPolicy));
+            } else {
+                $deductibleRemainingAuthoritative = max(
+                    0.0,
+                    min($deductibleAmountPolicy, $deductibleRemainingFromRequest > 0 ? $deductibleRemainingFromRequest : $deductibleAmountPolicy)
+                );
+            }
+        } else {
+            $deductibleRemainingAuthoritative = 0.0;
+        }
         $copayAmount = (float) ($policy->copay_amount ?? 0);
         $copayMaxLimit = $policy->copay_max_limit !== null ? (float) $policy->copay_max_limit : null;
         $coinsurancePct = (float) ($policy->coinsurance_percentage ?? 0);
 
         if ($policy->has_deductible) {
-            $effectiveDeductibleBefore = $deductibleRemaining !== null
-                ? max(0.0, (float) $deductibleRemaining)
-                : max(0.0, $deductibleAmountPolicy);
+            $effectiveDeductibleBefore = max(0.0, (float) $deductibleRemainingAuthoritative);
         } else {
             $effectiveDeductibleBefore = 0.0;
         }
@@ -487,6 +509,21 @@ class InvoiceAuthorizationController extends Controller
         $deductibleRaw = 0.0;
         if ($policy->has_deductible && $approvedAmount > 0) {
             $deductibleRaw = min($effectiveDeductibleBefore, $approvedAmount);
+        }
+
+        // Edge case guard:
+        // When exclusions leave only a very small covered remainder, a fixed co-pay can
+        // consume 100% of that remainder and force insurer_total to zero on every invoice.
+        // In that case (no deductible and no coinsurance), let insurer carry the remainder.
+        if ($approvedAmount > 0
+            && $approvedAmount <= $copayRaw
+            && $effectiveDeductibleBefore <= 0
+            && $coinsuranceRaw <= 0) {
+            Log::info('[InsuranceAuth] Copay floor guard applied', [
+                'approved_amount' => $approvedAmount,
+                'copay_raw_before' => $copayRaw,
+            ]);
+            $copayRaw = 0.0;
         }
 
         $remainingForClient = $approvedAmount;
@@ -551,6 +588,9 @@ class InvoiceAuthorizationController extends Controller
             'approved_amount' => $approvedAmount,
             'client_total' => $clientTotal,
             'insurance_total' => $insuranceTotal,
+            'deductible_remaining_request' => $deductibleRemainingFromRequest,
+            'deductible_remaining_authoritative' => $deductibleRemainingAuthoritative,
+            'deductible_ledger_id' => $latestLedger?->id,
             'benefit_cap' => $benefitCap,
             'benefit_excess' => $benefitExcess,
             'breakdown' => $breakdown,
@@ -590,7 +630,7 @@ class InvoiceAuthorizationController extends Controller
             'metadata' => [
                 'items' => $validated['items'] ?? [],
                 'connected_business_id' => $connectedBusinessId,
-                'business_connection_id' => $connection->id ?? null,
+                'business_connection_id' => $connection?->id,
                 'authorized_under_grace_period' => $isGracePeriod,
                 'grace_period_end' => $gracePeriodEnd?->toDateString(),
                 'services_category' => $servicesCategory,
@@ -668,7 +708,9 @@ class InvoiceAuthorizationController extends Controller
             AuthorizationAuditLog::create([
                 'pre_authorization_id' => $preAuth->id,
                 'insurance_company_id' => $insuranceCompanyId,
-                'decision' => 'pending_review',
+                // authorization_audit_logs.decision is an ENUM and does not include `pending_review`.
+                // Store the correct decision so MySQL doesn't truncate and fail the request.
+                'decision' => 'flagged_for_review',
                 'authorization_method' => 'automatic',
                 'requested_amount' => $insuranceTotal,
                 'approved_amount' => 0,

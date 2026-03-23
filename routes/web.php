@@ -28,6 +28,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('users', \App\Http\Controllers\UserController::class);
     
     // Clients
+    Route::get('/clients/check-duplicate', [\App\Http\Controllers\ClientController::class, 'checkDuplicate'])->name('clients.check-duplicate');
     Route::resource('clients', \App\Http\Controllers\ClientController::class);
     Route::get('/clients/{client}/account-statement', [\App\Http\Controllers\ClientController::class, 'accountStatement'])->name('clients.account-statement');
     Route::get('/clients/{client}/usage/guarantees', [\App\Http\Controllers\ClientController::class, 'guaranteeUsage'])->name('clients.usage.guarantees');

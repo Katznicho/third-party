@@ -142,6 +142,70 @@ class ClientController extends Controller
     }
 
     /**
+     * Check for potential duplicate clients by first name, surname and date of birth.
+     */
+    public function checkDuplicate(Request $request)
+    {
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'surname' => 'required|string|max:255',
+            'date_of_birth' => 'required|date',
+        ]);
+
+        $client = Client::query()
+            ->whereRaw('UPPER(TRIM(first_name)) = ?', [strtoupper(trim($validated['first_name']))])
+            ->whereRaw('UPPER(TRIM(surname)) = ?', [strtoupper(trim($validated['surname']))])
+            ->whereDate('date_of_birth', $validated['date_of_birth'])
+            ->latest('id')
+            ->first();
+
+        if (!$client) {
+            return response()->json([
+                'duplicate' => false,
+            ]);
+        }
+
+        return response()->json([
+            'duplicate' => true,
+            'client' => [
+                'id' => $client->id,
+                'type' => $client->type,
+                'title' => $client->title,
+                'surname' => $client->surname,
+                'first_name' => $client->first_name,
+                'other_names' => $client->other_names,
+                'id_passport_no' => $client->id_passport_no,
+                'gender' => $client->gender,
+                'tin' => $client->tin,
+                'date_of_birth' => optional($client->date_of_birth)->format('Y-m-d'),
+                'marital_status' => $client->marital_status,
+                'height' => $client->height,
+                'weight' => $client->weight,
+                'employer_name' => $client->employer_name,
+                'occupation' => $client->occupation,
+                'nationality' => $client->nationality,
+                'home_physical_address' => $client->home_physical_address,
+                'office_physical_address' => $client->office_physical_address,
+                'home_telephone' => $client->home_telephone,
+                'office_telephone' => $client->office_telephone,
+                'cell_phone' => $client->cell_phone,
+                'whatsapp_line' => $client->whatsapp_line,
+                'email' => $client->email,
+                'next_of_kin_surname' => $client->next_of_kin_surname,
+                'next_of_kin_first_name' => $client->next_of_kin_first_name,
+                'next_of_kin_other_names' => $client->next_of_kin_other_names,
+                'next_of_kin_title' => $client->next_of_kin_title,
+                'next_of_kin_relation' => $client->next_of_kin_relation,
+                'next_of_kin_id_passport_no' => $client->next_of_kin_id_passport_no,
+                'next_of_kin_cell_phone' => $client->next_of_kin_cell_phone,
+                'next_of_kin_email' => $client->next_of_kin_email,
+                'next_of_kin_post_address' => $client->next_of_kin_post_address,
+                'next_of_kin_physical_address' => $client->next_of_kin_physical_address,
+            ],
+        ]);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
