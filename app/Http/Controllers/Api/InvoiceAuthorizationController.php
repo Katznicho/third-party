@@ -668,16 +668,8 @@ class InvoiceAuthorizationController extends Controller
             }
         }
 
-        // Update used/remaining on the policy benefit
-        if ($policyBenefit && $authorizationStatus === 'auto_approved') {
-            $policyBenefit->used_amount = (float) $policyBenefit->used_amount + $insuranceTotal;
-            $policyBenefit->updateRemainingAmount();
-            Log::info('[InsuranceAuth] Policy benefit updated', [
-                'benefit_id' => $policyBenefit->id,
-                'used_amount' => $policyBenefit->used_amount,
-                'remaining_amount' => $policyBenefit->remaining_amount,
-            ]);
-        }
+        // NOTE: Do not reduce policy benefits at authorization time.
+        // Benefit reduction is deferred until insurer payment is successfully marked as paid.
 
         PolicyDeductibleLedger::create([
             'insurance_company_id' => $insuranceCompanyId,

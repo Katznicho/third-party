@@ -186,22 +186,8 @@ class SimpleAuthorizationService
 
         $insuranceAuth->update($updateData);
 
-        if ($newStatus === 'completed') {
-            $policyBenefit = null;
-            $meta = $insuranceAuth->metadata ?? [];
-            if (!empty($meta['policy_benefit_id'])) {
-                $policyBenefit = \App\Models\PolicyBenefit::find($meta['policy_benefit_id']);
-            }
-            if ($policyBenefit) {
-                $policyBenefit->used_amount = (float) $policyBenefit->used_amount + $approvedAmount;
-                $policyBenefit->updateRemainingAmount();
-                Log::info('SimpleAuthorizationService: Policy benefit updated after manual approval', [
-                    'benefit_id' => $policyBenefit->id,
-                    'used_amount' => $policyBenefit->used_amount,
-                    'remaining_amount' => $policyBenefit->remaining_amount,
-                ]);
-            }
-        }
+        // NOTE: Do not reduce policy benefits on approval decision alone.
+        // Benefit reduction is deferred until insurer payment is successfully marked as paid.
 
         Log::info('SimpleAuthorizationService: InsuranceAuthorization synced', [
             'insurance_authorization_id' => $insuranceAuth->id,

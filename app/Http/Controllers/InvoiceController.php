@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Services\KashtreApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class InvoiceController extends Controller
@@ -308,6 +309,7 @@ class InvoiceController extends Controller
                     $result = $this->kashtreApi->markInvoiceAsPaid($invoiceId, $insuranceCompanyId, $validated);
                     
                     if ($result['success']) {
+                        $this->applyPolicyBenefitUsageOnSuccessfulPayment($invoiceId, $insuranceCompanyId);
                         return redirect()->route('invoices.show', $invoiceId)
                             ->with('success', 'Mobile money payment request sent. Please wait for confirmation from the customer.');
                     }
@@ -358,6 +360,7 @@ class InvoiceController extends Controller
             ]);
 
             if ($result['success']) {
+                $this->applyPolicyBenefitUsageOnSuccessfulPayment($invoiceId, $insuranceCompanyId);
                 Log::info('Payment processed successfully - redirecting to invoice show page');
                 return redirect()->route('invoices.show', $invoiceId)
                     ->with('success', 'Proof of payment uploaded successfully. Payment is pending review and will be marked as paid once approved.');
@@ -416,6 +419,82 @@ class InvoiceController extends Controller
     {
         // TODO: Implement PDF generation
         return response()->json(['message' => 'PDF generation not yet implemented']);
+    }
+
+    /**
+     * Reduce policy benefit usage only after insurer payment is successfully marked as paid.
+     */
+    private function applyPolicyBenefitUsageOnSuccessfulPayment(string $invoiceId, int $insuranceCompanyId): void
+    {
+        try {
+            DB::transaction(function () use ($invoiceId, $insuranceCompanyId) {
+                $insuranceAuth = \App\Models\InsuranceAuthorization::where('insurance_company_id', $insuranceCompanyId)
+                    ->where('kashtre_invoice_id', (string) $invoiceId)
+                    ->where('status', 'completed')
+                    ->lockForUpdate()
+                    ->latest('id')
+                    ->first();
+
+                if (!$insuranceAuth) {
+                    Log::info('InvoiceController: No completed insurance authorization found for benefit reduction', [
+                        'invoice_id' => $invoiceId,
+                        'insurance_company_id' => $insuranceCompanyId,
+                    ]);
+                    return;
+                }
+
+                $metadata = $insuranceAuth->metadata ?? [];
+                if (!empty($metadata['benefit_usage_applied_at'])) {
+                    Log::info('InvoiceController: Benefit usage already applied, skipping', [
+                        'insurance_authorization_id' => $insuranceAuth->id,
+                        'invoice_id' => $invoiceId,
+                    ]);
+                    return;
+                }
+
+                $policyBenefitId = $metadata['policy_benefit_id'] ?? null;
+                $insuranceTotal = (float) ($insuranceAuth->insurance_total ?? 0);
+                if (!$policyBenefitId || $insuranceTotal <= 0) {
+                    $metadata['benefit_usage_applied_at'] = now()->toDateTimeString();
+                    $metadata['benefit_usage_applied_amount'] = 0;
+                    $metadata['benefit_usage_note'] = 'No applicable benefit usage to apply on payment.';
+                    $insuranceAuth->update(['metadata' => $metadata]);
+                    return;
+                }
+
+                $policyBenefit = \App\Models\PolicyBenefit::lockForUpdate()->find($policyBenefitId);
+                if (!$policyBenefit) {
+                    Log::warning('InvoiceController: Policy benefit not found while applying usage', [
+                        'invoice_id' => $invoiceId,
+                        'insurance_authorization_id' => $insuranceAuth->id,
+                        'policy_benefit_id' => $policyBenefitId,
+                    ]);
+                    return;
+                }
+
+                $policyBenefit->used_amount = (float) $policyBenefit->used_amount + $insuranceTotal;
+                $policyBenefit->updateRemainingAmount();
+
+                $metadata['benefit_usage_applied_at'] = now()->toDateTimeString();
+                $metadata['benefit_usage_applied_amount'] = $insuranceTotal;
+                $insuranceAuth->update(['metadata' => $metadata]);
+
+                Log::info('InvoiceController: Policy benefit usage applied after successful payment', [
+                    'invoice_id' => $invoiceId,
+                    'insurance_authorization_id' => $insuranceAuth->id,
+                    'policy_benefit_id' => $policyBenefit->id,
+                    'applied_amount' => $insuranceTotal,
+                    'used_amount' => $policyBenefit->used_amount,
+                    'remaining_amount' => $policyBenefit->remaining_amount,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            Log::error('InvoiceController: Failed to apply policy benefit usage after successful payment', [
+                'invoice_id' => $invoiceId,
+                'insurance_company_id' => $insuranceCompanyId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
