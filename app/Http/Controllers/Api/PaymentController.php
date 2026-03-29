@@ -271,6 +271,7 @@ class PaymentController extends Controller
                 'amount' => 'required|numeric|min:0.01',
                 'payment_reference' => 'required|string|max:255|unique:payments,payment_reference',
                 'kashtre_invoice_id' => 'nullable|string|max:64',
+                'invoice_number' => 'nullable|string|max:64',
                 'authorization_reference' => 'nullable|string|max:64',
                 'connected_business_id' => 'nullable|integer', // Kashtre business id – used to show payment on /third-party-vendors/{id}
                 'payment_method' => 'nullable|in:cash,bank_transfer,mobile_money,cheque,card,credit,other',

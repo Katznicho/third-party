@@ -463,9 +463,9 @@ class InvoiceAuthorizationController extends Controller
 
         $deductibleAmountPolicy = $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : 0;
 
-        // Source of truth for deductible is third-party ledger.
-        // We only use request-provided deductible_remaining as a bootstrap fallback
-        // when no ledger record exists yet.
+        // Remaining deductible for splits: read-only from ledger rows that were written only after
+        // successful client-portion payments (RecordClientPortionService). Authorization never writes the ledger.
+        // If no such row yet, use Kashtre’s deductible_remaining from the request as a bootstrap fallback.
         $latestLedger = null;
         $deductibleRemainingAuthoritative = $deductibleAmountPolicy;
         if ($policy->has_deductible) {
@@ -670,19 +670,10 @@ class InvoiceAuthorizationController extends Controller
 
         // NOTE: Do not reduce policy benefits at authorization time.
         // Benefit reduction is deferred until insurer payment is successfully marked as paid.
-
-        PolicyDeductibleLedger::create([
-            'insurance_company_id' => $insuranceCompanyId,
-            'policy_id' => $policy->id,
-            'authorization_id' => $auth->id,
-            'kashtre_invoice_id' => $validated['kashtre_invoice_id'],
-            'external_invoice_number' => $validated['invoice_number'],
-            'change_type' => 'invoice',
-            'deductible_before' => $deductibleBefore,
-            'amount_that_reduces_deductible' => $amountThatReducesDeductible,
-            'deductible_after' => $deductibleAfter,
-            'notes' => null,
-        ]);
+        //
+        // Policy deductible ledger rows are NOT written here. They are created in
+        // RecordClientPortionService when Kashtre confirms the client's mobile-money payment
+        // (see CheckPaymentStatus → recordClientPortionPayment). Amounts stay in authorization metadata until then.
 
         if ($authorizationStatus === 'pending_review') {
             $preAuth = PreAuthorization::create([

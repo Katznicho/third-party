@@ -31,6 +31,23 @@
     @php
         $invoice = $invoiceData['invoice'];
         $balanceHistory = $invoiceData['balance_history'] ?? [];
+        $split = $invoice['insurance_split'] ?? null;
+        $authClientTotal = (float) ($split['client_total'] ?? $invoice['insurance_client_total'] ?? 0);
+        $authInsuranceTotal = (float) ($split['insurance_total'] ?? $invoice['insurance_insurance_total'] ?? 0);
+        $hasAuthSplit = $authClientTotal > 0 || $authInsuranceTotal > 0;
+        $payments = $invoicePayments ?? collect();
+        $clientPaidRecorded = $payments->filter(function ($p) {
+            return $p->status === 'completed' && data_get($p->payment_metadata, 'client_portion') === true;
+        })->sum('amount');
+        $insurerPaidRecorded = $payments->filter(function ($p) {
+            return $p->status === 'completed' && data_get($p->payment_metadata, 'client_portion') !== true;
+        })->sum('amount');
+        $clientRemaining = max(0, $authClientTotal - (float) $clientPaidRecorded);
+        $insurerRemaining = max(0, $authInsuranceTotal - (float) $insurerPaidRecorded);
+        $suggestedInsurerPayment = $hasAuthSplit ? $insurerRemaining : (float) ($invoice['balance_due'] ?? 0);
+        $showInsurerClearButton = ($invoice['payment_status'] ?? '') !== 'paid'
+            && (float) ($invoice['balance_due'] ?? 0) > 0
+            && (!$hasAuthSplit || $insurerRemaining > 0.009);
     @endphp
 
     <!-- Invoice Information -->
@@ -129,13 +146,121 @@
             <p class="text-2xl font-bold {{ $invoice['balance_due'] > 0 ? 'text-red-600' : 'text-green-600' }}">
                 UGX {{ number_format($invoice['balance_due'], 2) }}
             </p>
-            @if($invoice['payment_status'] !== 'paid' && $invoice['balance_due'] > 0)
+            <p class="text-xs text-slate-500 mt-1">On Kashtre (full invoice)</p>
+            @if($showInsurerClearButton)
                 <button 
-                    onclick="showMarkPaidModal({{ $invoiceId }}, '{{ $invoice['invoice_number'] }}', {{ $invoice['balance_due'] }})"
+                    type="button"
+                    onclick="showMarkPaidModal({{ $invoiceId }}, '{{ $invoice['invoice_number'] }}', {{ json_encode($suggestedInsurerPayment) }})"
                     class="mt-3 w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150 text-sm font-medium"
                 >
-                    Clear Payment
+                    Record insurer payment
                 </button>
+                @if($hasAuthSplit)
+                    <p class="text-xs text-slate-500 mt-2">Suggested amount: insurer share still due (UGX {{ number_format($suggestedInsurerPayment, 2) }}).</p>
+                @endif
+            @endif
+        </div>
+    </div>
+
+    @if($hasAuthSplit)
+    <!-- Authorized split + recorded payments (this app) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-gradient-to-br from-indigo-50 to-white rounded-xl shadow-sm border border-indigo-100 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 mb-1">Authorized amounts</h3>
+            <p class="text-sm text-slate-600 mb-4">From insurance authorization (client vs insurer share of this invoice).</p>
+            <dl class="space-y-3">
+                <div class="flex justify-between items-center border-b border-indigo-100 pb-2">
+                    <dt class="text-sm font-medium text-slate-600">Client responsibility</dt>
+                    <dd class="text-sm font-bold text-slate-900">UGX {{ number_format($authClientTotal, 2) }}</dd>
+                </div>
+                <div class="flex justify-between items-center border-b border-indigo-100 pb-2">
+                    <dt class="text-sm font-medium text-slate-600">Insurer responsibility</dt>
+                    <dd class="text-sm font-bold text-slate-900">UGX {{ number_format($authInsuranceTotal, 2) }}</dd>
+                </div>
+                @if(!empty($invoice['insurance_authorization_reference']) || !empty($split['authorization_reference']))
+                    <div class="text-xs text-slate-500">
+                        Ref: {{ $invoice['insurance_authorization_reference'] ?? $split['authorization_reference'] ?? '—' }}
+                    </div>
+                @endif
+            </dl>
+        </div>
+        <div class="bg-gradient-to-br from-emerald-50 to-white rounded-xl shadow-sm border border-emerald-100 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 mb-1">Recorded in this app</h3>
+            <p class="text-sm text-slate-600 mb-4">Paid amounts booked here (Kashtre client portion + your insurer payments).</p>
+            <dl class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <dt class="text-sm text-slate-600">Paid by client (recorded)</dt>
+                    <dd class="text-sm font-semibold text-emerald-800">UGX {{ number_format((float) $clientPaidRecorded, 2) }}</dd>
+                </div>
+                <div class="flex justify-between items-center">
+                    <dt class="text-sm text-slate-600">Paid by insurer (recorded)</dt>
+                    <dd class="text-sm font-semibold text-emerald-800">UGX {{ number_format((float) $insurerPaidRecorded, 2) }}</dd>
+                </div>
+                <div class="border-t border-emerald-100 pt-3 mt-2 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <dt class="text-sm font-medium text-slate-700">Remaining — client</dt>
+                        <dd class="text-sm font-bold {{ $clientRemaining > 0 ? 'text-amber-700' : 'text-emerald-700' }}">UGX {{ number_format($clientRemaining, 2) }}</dd>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <dt class="text-sm font-medium text-slate-700">Remaining — insurer</dt>
+                        <dd class="text-sm font-bold {{ $insurerRemaining > 0 ? 'text-amber-700' : 'text-emerald-700' }}">UGX {{ number_format($insurerRemaining, 2) }}</dd>
+                    </div>
+                </div>
+            </dl>
+        </div>
+    </div>
+    @else
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-600">
+        No insurance authorization split is stored for this invoice. Payment rows below still list any payments linked to this Kashtre invoice ID.
+    </div>
+    @endif
+
+    <!-- Payments linked to this invoice (third-party app) -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-6">
+            <h3 class="text-lg font-medium text-slate-900 mb-2">Payments (this insurer app)</h3>
+            <p class="text-sm text-slate-600 mb-4">Includes client-portion payments received via Kashtre and insurer payments you record when clearing the bill.</p>
+            @if($payments->isEmpty())
+                <p class="text-slate-500 text-sm">No payments recorded yet for this invoice.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Reference</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Payer</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Amount</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Method</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200">
+                            @foreach($payments as $p)
+                                @php
+                                    $isClientPortion = data_get($p->payment_metadata, 'client_portion') === true;
+                                    $payerLabel = $isClientPortion ? 'Client' : 'Insurer';
+                                @endphp
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-900">{{ $p->payment_date ? \Carbon\Carbon::parse($p->payment_date)->format('M d, Y') : '—' }}</td>
+                                    <td class="px-4 py-3 text-sm font-mono text-slate-800">{{ $p->payment_reference }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $isClientPortion ? 'bg-violet-100 text-violet-800' : 'bg-sky-100 text-sky-800' }}">
+                                            {{ $payerLabel }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm font-semibold text-right text-slate-900">UGX {{ number_format((float) $p->amount, 2) }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ ucfirst(str_replace('_', ' ', $p->payment_method ?? '—')) }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs rounded-full {{ $p->status === 'completed' ? 'bg-green-100 text-green-800' : ($p->status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700') }}">
+                                            {{ ucfirst($p->status ?? '—') }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             @endif
         </div>
     </div>
@@ -184,12 +309,13 @@
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-medium text-slate-900">Transaction Statement</h3>
-                @if($invoice['payment_status'] !== 'paid' && $invoice['balance_due'] > 0)
+                @if($showInsurerClearButton)
                     <button 
-                        onclick="showMarkPaidModal({{ $invoiceId }}, '{{ $invoice['invoice_number'] }}', {{ $invoice['balance_due'] }})"
+                        type="button"
+                        onclick="showMarkPaidModal({{ $invoiceId }}, '{{ $invoice['invoice_number'] }}', {{ json_encode($suggestedInsurerPayment) }})"
                         class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150"
                     >
-                        Clear Payment
+                        Record insurer payment
                     </button>
                 @endif
             </div>
@@ -260,7 +386,7 @@
 <div id="markPaidModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
     <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
         <div class="mt-3">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Clear Payment</h3>
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Record insurer payment</h3>
             <form id="markPaidForm" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="mb-4">
@@ -310,7 +436,7 @@
                         Cancel
                     </button>
                     <button type="submit" id="submitPaymentBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                        Clear Payment
+                        Submit
                     </button>
                 </div>
             </form>

@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\ClientAccount;
+use App\Models\InsuranceAuthorization;
 use App\Models\InsuranceCompany;
 use App\Models\Payment;
 use App\Models\Policy;
+use App\Models\PolicyDeductibleLedger;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +22,9 @@ class RecordClientPortionService
      * 2. /clients/{id}/account-statement    – new transaction + balance (we create Transaction, update ClientAccount)
      * 3. /balance-statement/{id}            – same data as (2), redirects to account-statement
      * 4. /third-party-vendors/{id}          – new row (Payment has payment_metadata.source = 'kashtre')
+     *
+     * Policy deductible ledger: new rows are appended only here, only when recording a completed client-portion
+     * payment (not at invoice authorization). Nothing before the client pays their portion updates that ledger.
      *
      * @param array $validated Must include: insurance_company_id, policy_number, amount, payment_reference.
      *                         Optional: payment_method, mobile_money_number, kashtre_invoice_id, authorization_reference, connected_business_id.
@@ -71,6 +76,7 @@ class RecordClientPortionService
                 'payment_metadata' => array_filter([
                     'source' => $validated['source'] ?? 'kashtre',
                     'kashtre_invoice_id' => $validated['kashtre_invoice_id'] ?? null,
+                    'invoice_number' => $validated['invoice_number'] ?? null,
                     'authorization_reference' => $validated['authorization_reference'] ?? null,
                     'client_portion' => true,
                     'insurance_company_id' => $validated['insurance_company_id'],
@@ -80,6 +86,8 @@ class RecordClientPortionService
             ];
 
             $payment = Payment::create($paymentData);
+
+            self::recordDeductibleLedgerAfterClientPayment($validated, $policy);
 
             $account = ClientAccount::where('client_id', $client->id)
                 ->where('insurance_company_id', $validated['insurance_company_id'])
@@ -158,5 +166,74 @@ class RecordClientPortionService
             Log::error('[RecordClientPortionService] Failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Sole write path for policy_deductible_ledgers: after a successful client-portion payment is recorded.
+     * Amounts are copied from InsuranceAuthorization metadata (computed at invoice save; ledger still unchanged until this runs).
+     */
+    private static function recordDeductibleLedgerAfterClientPayment(array $validated, Policy $policy): void
+    {
+        if (($validated['status'] ?? '') !== 'completed') {
+            return;
+        }
+
+        $kashtreInvoiceId = $validated['kashtre_invoice_id'] ?? null;
+        $authRef = $validated['authorization_reference'] ?? null;
+        if ($kashtreInvoiceId === null && $authRef === null) {
+            return;
+        }
+
+        $query = InsuranceAuthorization::where('insurance_company_id', $validated['insurance_company_id'])
+            ->where('policy_id', $policy->id);
+        if ($kashtreInvoiceId !== null && $kashtreInvoiceId !== '') {
+            $query->where('kashtre_invoice_id', (string) $kashtreInvoiceId);
+        }
+        if ($authRef !== null && $authRef !== '') {
+            $query->where('authorization_reference', $authRef);
+        }
+
+        $auth = $query->first();
+        if (!$auth) {
+            Log::info('[RecordClientPortionService] No authorization match for deductible ledger', [
+                'kashtre_invoice_id' => $kashtreInvoiceId,
+                'authorization_reference' => $authRef,
+                'policy_id' => $policy->id,
+            ]);
+
+            return;
+        }
+
+        if (PolicyDeductibleLedger::where('authorization_id', $auth->id)->exists()) {
+            return;
+        }
+
+        $meta = $auth->metadata ?? [];
+        $amountReduces = (float) ($meta['amount_that_reduces_deductible'] ?? 0);
+        if ($amountReduces <= 0) {
+            return;
+        }
+
+        $deductibleBefore = (float) ($meta['deductible_remaining_before'] ?? 0);
+        $deductibleAfter = (float) ($meta['deductible_remaining_after'] ?? max(0, $deductibleBefore - $amountReduces));
+
+        PolicyDeductibleLedger::create([
+            'insurance_company_id' => $validated['insurance_company_id'],
+            'policy_id' => $policy->id,
+            'authorization_id' => $auth->id,
+            'kashtre_invoice_id' => $auth->kashtre_invoice_id,
+            'external_invoice_number' => $auth->external_invoice_number,
+            'change_type' => 'invoice',
+            'deductible_before' => $deductibleBefore,
+            'amount_that_reduces_deductible' => $amountReduces,
+            'deductible_after' => $deductibleAfter,
+            'notes' => 'Recorded when Kashtre confirmed client portion payment.',
+        ]);
+
+        Log::info('[RecordClientPortionService] Policy deductible ledger recorded after client payment', [
+            'authorization_id' => $auth->id,
+            'policy_id' => $policy->id,
+            'amount_that_reduces_deductible' => $amountReduces,
+        ]);
     }
 }

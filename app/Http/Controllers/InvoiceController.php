@@ -101,8 +101,35 @@ class InvoiceController extends Controller
         }
 
         $invoiceData = $result['data'];
-        
-        return view('invoices.show', compact('invoiceData', 'invoiceId'));
+        $insuranceCompanyId = auth()->user()->insurance_company_id;
+        $invoicePayments = $insuranceCompanyId
+            ? $this->paymentsForKashtreInvoice($invoiceId, $insuranceCompanyId)
+            : collect();
+
+        return view('invoices.show', compact('invoiceData', 'invoiceId', 'invoicePayments'));
+    }
+
+    /**
+     * Payments recorded in this app for a Kashtre invoice (client portion from Kashtre + insurer payments).
+     */
+    private function paymentsForKashtreInvoice($kashtreInvoiceId, int $insuranceCompanyId)
+    {
+        $idStr = (string) $kashtreInvoiceId;
+
+        return Payment::query()
+            ->with(['client', 'policy', 'processedBy'])
+            ->where(function ($q) use ($kashtreInvoiceId, $idStr) {
+                $q->where('payment_metadata->kashtre_invoice_id', $idStr)
+                    ->orWhere('payment_metadata->kashtre_invoice_id', (int) $kashtreInvoiceId);
+            })
+            ->where(function ($q) use ($insuranceCompanyId) {
+                $q->where('payment_metadata->insurance_company_id', $insuranceCompanyId)
+                    ->orWhere('payment_metadata->insurance_company_id', (string) $insuranceCompanyId)
+                    ->orWhereRelation('policy', 'insurance_company_id', $insuranceCompanyId);
+            })
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->get();
     }
 
     /**

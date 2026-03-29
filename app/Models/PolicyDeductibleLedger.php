@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Append-only history of deductible applied per visit. Rows are created only in
+ * RecordClientPortionService after a completed client-portion payment—not at authorization time.
+ */
 class PolicyDeductibleLedger extends Model
 {
     protected $fillable = [
