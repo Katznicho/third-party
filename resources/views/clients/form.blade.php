@@ -1168,7 +1168,7 @@
                                                            {{ !$isSelected ? 'disabled' : '' }}>
                                                     <span class="ml-1 text-xs text-slate-600">Select</span>
                                                 </label>
-                                                @if($baseAmount > 0)
+                                                @if($baseAmount > 0 && !($client->exists ?? false))
                                                     <span class="text-xs font-semibold text-slate-900 mt-1" title="Base Amount (Client Pays)">{{ number_format($baseAmount, 0, '.', ',') }}</span>
                                                 @endif
                                                 @if($benefitAmount > 0 && $benefitAmount != $baseAmount)
