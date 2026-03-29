@@ -52,6 +52,7 @@
                             <tr>
                                 <th class="px-3 py-2 font-semibold text-slate-700">Date</th>
                                 <th class="px-3 py-2 font-semibold text-slate-700">Policy Number</th>
+                                <th class="px-3 py-2 font-semibold text-slate-700">Client Name</th>
                                 <th class="px-3 py-2 font-semibold text-slate-700">Invoice #</th>
                                 <th class="px-3 py-2 font-semibold text-slate-700 text-right">Deductible Before</th>
                                 <th class="px-3 py-2 font-semibold text-slate-700 text-right">Reduces Deductible</th>
@@ -66,6 +67,9 @@
                                     </td>
                                     <td class="px-3 py-2 text-slate-700">
                                         {{ $entry->policy?->policy_number ?? '—' }}
+                                    </td>
+                                    <td class="px-3 py-2 text-slate-700">
+                                        {{ $entry->policy?->principalMember?->full_name ?? '—' }}
                                     </td>
                                     <td class="px-3 py-2 text-slate-700">
                                         {{ $entry->external_invoice_number ?? $entry->kashtre_invoice_id ?? '—' }}

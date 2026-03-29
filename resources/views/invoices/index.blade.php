@@ -795,20 +795,19 @@ function closeBulkPaymentPanel() {
     updateBulkPaymentPanel();
 }
 
+function paymentRefRandomHex(bytes) {
+    const a = new Uint8Array(bytes);
+    crypto.getRandomValues(a);
+    return Array.from(a, function (b) { return b.toString(16).padStart(2, '0'); }).join('').toUpperCase();
+}
+
+/** Matches server-side PaymentReference: short prefix + 10 hex chars (5 bytes). */
 function generateReference() {
-    const prefix = 'BULK-';
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const reference = prefix + timestamp + '-' + random;
-    document.getElementById('bulkPaymentReference').value = reference;
+    document.getElementById('bulkPaymentReference').value = 'B-' + paymentRefRandomHex(5);
 }
 
 function generateMobileMoneyReference() {
-    const prefix = 'MM-BULK-';
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const reference = prefix + timestamp + '-' + random;
-    // Store in the hidden field for mobile money
+    const reference = 'MM-' + paymentRefRandomHex(5);
     const hiddenField = document.getElementById('bulkMobileMoneyReference');
     if (hiddenField) {
         hiddenField.value = reference;

@@ -7,6 +7,7 @@ use App\Models\Policy;
 use App\Services\KashtreApiService;
 use App\Services\PaymentCompletionService;
 use App\Services\RecordClientPortionService;
+use App\Support\PaymentReference;
 use Illuminate\Http\Request;
 
 class PaymentController extends Controller
@@ -236,7 +237,7 @@ class PaymentController extends Controller
             'amount.min' => 'Amount must be at least 0.01.',
         ]);
 
-        $paymentReference = 'MANUAL-CP-' . now()->format('YmdHis') . '-' . str_pad((string) random_int(1, 999), 3, '0', STR_PAD_LEFT);
+        $paymentReference = PaymentReference::forClientPortionManual();
 
         $validated = [
             'insurance_company_id' => $insuranceCompanyId,

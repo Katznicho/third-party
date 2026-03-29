@@ -14,7 +14,7 @@ class PolicyDeductibleLedgerController extends Controller
         $user =   Auth::user();
         $insuranceCompany = $user->insuranceCompany;
 
-        $query = PolicyDeductibleLedger::with(['policy'])
+        $query = PolicyDeductibleLedger::with(['policy.principalMember'])
             ->where('insurance_company_id', $insuranceCompany->id)
             ->orderByDesc('created_at');
 
@@ -47,7 +47,7 @@ class PolicyDeductibleLedgerController extends Controller
         abort_unless($ledger->insurance_company_id === $insuranceCompany->id, 403);
 
         $ledger->load([
-            'policy',
+            'policy.principalMember',
             'authorization.policy',
             'authorization.insuranceCompany',
         ]);

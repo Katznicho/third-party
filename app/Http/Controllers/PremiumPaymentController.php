@@ -7,6 +7,7 @@ use App\Models\Policy;
 use App\Models\PolicyPremiumPayment;
 use App\Models\Payment;
 use App\Payments\YoAPI;
+use App\Support\PaymentReference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -45,7 +46,7 @@ class PremiumPaymentController extends Controller
         }
 
         $amount = $policy->total_premium_due;
-        $paymentReference = 'PREM-' . $policy->id . '-' . time();
+        $paymentReference = PaymentReference::forPremium($policy->id);
 
         return view('clients.pay-premium', compact('client', 'policy', 'amount', 'paymentReference'));
     }
@@ -79,7 +80,7 @@ class PremiumPaymentController extends Controller
         ]);
 
         $amount = $policy->total_premium_due;
-        $paymentReference = 'PREM-' . $policy->id . '-' . time();
+        $paymentReference = PaymentReference::forPremium($policy->id);
 
         try {
             DB::beginTransaction();

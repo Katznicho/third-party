@@ -26,6 +26,9 @@
                         <p><span class="font-semibold text-slate-700">Policy Number:</span>
                             <span class="text-slate-800">{{ $ledger->policy?->policy_number ?? '—' }}</span>
                         </p>
+                        <p><span class="font-semibold text-slate-700">Client Name:</span>
+                            <span class="text-slate-800">{{ $ledger->policy?->principalMember?->full_name ?? '—' }}</span>
+                        </p>
                         <p><span class="font-semibold text-slate-700">Invoice #:</span>
                             <span class="text-slate-800">{{ $ledger->external_invoice_number ?? $ledger->kashtre_invoice_id ?? '—' }}</span>
                         </p>

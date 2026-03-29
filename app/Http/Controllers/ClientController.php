@@ -10,6 +10,7 @@ use App\Models\InsuranceCompany;
 use App\Models\PolicyDeductibleLedger;
 use App\Models\Payment;
 use App\Payments\YoAPI;
+use App\Support\PaymentReference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -620,7 +621,7 @@ class ClientController extends Controller
                 if (!$policy) {
                     $successMessage .= ' Premium payment was not created (policy not found).';
                 } else {
-                    $paymentReference = 'PREM-' . $policy->id . '-' . time();
+                    $paymentReference = PaymentReference::forPremium($policy->id);
                     $amount = (float) $policy->total_premium_due;
                     $paymentMethodForDb = in_array($premiumPaymentMethod, ['p_card', 'v_card']) ? 'card' : $premiumPaymentMethod;
 
