@@ -142,4 +142,35 @@ class Client extends Model
     {
         return $this->type === 'dependent';
     }
+
+    /**
+     * Client portion payments and credits are stored on the principal member's account.
+     * Use this when resolving ClientAccount / balances for dependents.
+     */
+    public function accountBalanceClient(): self
+    {
+        if ($this->isDependent() && $this->principal_member_id) {
+            $this->loadMissing('principalMember');
+
+            return $this->principalMember ?? $this;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Transactions and payments may be recorded on the principal while viewing a dependent (same policy family).
+     */
+    public function accountActivityClientIds(): array
+    {
+        $ids = collect([(int) $this->id]);
+        if ($this->principal_member_id) {
+            $ids->push((int) $this->principal_member_id);
+        }
+        if ($this->isPrincipal()) {
+            $ids = $ids->merge($this->dependents()->pluck('id'));
+        }
+
+        return $ids->unique()->values()->all();
+    }
 }

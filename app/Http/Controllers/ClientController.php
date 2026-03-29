@@ -1310,49 +1310,58 @@ class ClientController extends Controller
             return redirect()->route('clients.index')->with('error', 'Client not found or you do not have access to this client.');
         }
 
-        // Get or create client account if it doesn't exist
-        $account = $client->account;
+        // Credits from Kashtre client-portion are stored on the principal member's ClientAccount / transactions.
+        $client->loadMissing('principalMember', 'dependents');
+        $balanceClient = $client->accountBalanceClient();
+        $activityClientIds = $client->accountActivityClientIds();
+
+        // Get or create client account (always the wallet owner — principal when applicable)
+        $account = $balanceClient->account;
         if (!$account) {
-            // Create account immediately if it doesn't exist
             $accountNumber = \App\Models\ClientAccount::generateAccountNumber($user->insuranceCompany);
-            
+
             $account = \App\Models\ClientAccount::create([
-                'client_id' => $client->id,
+                'client_id' => $balanceClient->id,
                 'insurance_company_id' => $user->insurance_company_id,
                 'account_number' => $accountNumber,
-                'account_type' => $client->type === 'principal' ? 'individual' : 'individual',
+                'account_type' => 'individual',
                 'status' => 'active',
                 'opening_balance' => 0,
                 'current_balance' => 0,
                 'total_debits' => 0,
                 'total_credits' => 0,
                 'available_balance' => 0,
-                'opened_date' => $client->created_at ?? now(),
+                'opened_date' => $balanceClient->created_at ?? now(),
                 'auto_generate_statements' => true,
                 'statement_frequency' => 'monthly',
             ]);
-            
+
             Log::info('Client account created on-demand', [
-                'client_id' => $client->id,
-                'account_number' => $accountNumber
+                'client_id' => $balanceClient->id,
+                'account_number' => $accountNumber,
             ]);
         }
 
-        // Get all transactions for this client
-        $transactions = \App\Models\Transaction::where('client_id', $client->id)
+        // Transactions for this member + principal/dependents (same household activity)
+        $transactions = \App\Models\Transaction::whereIn('client_id', $activityClientIds)
             ->orderBy('transaction_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->with(['policy', 'invoice', 'payment', 'serviceCategory'])
             ->paginate(50);
 
-        // Get all invoices for this client
-        $invoices = \App\Models\Invoice::where('client_id', $client->id)
+        // Sum ALL rows using debit_amount / credit_amount (includes type=copayment from Kashtre client portion)
+        $transactionTotals = \App\Models\Transaction::whereIn('client_id', $activityClientIds)
+            ->selectRaw('COALESCE(SUM(debit_amount), 0) as sum_debits, COALESCE(SUM(credit_amount), 0) as sum_credits')
+            ->first();
+        $totalDebits = (float) ($transactionTotals->sum_debits ?? 0);
+        $totalCredits = (float) ($transactionTotals->sum_credits ?? 0);
+
+        $invoices = \App\Models\Invoice::whereIn('client_id', $activityClientIds)
             ->orderBy('invoice_date', 'desc')
             ->with(['policy', 'payments'])
             ->get();
 
-        // Get all payments for this client
-        $payments = \App\Models\Payment::where('client_id', $client->id)
+        $payments = \App\Models\Payment::whereIn('client_id', $activityClientIds)
             ->orderBy('payment_date', 'desc')
             ->with(['invoice', 'policy'])
             ->get();
@@ -1361,11 +1370,13 @@ class ClientController extends Controller
         $totalInvoices = $invoices->sum('total_amount');
         $totalPaid = $payments->sum('paid_amount');
         $totalBalance = $invoices->sum('balance_amount');
-        $totalDebits = $transactions->where('type', 'debit')->sum('debit_amount');
-        $totalCredits = $transactions->where('type', 'credit')->sum('credit_amount');
 
-        // Aggregate insurance authorization usage (deductible, co-pay, coinsurance, guarantees)
-        $policyIds = $client->policies()->where('insurance_company_id', $insuranceCompanyId)->pluck('id')->all();
+        // Authorizations attach to policy (owned by principal)
+        $policyOwner = $client->principalMember ?? $client;
+        $policyIds = $policyOwner->policies()
+            ->where('insurance_company_id', $insuranceCompanyId)
+            ->pluck('id')
+            ->all();
         $totalGuaranteed = 0;
         $totalDeductibleUsed = 0;
         $totalCopayUsed = 0;
@@ -1386,17 +1397,26 @@ class ClientController extends Controller
         }
 
         // Update account balances
+        $lastTxn = \App\Models\Transaction::whereIn('client_id', $activityClientIds)
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->first();
+
         $account->update([
             'current_balance' => $totalCredits - $totalDebits,
             'total_debits' => $totalDebits,
             'total_credits' => $totalCredits,
             'available_balance' => $totalCredits - $totalDebits,
-            'last_transaction_date' => $transactions->first()?->transaction_date ?? $account->opened_date,
+            'last_transaction_date' => $lastTxn?->transaction_date ?? $account->opened_date,
         ]);
+
+        $accountStatementUsesPrimaryWallet = $client->id !== $balanceClient->id;
 
         return view('clients.account-statement', compact(
             'client',
             'account',
+            'balanceClient',
+            'accountStatementUsesPrimaryWallet',
             'transactions',
             'invoices',
             'payments',

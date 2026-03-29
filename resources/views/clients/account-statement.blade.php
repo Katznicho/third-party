@@ -13,6 +13,11 @@
             @if(isset($account))
                 <p class="text-sm text-slate-500 mt-1">Account Number: <span class="font-semibold">{{ $account->account_number }}</span> | Status: <span class="font-semibold">{{ ucfirst($account->status) }}</span></p>
             @endif
+            @if(!empty($accountStatementUsesPrimaryWallet) && isset($balanceClient))
+                <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2 inline-block">
+                    Payments and wallet balance for this policy are recorded on the primary member: <strong>{{ $balanceClient->full_name }}</strong>. Totals below include their household activity.
+                </p>
+            @endif
         </div>
         <div class="flex gap-3">
             <a href="{{ route('clients.index') }}" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition duration-150">
