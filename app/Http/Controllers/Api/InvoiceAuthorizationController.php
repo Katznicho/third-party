@@ -536,14 +536,18 @@ class InvoiceAuthorizationController extends Controller
         $coinsurancePortion = min($coinsuranceRaw, $remainingForClient);
         $remainingForClient -= $coinsurancePortion;
 
+        // Co-pay / co-insurance that *count toward the annual deductible* satisfy part of OD first.
+        // Otherwise we would charge copay + coinsurance + a full OD slice (double-count vs the deductible bucket).
+        $copayCoinsuranceTowardDeductible = $policy->calculateDeductibleContribution($copayPortion, $coinsurancePortion);
+
         // Step 3: deductible decision rule (second method)
         // OI = outstanding invoice after co-pay & co-insurance
-        // OD = outstanding deductible
+        // OD = outstanding deductible **still to be allocated from OI** (after copay/coinsurance that already count toward OD)
         // V  = OI - OD
         // If V > 0  => client pays OD, insurer pays V
         // If V <= 0 => client pays OI, insurer pays 0
         $oi = max(0.0, (float) $remainingForClient);
-        $od = max(0.0, (float) $effectiveDeductibleBefore);
+        $od = max(0.0, (float) $effectiveDeductibleBefore - $copayCoinsuranceTowardDeductible);
         $v = round($oi - $od, 2);
 
         if ($v > 0) {
@@ -571,7 +575,11 @@ class InvoiceAuthorizationController extends Controller
             $clientTotal = round($clientTotal + $excludedAmount, 2);
         }
 
-        $amountThatReducesDeductible = $deductiblePortion + $policy->calculateDeductibleContribution($copayPortion, $coinsurancePortion);
+        // Total annual deductible satisfied this visit (cannot exceed remaining OD before the visit)
+        $amountThatReducesDeductible = min(
+            (float) $effectiveDeductibleBefore,
+            $deductiblePortion + $copayCoinsuranceTowardDeductible
+        );
         $deductibleBefore = $effectiveDeductibleBefore;
         $deductibleAfter = max(0, $deductibleBefore - $amountThatReducesDeductible);
 
@@ -591,6 +599,8 @@ class InvoiceAuthorizationController extends Controller
             'deductible_remaining_request' => $deductibleRemainingFromRequest,
             'deductible_remaining_authoritative' => $deductibleRemainingAuthoritative,
             'deductible_ledger_id' => $latestLedger?->id,
+            'copay_coinsurance_toward_deductible' => $copayCoinsuranceTowardDeductible,
+            'deductible_od_for_oi_split' => $od,
             'benefit_cap' => $benefitCap,
             'benefit_excess' => $benefitExcess,
             'breakdown' => $breakdown,
