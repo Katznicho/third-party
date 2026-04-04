@@ -24,6 +24,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/authorized-visits', [DashboardController::class, 'authorizedVisits'])->name('authorized-visits.index');
     
     // Settings index (SettingsController handles the main settings page)
     Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
@@ -117,6 +118,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/account-number', [\App\Http\Controllers\SettingsController::class, 'updateAccountNumberSettings'])->name('settings.update-account-number');
     Route::put('/settings/payment', [\App\Http\Controllers\SettingsController::class, 'updatePaymentSettings'])->name('settings.update-payment');
     Route::put('/settings/open-enrollment', [\App\Http\Controllers\SettingsController::class, 'updateOpenEnrollmentSettings'])->name('settings.update-open-enrollment');
+    Route::put('/settings/visit-authorization', [\App\Http\Controllers\SettingsController::class, 'updateVisitAuthorizationSettings'])->name('settings.update-visit-authorization');
 
     // Wildcard must come after all specific /settings/* PUT routes to avoid swallowing them
     Route::put('/settings/{business}', [BusinessSettingController::class, 'update'])->name('business-settings.update');

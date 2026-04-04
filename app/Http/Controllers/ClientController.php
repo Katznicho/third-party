@@ -29,25 +29,42 @@ class ClientController extends Controller
             return redirect()->route('dashboard')
                 ->with('error', 'You must be associated with an insurance company to view clients.');
         }
+
+        // Get the tab from query parameter (default to 'registered')
+        $tab = request('tab', 'registered');
         
-        // Get clients that have policies with this insurance company
-        // This includes:
-        // 1. Principal members who have policies with this insurance company
-        // 2. Dependents of those principal members
-        $clients = Client::whereHas('policies', function($query) use ($insuranceCompanyId) {
-                $query->where('insurance_company_id', $insuranceCompanyId);
-            })
-            ->orWhereHas('principalMember.policies', function($query) use ($insuranceCompanyId) {
-                // Include dependents whose principal member has a policy with this insurance company
-                $query->where('insurance_company_id', $insuranceCompanyId);
-            })
-            ->with(['policies' => function($query) use ($insuranceCompanyId) {
-                $query->where('insurance_company_id', $insuranceCompanyId);
-            }, 'principalMember', 'plan'])
-            ->latest()
-            ->paginate(15);
+        // Base query for clients with policies for this insurance company
+        $baseQuery = function($subQuery) use ($insuranceCompanyId) {
+            return $subQuery->where('insurance_company_id', $insuranceCompanyId);
+        };
+        
+        if ($tab === 'open_enrollment') {
+            // Get open enrollment clients
+            $clients = Client::where('registered_via_open_enrollment', true)
+                ->whereHas('policies', $baseQuery)
+                ->with(['policies' => function($query) use ($insuranceCompanyId) {
+                    $query->where('insurance_company_id', $insuranceCompanyId);
+                }, 'principalMember', 'plan'])
+                ->latest()
+                ->paginate(15);
+        } else {
+            // Get registered clients (not via open enrollment)
+            $clients = Client::where('registered_via_open_enrollment', false)
+                ->whereHas('policies', $baseQuery)
+                ->orWhere(function($query) use ($insuranceCompanyId) {
+                    $query->where('registered_via_open_enrollment', false)
+                        ->whereHas('principalMember.policies', function($q) use ($insuranceCompanyId) {
+                            $q->where('insurance_company_id', $insuranceCompanyId);
+                        });
+                })
+                ->with(['policies' => function($query) use ($insuranceCompanyId) {
+                    $query->where('insurance_company_id', $insuranceCompanyId);
+                }, 'principalMember', 'plan'])
+                ->latest()
+                ->paginate(15);
+        }
             
-        return view('clients.index', compact('clients'));
+        return view('clients.index', compact('clients', 'tab'));
     }
 
     /**

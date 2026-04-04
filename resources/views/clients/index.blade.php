@@ -32,7 +32,28 @@
         </a>
     </div>
 
-    <!-- Clients Table -->
+    <!-- Tabs -->
+    <div class="border-b border-slate-200">
+        <div class="flex space-x-8">
+            <a href="{{ route('clients.index', ['tab' => 'registered']) }}"
+               class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ request('tab', 'registered') === 'registered' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300' }}">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Registered Clients
+            </a>
+            <a href="{{ route('clients.index', ['tab' => 'open_enrollment']) }}"
+               class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {{ request('tab') === 'open_enrollment' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300' }}">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5-4a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                Open Enrollment Clients
+            </a>
+        </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="mt-6">
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         @if($clients->count() > 0)
             <table class="min-w-full divide-y divide-slate-200">
@@ -98,6 +119,7 @@
                 </div>
             </div>
         @endif
+    </div>
     </div>
 </div>
 @endsection

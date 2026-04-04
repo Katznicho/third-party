@@ -46,6 +46,9 @@ Route::prefix('v1')->group(function () {
     // Get insurance company by ID with settings (public, for client registration)
     Route::get('/businesses/{id}/settings', [BusinessController::class, 'getSettings'])->name('api.businesses.settings');
     
+    // Get insurance company registration settings (public, for kashtre registration desk)
+    Route::get('/insurance-companies/{id}/settings', [BusinessController::class, 'getInsuranceCompanySettings'])->name('api.insurance-companies.settings');
+    
     // Create business connection (public, for client registration)
     Route::post('/businesses/connections', [BusinessController::class, 'createConnection'])->name('api.businesses.connections.create');
     
@@ -67,6 +70,12 @@ Route::prefix('v1')->group(function () {
     // Client verification by email and OTP
     Route::post('/clients/search-and-send-otp-email', [ClientVerificationController::class, 'searchAndSendOtpByEmail'])->name('api.clients.search-and-send-otp-email');
     Route::post('/clients/verify-otp-email', [ClientVerificationController::class, 'verifyOtpByEmail'])->name('api.clients.verify-otp-email');
+    
+    // Sync client from Kashtre (create/update client on third-party for open enrollment)
+    Route::post('/clients/sync', [\App\Http\Controllers\Api\ClientController::class, 'syncFromKashtre'])->name('api.clients.sync');
+    
+    // Register authorized visit from Kashtre
+    Route::post('/authorized-visits/register', [\App\Http\Controllers\Api\AuthorizedVisitController::class, 'register'])->name('api.authorized-visits.register');
     
     // Create client account (for Kashtre integration)
     Route::post('/clients/{clientId}/account', [\App\Http\Controllers\Api\ClientController::class, 'createAccount'])->name('api.clients.account.create');

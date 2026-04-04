@@ -85,6 +85,13 @@
                 >
                     Authorization
                 </button>
+                <button 
+                    onclick="switchTab('visit-authorization')"
+                    id="tab-visit-authorization"
+                    class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                >
+                    Visit Authorization
+                </button>
             </nav>
         </div>
 
@@ -2231,6 +2238,108 @@
                         <div class="flex justify-end">
                             <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
                                 Save Authorization Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Visit Authorization Tab -->
+            <div id="content-visit-authorization" class="tab-content" style="display: none;">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-xl font-bold text-slate-900 mb-4">Visit Authorization Period</h2>
+                    <p class="text-sm text-slate-600 mb-6">
+                        Configure how long a visit authorization is valid for admitted patients. Data older than this period can be archived or moved to another folder.
+                    </p>
+
+                    <form action="{{ route('settings.update-visit-authorization') }}" method="POST" class="space-y-6">
+                        @csrf
+                        @method('PUT')
+                        <input type="hidden" name="current_tab" id="current_tab_visit-authorization" value="visit-authorization">
+
+                        <!-- Visit Authorization Period -->
+                        <div>
+                            <label for="visit_authorization_period_days" class="block text-sm font-medium text-slate-700 mb-2">
+                                Authorization Period (Days)
+                            </label>
+                            <input 
+                                type="number" 
+                                name="visit_authorization_period_days" 
+                                id="visit_authorization_period_days" 
+                                value="{{ old('visit_authorization_period_days', $insuranceCompany->visit_authorization_period_days ?? 7) }}"
+                                min="1"
+                                max="365"
+                                class="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                            <p class="text-xs text-slate-500 mt-2">
+                                Number of days a visit authorization remains valid for admitted patients. Common values: 3 days, 7 days, 14 days, 30 days.
+                            </p>
+                        </div>
+
+                        <!-- Show Policy Details at Registration -->
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                            <div>
+                                <label class="text-sm font-medium text-slate-900">Display Policy Details at Registration</label>
+                                <p class="text-xs text-slate-600 mt-1">Show client policy details at the registration desk when checking in</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="hidden" name="show_policy_details_at_registration" value="0">
+                                <input 
+                                    type="checkbox" 
+                                    name="show_policy_details_at_registration" 
+                                    value="1"
+                                    {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? true) ? 'checked' : '' }}
+                                    class="sr-only peer"
+                                >
+                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Info Box -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex">
+                                <svg class="w-5 h-5 text-blue-600 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div class="text-sm text-blue-800">
+                                    <p class="font-semibold mb-1">How This Works:</p>
+                                    <ul class="list-disc list-inside space-y-1 text-xs">
+                                        <li>Visit authorizations for admitted patients expire after the configured number of days</li>
+                                        <li>Data older than this period can be archived or moved to a separate folder</li>
+                                        <li>This setting applies globally to all vendors in this insurance company</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Example Scenarios -->
+                        <div class="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-slate-900 mb-3">Example Scenarios</h3>
+                            <div class="space-y-2 text-xs text-slate-600">
+                                <div class="flex justify-between">
+                                    <span><strong>3 days:</strong> Short-term admitted patients</span>
+                                    <span class="text-slate-400">Quick discharge expected</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span><strong>7 days:</strong> Standard admission period</span>
+                                    <span class="text-slate-400">Typical hospital stay</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span><strong>14 days:</strong> Extended admissions</span>
+                                    <span class="text-slate-400">Complex cases, recovery</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span><strong>30 days:</strong> Long-term care</span>
+                                    <span class="text-slate-400">Rehabilitation, intensive care</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                Save Visit Authorization Settings
                             </button>
                         </div>
                     </form>

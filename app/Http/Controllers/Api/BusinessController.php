@@ -2280,4 +2280,27 @@ class BusinessController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get insurance company registration desk settings
+     * Used by kashtre registration desk to determine if policy details should be shown
+     */
+    public function getInsuranceCompanySettings($id)
+    {
+        try {
+            $insuranceCompany = InsuranceCompany::findOrFail($id);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Insurance company registration settings retrieved successfully',
+                'show_policy_details_at_registration' => $insuranceCompany->show_policy_details_at_registration ?? true,
+                'visit_authorization_period_days' => $insuranceCompany->visit_authorization_period_days ?? 7,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insurance company not found.',
+            ], 404);
+        }
+    }
 }

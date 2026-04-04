@@ -387,4 +387,30 @@ class SettingsController extends Controller
         return redirect()->route('settings.index', ['tab' => $tab])
             ->with('success', 'Account number generation settings updated successfully.');
     }
+
+    /**
+     * Update visit authorization period settings
+     */
+    public function updateVisitAuthorizationSettings(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $validated = $request->validate([
+            'visit_authorization_period_days' => 'required|integer|min:1|max:365',
+            'show_policy_details_at_registration' => 'nullable|boolean',
+        ]);
+
+        $insuranceCompany = $user->insuranceCompany;
+        $insuranceCompany->update([
+            'visit_authorization_period_days' => $validated['visit_authorization_period_days'],
+            'show_policy_details_at_registration' => $request->boolean('show_policy_details_at_registration', true),
+        ]);
+
+        $tab = $request->input('current_tab', 'visit-authorization');
+        return redirect()->route('settings.index', ['tab' => $tab])
+            ->with('success', 'Visit authorization settings updated successfully.');
+    }
 }

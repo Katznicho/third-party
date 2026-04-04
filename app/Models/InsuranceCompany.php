@@ -87,6 +87,10 @@ class InsuranceCompany extends Model
         'phone_verification_action',
         'id_passport_verification_action',
         'visit_verification_action',
+        // Visit authorization period
+        'visit_authorization_period_days',
+        // Registration desk
+        'show_policy_details_at_registration',
     ];
 
     protected function casts(): array
@@ -143,6 +147,10 @@ class InsuranceCompany extends Model
             'enable_email_verification' => 'boolean',
             'enable_visit_verification' => 'boolean',
             'visit_verification_validity_days' => 'integer',
+            // Visit authorization period
+            'visit_authorization_period_days' => 'integer',
+            // Registration desk
+            'show_policy_details_at_registration' => 'boolean',
         ];
     }
 

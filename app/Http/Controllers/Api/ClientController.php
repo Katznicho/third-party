@@ -127,4 +127,152 @@ class ClientController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Sync client from Kashtre to third-party system
+     * 
+     * This endpoint is called from Kashtre when a client is created via open enrollment
+     * to sync the client details to the third-party vendor system.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function syncFromKashtre(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'kashtre_client_id' => 'required|string|max:255',
+                'insurance_company_id' => 'required|integer|exists:insurance_companies,id',
+                'first_name' => 'required|string|max:255',
+                'surname' => 'required|string|max:255',
+                'other_names' => 'nullable|string|max:255',
+                'phone_number' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'date_of_birth' => 'required|date',
+                'gender' => 'required|in:male,female,other',
+                'marital_status' => 'nullable|string|max:255',
+                'occupation' => 'nullable|string|max:255',
+                'nationality' => 'nullable|string|max:255',
+                'policy_number' => 'nullable|string|max:255',
+                'registered_via_open_enrollment' => 'required|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $insuranceCompany = InsuranceCompany::find($request->insurance_company_id);
+            if (!$insuranceCompany) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insurance company not found',
+                ], 404);
+            }
+
+            // Check if client already exists (by kashtre_client_id or policy number)
+            $existingClient = Client::where('kashtre_client_id', $request->kashtre_client_id)
+                ->orWhere(function($query) use ($request) {
+                    $query->where('policy_number', $request->policy_number)
+                        ->where('insurance_company_id', $request->insurance_company_id);
+                })
+                ->first();
+
+            if ($existingClient) {
+                // Update existing client
+                $existingClient->update([
+                    'first_name' => $request->first_name,
+                    'surname' => $request->surname,
+                    'other_names' => $request->other_names,
+                    'cell_phone' => $request->phone_number,
+                    'email' => $request->email,
+                    'date_of_birth' => $request->date_of_birth,
+                    'gender' => $request->gender,
+                    'marital_status' => $request->marital_status,
+                    'occupation' => $request->occupation,
+                    'nationality' => $request->nationality,
+                    'policy_number' => $request->policy_number,
+                    'insurance_company_id' => $request->insurance_company_id,
+                    'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
+                    'is_active' => true,
+                ]);
+
+                Log::info('Client updated via Kashtre sync', [
+                    'kashtre_client_id' => $request->kashtre_client_id,
+                    'client_id' => $existingClient->id,
+                    'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Client updated successfully',
+                    'data' => [
+                        'client' => [
+                            'id' => $existingClient->id,
+                            'kashtre_client_id' => $existingClient->kashtre_client_id,
+                            'full_name' => $existingClient->full_name,
+                            'policy_number' => $existingClient->policy_number,
+                            'registered_via_open_enrollment' => $existingClient->registered_via_open_enrollment,
+                        ],
+                    ],
+                ], 200);
+            }
+
+            // Create new client
+            $client = Client::create([
+                'kashtre_client_id' => $request->kashtre_client_id,
+                'type' => 'principal',
+                'insurance_company_id' => $request->insurance_company_id,
+                'first_name' => $request->first_name,
+                'surname' => $request->surname,
+                'other_names' => $request->other_names,
+                'cell_phone' => $request->phone_number,
+                'email' => $request->email,
+                'date_of_birth' => $request->date_of_birth,
+                'gender' => $request->gender,
+                'marital_status' => $request->marital_status,
+                'occupation' => $request->occupation,
+                'nationality' => $request->nationality,
+                'policy_number' => $request->policy_number,
+                'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
+                'is_active' => true,
+            ]);
+
+            Log::info('Client created via Kashtre sync', [
+                'kashtre_client_id' => $request->kashtre_client_id,
+                'client_id' => $client->id,
+                'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Client synced successfully',
+                'data' => [
+                    'client' => [
+                        'id' => $client->id,
+                        'kashtre_client_id' => $client->kashtre_client_id,
+                        'full_name' => $client->full_name,
+                        'policy_number' => $client->policy_number,
+                        'registered_via_open_enrollment' => $client->registered_via_open_enrollment,
+                    ],
+                ],
+            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to sync client from Kashtre', [
+                'kashtre_client_id' => $request->kashtre_client_id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync client',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

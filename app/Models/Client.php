@@ -58,6 +58,8 @@ class Client extends Model
         'telemedicine_only',
         'is_active',
         'insurance_company_id',
+        'registered_via_open_enrollment',
+        'kashtre_client_id',
     ];
 
     protected function casts(): array
@@ -73,6 +75,7 @@ class Client extends Model
             'active_period_days' => 'integer',
             'telemedicine_only' => 'boolean',
             'is_active' => 'boolean',
+            'registered_via_open_enrollment' => 'boolean',
         ];
     }
 
@@ -102,6 +105,11 @@ class Client extends Model
         return $this->belongsTo(Plan::class);
     }
 
+    public function insuranceCompany(): BelongsTo
+    {
+        return $this->belongsTo(InsuranceCompany::class);
+    }
+
     public function medicalQuestionResponses(): HasMany
     {
         return $this->hasMany(MedicalQuestionResponse::class);
@@ -115,6 +123,11 @@ class Client extends Model
     public function account(): HasOne
     {
         return $this->hasOne(ClientAccount::class);
+    }
+
+    public function authorizedVisits(): HasMany
+    {
+        return $this->hasMany(AuthorizedVisit::class);
     }
 
     /**
