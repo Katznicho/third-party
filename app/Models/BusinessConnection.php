@@ -26,4 +26,20 @@ class BusinessConnection extends Model
     {
         return $this->belongsTo(InsuranceCompany::class, 'connected_business_id');
     }
+
+    /**
+     * Get settings for this business connection.
+     */
+    public function settings()
+    {
+        return $this->hasMany(BusinessSetting::class, 'business_connection_id');
+    }
+
+    /**
+     * Get visit authorization duration setting.
+     */
+    public function getVisitAuthorizationDurationAttribute()
+    {
+        return BusinessSetting::getVisitAuthorizationDuration($this->id);
+    }
 }

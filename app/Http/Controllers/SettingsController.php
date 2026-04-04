@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\InsuranceCompany;
+use App\Models\Policy;
 use App\Models\PreAuthorizationApprover;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -289,6 +290,77 @@ class SettingsController extends Controller
         $tab = $request->input('current_tab', 'authorization');
         return redirect()->route('settings.index', ['tab' => $tab])
             ->with('success', 'Authorization settings updated successfully.');
+    }
+
+    /**
+     * Update open enrollment settings
+     */
+    public function updateOpenEnrollmentSettings(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->insuranceCompany) {
+            return redirect()->back()->with('error', 'You must be associated with an insurance company.');
+        }
+
+        $validated = $request->validate([
+            'open_enrollment_enabled'           => 'nullable|boolean',
+            'open_enrollment_min_age'           => 'nullable|integer|min:0|max:150',
+            'open_enrollment_max_age'           => 'nullable|integer|min:0|max:150|gte:open_enrollment_min_age',
+            'open_enrollment_genders'           => 'nullable|array',
+            'open_enrollment_genders.*'         => 'string|in:Male,Female',
+            'open_enrollment_service_categories'    => 'nullable|array',
+            'open_enrollment_service_categories.*'  => 'string|max:64',
+            'open_enrollment_start_date'        => 'nullable|date',
+            'open_enrollment_end_date'          => 'nullable|date|after_or_equal:open_enrollment_start_date',
+            'open_enrollment_max_invoice_amount' => 'nullable|numeric|min:0',
+            'open_enrollment_nationalities'     => 'nullable|array',
+            'open_enrollment_nationalities.*'   => 'string|max:120',
+            'open_enrollment_marital_statuses'  => 'nullable|array',
+            'open_enrollment_marital_statuses.*' => 'string|in:Single,Married,Divorced,Widowed',
+            'open_enrollment_client_types'      => 'nullable|array',
+            'open_enrollment_client_types.*'    => 'string|in:principal,dependent',
+        ]);
+
+        $insuranceCompany = $user->insuranceCompany;
+        $enabled = $request->boolean('open_enrollment_enabled', false);
+
+        DB::transaction(function () use ($insuranceCompany, $validated, $enabled) {
+            $insuranceCompany->update([
+                'open_enrollment_enabled'            => $enabled,
+                'open_enrollment_min_age'            => $validated['open_enrollment_min_age'] ?? null,
+                'open_enrollment_max_age'            => $validated['open_enrollment_max_age'] ?? null,
+                'open_enrollment_genders'            => $validated['open_enrollment_genders'] ?? null,
+                'open_enrollment_service_categories' => $validated['open_enrollment_service_categories'] ?? null,
+                'open_enrollment_start_date'         => $validated['open_enrollment_start_date'] ?? null,
+                'open_enrollment_end_date'           => $validated['open_enrollment_end_date'] ?? null,
+                'open_enrollment_max_invoice_amount' => $validated['open_enrollment_max_invoice_amount'] ?? null,
+                'open_enrollment_nationalities'      => $validated['open_enrollment_nationalities'] ?? null,
+                'open_enrollment_marital_statuses'   => $validated['open_enrollment_marital_statuses'] ?? null,
+                'open_enrollment_client_types'       => $validated['open_enrollment_client_types'] ?? null,
+            ]);
+
+            // Auto-create a generic policy when open enrollment is first enabled
+            if ($enabled && !$insuranceCompany->generic_policy_id) {
+                $genericPolicy = Policy::create([
+                    'insurance_company_id' => $insuranceCompany->id,
+                    'policy_number'        => 'GENERIC-' . strtoupper($insuranceCompany->code),
+                    'principal_member_id'  => null,
+                    'plan_type'            => 'Standard',
+                    'status'               => 'active',
+                    'inception_date'       => now()->toDateString(),
+                    'expiry_date'          => now()->addYears(50)->toDateString(),
+                    'total_premium'        => 0,
+                    'total_premium_due'    => 0,
+                    'has_deductible'       => false,
+                    'is_paid'              => true,
+                ]);
+
+                $insuranceCompany->update(['generic_policy_id' => $genericPolicy->id]);
+            }
+        });
+
+        return redirect()->route('settings.index', ['tab' => 'policy-number'])
+            ->with('success', 'Open enrollment settings updated successfully.');
     }
 
     /**

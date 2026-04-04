@@ -234,11 +234,288 @@
 
                         <!-- Form Actions -->
                         <div class="flex justify-end pt-4 border-t border-slate-200">
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150"
                             >
                                 Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Open Enrollment Section -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mt-6">
+                    <h2 class="text-xl font-bold text-slate-900 mb-1">Open Enrollment</h2>
+                    <p class="text-sm text-slate-600 mb-6">
+                        When enabled, clients are accepted based on criteria (age, sex) without a pre-registered policy.
+                        A single <strong>generic policy</strong> is created and shared by all qualifying walk-in clients.
+                    </p>
+
+                    <form action="{{ route('settings.update-open-enrollment') }}" method="POST" class="space-y-6">
+                        @csrf
+                        @method('PUT')
+
+                        <!-- Enable toggle -->
+                        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-4">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-800">Enable open enrollment</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Clients without a personal policy will be matched against the generic policy if they meet the criteria below.</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    name="open_enrollment_enabled"
+                                    id="open_enrollment_enabled"
+                                    value="1"
+                                    {{ old('open_enrollment_enabled', $insuranceCompany->open_enrollment_enabled ?? false) ? 'checked' : '' }}
+                                    class="sr-only peer"
+                                    onchange="toggleOpenEnrollmentCriteria(this.checked)"
+                                >
+                                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Criteria (shown when enabled) -->
+                        <div id="open-enrollment-criteria" class="{{ old('open_enrollment_enabled', $insuranceCompany->open_enrollment_enabled ?? false) ? '' : 'hidden' }} space-y-5">
+
+                            <!-- Age range -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                <h3 class="text-sm font-semibold text-slate-800 mb-3">Age Criteria <span class="text-slate-400 font-normal">(optional)</span></h3>
+                                <p class="text-xs text-slate-500 mb-3">Leave blank to accept clients of any age.</p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="open_enrollment_min_age" class="block text-sm font-medium text-slate-700 mb-1">Minimum age</label>
+                                        <input
+                                            type="number"
+                                            name="open_enrollment_min_age"
+                                            id="open_enrollment_min_age"
+                                            value="{{ old('open_enrollment_min_age', $insuranceCompany->open_enrollment_min_age) }}"
+                                            min="0" max="150"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="e.g. 18"
+                                        >
+                                    </div>
+                                    <div>
+                                        <label for="open_enrollment_max_age" class="block text-sm font-medium text-slate-700 mb-1">Maximum age</label>
+                                        <input
+                                            type="number"
+                                            name="open_enrollment_max_age"
+                                            id="open_enrollment_max_age"
+                                            value="{{ old('open_enrollment_max_age', $insuranceCompany->open_enrollment_max_age) }}"
+                                            min="0" max="150"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="e.g. 65"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Gender criteria -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                <h3 class="text-sm font-semibold text-slate-800 mb-3">Gender Criteria <span class="text-slate-400 font-normal">(optional)</span></h3>
+                                <p class="text-xs text-slate-500 mb-3">Select which genders qualify. Leave all unchecked to accept any gender.</p>
+                                @php
+                                    $savedGenders = old('open_enrollment_genders', $insuranceCompany->open_enrollment_genders ?? []);
+                                    $savedGenders = is_array($savedGenders) ? $savedGenders : [];
+                                @endphp
+                                <div class="flex gap-6 items-center">
+                                    @foreach(['Male' => 'Male', 'Female' => 'Female'] as $value => $label)
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="open_enrollment_genders[]"
+                                                value="{{ $value }}"
+                                                {{ in_array($value, $savedGenders) ? 'checked' : '' }}
+                                                class="gender-checkbox rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                onchange="syncBothGender()"
+                                            >
+                                            <span class="text-sm text-slate-700">{{ $label }}</span>
+                                        </label>
+                                    @endforeach
+                                    <span class="text-slate-300 select-none">|</span>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            id="gender_both"
+                                            {{ count($savedGenders) === 2 ? 'checked' : '' }}
+                                            class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                            onchange="toggleBothGenders(this.checked)"
+                                        >
+                                        <span class="text-sm text-slate-700 font-medium">Both</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Service Categories -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                <h3 class="text-sm font-semibold text-slate-800 mb-3">Allowed Service Categories <span class="text-slate-400 font-normal">(optional)</span></h3>
+                                <p class="text-xs text-slate-500 mb-3">Restrict open enrollment to specific service types. Leave all unchecked to allow any category.</p>
+                                @php
+                                    $savedCategories = old('open_enrollment_service_categories', $insuranceCompany->open_enrollment_service_categories ?? []);
+                                    $savedCategories = is_array($savedCategories) ? $savedCategories : [];
+                                    $allCategories = \App\Models\ServiceCategory::orderBy('name')->get(['slug', 'name']);
+                                @endphp
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    @foreach($allCategories as $cat)
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="open_enrollment_service_categories[]"
+                                                value="{{ $cat->slug }}"
+                                                {{ in_array($cat->slug, $savedCategories) ? 'checked' : '' }}
+                                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                            >
+                                            <span class="text-sm text-slate-700">{{ $cat->name }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <!-- Enrollment Window -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                <h3 class="text-sm font-semibold text-slate-800 mb-3">Enrollment Window <span class="text-slate-400 font-normal">(optional)</span></h3>
+                                <p class="text-xs text-slate-500 mb-3">Limit open enrollment to a date range, e.g. a seasonal campaign. Leave blank to allow anytime.</p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="open_enrollment_start_date" class="block text-sm font-medium text-slate-700 mb-1">Start date</label>
+                                        <input
+                                            type="date"
+                                            name="open_enrollment_start_date"
+                                            id="open_enrollment_start_date"
+                                            value="{{ old('open_enrollment_start_date', $insuranceCompany->open_enrollment_start_date?->toDateString()) }}"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                    </div>
+                                    <div>
+                                        <label for="open_enrollment_end_date" class="block text-sm font-medium text-slate-700 mb-1">End date</label>
+                                        <input
+                                            type="date"
+                                            name="open_enrollment_end_date"
+                                            id="open_enrollment_end_date"
+                                            value="{{ old('open_enrollment_end_date', $insuranceCompany->open_enrollment_end_date?->toDateString()) }}"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Max Invoice Amount -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                <h3 class="text-sm font-semibold text-slate-800 mb-3">Maximum Invoice Amount <span class="text-slate-400 font-normal">(optional)</span></h3>
+                                <p class="text-xs text-slate-500 mb-3">Cap the total amount that can be authorized per invoice under the generic policy. Leave blank for no cap.</p>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">{{ strtoupper($insuranceCompany->currency_code ?? 'UGX') }}</span>
+                                    <input
+                                        type="number"
+                                        name="open_enrollment_max_invoice_amount"
+                                        id="open_enrollment_max_invoice_amount"
+                                        value="{{ old('open_enrollment_max_invoice_amount', $insuranceCompany->open_enrollment_max_invoice_amount) }}"
+                                        min="0" step="1"
+                                        class="w-full pl-14 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="e.g. 500000"
+                                    >
+                                </div>
+                            </div>
+
+                            <!-- Nationality -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                <h3 class="text-sm font-semibold text-slate-800 mb-3">Nationality <span class="text-slate-400 font-normal">(optional)</span></h3>
+                                <p class="text-xs text-slate-500 mb-3">Comma-separated list of accepted nationalities, e.g. <em>Ugandan, Kenyan</em>. Leave blank to accept any nationality.</p>
+                                @php
+                                    $savedNationalities = old('open_enrollment_nationalities_text',
+                                        implode(', ', $insuranceCompany->open_enrollment_nationalities ?? []));
+                                @endphp
+                                <input
+                                    type="hidden"
+                                    name="open_enrollment_nationalities_text"
+                                    id="open_enrollment_nationalities_text_hidden"
+                                    value="{{ $savedNationalities }}"
+                                >
+                                <input
+                                    type="text"
+                                    id="open_enrollment_nationalities_input"
+                                    value="{{ $savedNationalities }}"
+                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. Ugandan, Kenyan"
+                                    oninput="syncNationalities(this.value)"
+                                >
+                                {{-- Hidden array inputs built by JS --}}
+                                <div id="open_enrollment_nationalities_inputs"></div>
+                            </div>
+
+                            <!-- Marital Status -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                <h3 class="text-sm font-semibold text-slate-800 mb-3">Marital Status <span class="text-slate-400 font-normal">(optional)</span></h3>
+                                <p class="text-xs text-slate-500 mb-3">Select which marital statuses qualify. Leave all unchecked to accept any.</p>
+                                @php
+                                    $savedMarital = old('open_enrollment_marital_statuses', $insuranceCompany->open_enrollment_marital_statuses ?? []);
+                                    $savedMarital = is_array($savedMarital) ? $savedMarital : [];
+                                @endphp
+                                <div class="flex flex-wrap gap-4">
+                                    @foreach(['Single', 'Married', 'Divorced', 'Widowed'] as $status)
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="open_enrollment_marital_statuses[]"
+                                                value="{{ $status }}"
+                                                {{ in_array($status, $savedMarital) ? 'checked' : '' }}
+                                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                            >
+                                            <span class="text-sm text-slate-700">{{ $status }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <!-- Client Type -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                <h3 class="text-sm font-semibold text-slate-800 mb-3">Client Type <span class="text-slate-400 font-normal">(optional)</span></h3>
+                                <p class="text-xs text-slate-500 mb-3">Restrict to principal members, dependents, or both. Leave all unchecked to accept any type.</p>
+                                @php
+                                    $savedTypes = old('open_enrollment_client_types', $insuranceCompany->open_enrollment_client_types ?? []);
+                                    $savedTypes = is_array($savedTypes) ? $savedTypes : [];
+                                @endphp
+                                <div class="flex gap-6">
+                                    @foreach(['principal' => 'Principal member', 'dependent' => 'Dependent'] as $value => $label)
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="open_enrollment_client_types[]"
+                                                value="{{ $value }}"
+                                                {{ in_array($value, $savedTypes) ? 'checked' : '' }}
+                                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                            >
+                                            <span class="text-sm text-slate-700">{{ $label }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <!-- Generic policy info -->
+                            @if($insuranceCompany->generic_policy_id && $insuranceCompany->genericPolicy)
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+                                <svg class="w-5 h-5 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <div>
+                                    <p class="text-sm font-semibold text-green-800">Generic policy active</p>
+                                    <p class="text-xs text-green-700 mt-0.5">
+                                        Policy number: <code class="bg-white px-1 rounded font-mono">{{ $insuranceCompany->genericPolicy->policy_number }}</code>
+                                        &mdash; All qualifying walk-in clients will be authorized under this policy.
+                                    </p>
+                                </div>
+                            </div>
+                            @else
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                <p class="text-xs text-amber-800">A generic policy will be created automatically when you save these settings for the first time.</p>
+                            </div>
+                            @endif
+                        </div>
+
+                        <div class="flex justify-end pt-4 border-t border-slate-200">
+                            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                Save Open Enrollment Settings
                             </button>
                         </div>
                     </form>
@@ -1689,6 +1966,43 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         updateApprovalLevelVisibility();
+    });
+
+    function toggleBothGenders(checked) {
+        document.querySelectorAll('.gender-checkbox').forEach(cb => cb.checked = checked);
+    }
+
+    function syncBothGender() {
+        const boxes = document.querySelectorAll('.gender-checkbox');
+        const allChecked = Array.from(boxes).every(cb => cb.checked);
+        const bothEl = document.getElementById('gender_both');
+        if (bothEl) bothEl.checked = allChecked;
+    }
+
+    function toggleOpenEnrollmentCriteria(enabled) {
+        const criteria = document.getElementById('open-enrollment-criteria');
+        if (criteria) {
+            criteria.classList.toggle('hidden', !enabled);
+        }
+    }
+
+    function syncNationalities(value) {
+        const container = document.getElementById('open_enrollment_nationalities_inputs');
+        if (!container) return;
+        container.innerHTML = '';
+        value.split(',').map(s => s.trim()).filter(Boolean).forEach(nat => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'open_enrollment_nationalities[]';
+            inp.value = nat;
+            container.appendChild(inp);
+        });
+    }
+
+    // Initialise nationality hidden inputs on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        const natInput = document.getElementById('open_enrollment_nationalities_input');
+        if (natInput) syncNationalities(natInput.value);
     });
 </script>
 

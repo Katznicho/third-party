@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\BusinessSettingController;
 
 Route::get('/', function () {
     return redirect('/login');
@@ -23,6 +24,9 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Settings index (SettingsController handles the main settings page)
+    Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
     
     // Users
     Route::resource('users', \App\Http\Controllers\UserController::class);
@@ -105,7 +109,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/medical-questions/update-order', [\App\Http\Controllers\MedicalQuestionController::class, 'updateOrder'])->name('medical-questions.update-order');
     
     // Settings
-    Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings/policy-number', [\App\Http\Controllers\SettingsController::class, 'updatePolicyNumberSettings'])->name('settings.update-policy-number');
     Route::put('/settings/deductible-contribution', [\App\Http\Controllers\SettingsController::class, 'updateDeductibleContributionSettings'])->name('settings.update-deductible-contribution');
     Route::put('/settings/required-client-fields', [\App\Http\Controllers\SettingsController::class, 'updateRequiredClientFields'])->name('settings.update-required-client-fields');
@@ -113,7 +116,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/authorization', [\App\Http\Controllers\SettingsController::class, 'updateAuthorizationSettings'])->name('settings.update-authorization');
     Route::put('/settings/account-number', [\App\Http\Controllers\SettingsController::class, 'updateAccountNumberSettings'])->name('settings.update-account-number');
     Route::put('/settings/payment', [\App\Http\Controllers\SettingsController::class, 'updatePaymentSettings'])->name('settings.update-payment');
-    
+    Route::put('/settings/open-enrollment', [\App\Http\Controllers\SettingsController::class, 'updateOpenEnrollmentSettings'])->name('settings.update-open-enrollment');
+
+    // Wildcard must come after all specific /settings/* PUT routes to avoid swallowing them
+    Route::put('/settings/{business}', [BusinessSettingController::class, 'update'])->name('business-settings.update');
+
     // Coverage Decision Matrix
     Route::resource('settings/coverage-decision-matrix', \App\Http\Controllers\CoverageDecisionMatrixController::class)->names([
         'index' => 'settings.coverage-decision-matrix.index',

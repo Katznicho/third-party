@@ -63,6 +63,19 @@ class InsuranceCompany extends Model
         'payment_grace_periods',
         'stop_credit_after_grace',
         'stop_credit_after_grace_behavior',
+        // Open enrollment
+        'open_enrollment_enabled',
+        'open_enrollment_min_age',
+        'open_enrollment_max_age',
+        'open_enrollment_genders',
+        'generic_policy_id',
+        'open_enrollment_service_categories',
+        'open_enrollment_start_date',
+        'open_enrollment_end_date',
+        'open_enrollment_max_invoice_amount',
+        'open_enrollment_nationalities',
+        'open_enrollment_marital_statuses',
+        'open_enrollment_client_types',
         // Legacy fields (kept for backward compatibility)
         'enable_name_dob_verification',
         'enable_id_passport_verification',
@@ -111,6 +124,18 @@ class InsuranceCompany extends Model
             'payment_grace_periods' => 'array',
             'stop_credit_after_grace' => 'boolean',
             'stop_credit_after_grace_behavior' => 'string',
+        // Open enrollment
+            'open_enrollment_enabled' => 'boolean',
+            'open_enrollment_min_age' => 'integer',
+            'open_enrollment_max_age' => 'integer',
+            'open_enrollment_genders' => 'array',
+            'open_enrollment_service_categories' => 'array',
+            'open_enrollment_start_date' => 'date',
+            'open_enrollment_end_date' => 'date',
+            'open_enrollment_max_invoice_amount' => 'decimal:2',
+            'open_enrollment_nationalities' => 'array',
+            'open_enrollment_marital_statuses' => 'array',
+            'open_enrollment_client_types' => 'array',
         // Legacy fields (kept for backward compatibility)
             'enable_name_dob_verification' => 'boolean',
             'enable_id_passport_verification' => 'boolean',
@@ -146,6 +171,11 @@ class InsuranceCompany extends Model
     {
         return $this->hasMany(BusinessConnection::class, 'connected_business_id')
             ->with('insuranceCompany');
+    }
+
+    public function genericPolicy()
+    {
+        return $this->belongsTo(Policy::class, 'generic_policy_id');
     }
 
     /**

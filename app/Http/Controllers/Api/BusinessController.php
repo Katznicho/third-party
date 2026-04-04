@@ -269,6 +269,19 @@ class BusinessController extends Controller
                         'phone_otp_expiry_minutes' => $insuranceCompany->phone_otp_expiry_minutes ?? 5,
                         'email_otp_expiry_minutes' => $insuranceCompany->email_otp_expiry_minutes ?? 10,
                     ],
+                    'open_enrollment' => [
+                        'enabled'             => (bool) ($insuranceCompany->open_enrollment_enabled ?? false),
+                        'min_age'             => $insuranceCompany->open_enrollment_min_age,
+                        'max_age'             => $insuranceCompany->open_enrollment_max_age,
+                        'genders'             => $insuranceCompany->open_enrollment_genders ?? [],
+                        'service_categories'  => $insuranceCompany->open_enrollment_service_categories ?? [],
+                        'start_date'          => $insuranceCompany->open_enrollment_start_date?->toDateString(),
+                        'end_date'            => $insuranceCompany->open_enrollment_end_date?->toDateString(),
+                        'max_invoice_amount'  => $insuranceCompany->open_enrollment_max_invoice_amount ? (float) $insuranceCompany->open_enrollment_max_invoice_amount : null,
+                        'nationalities'       => $insuranceCompany->open_enrollment_nationalities ?? [],
+                        'marital_statuses'    => $insuranceCompany->open_enrollment_marital_statuses ?? [],
+                        'client_types'        => $insuranceCompany->open_enrollment_client_types ?? [],
+                    ],
                 ],
             ]);
         } catch (\Exception $e) {
@@ -832,34 +845,78 @@ class BusinessController extends Controller
                 ]);
             }
             
-            // If still not found for this insurance company, treat as client not found
+            // If still not found for this insurance company, try open enrollment fallback
             if (!$policy) {
+                $insuranceCompanyDetails = \App\Models\InsuranceCompany::find($insuranceCompanyId);
+
+                // Open enrollment fallback — check criteria using provided name/DOB/gender
+                if (
+                    $insuranceCompanyDetails &&
+                    $insuranceCompanyDetails->open_enrollment_enabled &&
+                    $insuranceCompanyDetails->generic_policy_id
+                ) {
+                    $openResult = $this->verifyOpenEnrollment(
+                        $insuranceCompanyDetails,
+                        $request->input('date_of_birth'),
+                        $request->input('gender'),
+                        $request->input('services_category'),
+                        $request->input('invoice_amount') !== null ? (float) $request->input('invoice_amount') : null,
+                        $request->input('nationality'),
+                        $request->input('marital_status'),
+                        $request->input('client_type')
+                    );
+
+                    if ($openResult !== null) {
+                        \Illuminate\Support\Facades\Log::info('API: Open enrollment match — returning generic policy', [
+                            'insurance_company_id' => $insuranceCompanyId,
+                            'policy_number_queried' => $policyNumber,
+                        ]);
+                        return response()->json($openResult, 200);
+                    }
+
+                    \Illuminate\Support\Facades\Log::info('API: Open enrollment enabled but client does not meet criteria', [
+                        'insurance_company_id'  => $insuranceCompanyId,
+                        'dob'                   => $request->input('date_of_birth'),
+                        'gender'                => $request->input('gender'),
+                        'services_category'     => $request->input('services_category'),
+                        'invoice_amount'        => $request->input('invoice_amount'),
+                        'nationality'           => $request->input('nationality'),
+                        'marital_status'        => $request->input('marital_status'),
+                        'client_type'           => $request->input('client_type'),
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Client does not meet the open enrollment criteria.',
+                        'exists' => false,
+                    ], 422);
+                }
+
                 // Debug: Check what policies exist for this insurance company (last 10)
                 $recentPolicies = \App\Models\Policy::where('insurance_company_id', $insuranceCompanyId)
                     ->orderBy('created_at', 'desc')
                     ->limit(10)
                     ->pluck('policy_number', 'status')
                     ->toArray();
-                
+
                 // Also check if policy exists with ANY insurance company (for debugging)
                 $policyAnywhere = \App\Models\Policy::where('policy_number', $normalizedPolicyNumber)
                     ->orWhereRaw('UPPER(TRIM(policy_number)) = ?', [strtoupper(trim($policyNumber))])
                     ->with(['insuranceCompany'])
                     ->first();
-                
+
                 // Get all insurance companies for this business (if business_id is available)
-                $insuranceCompanyDetails = \App\Models\InsuranceCompany::find($insuranceCompanyId);
                 $allInsuranceCompanies = \App\Models\InsuranceCompany::where('id', $insuranceCompanyId)
                     ->orWhere('code', $insuranceCompanyDetails->code ?? '')
                     ->get(['id', 'name', 'code'])
                     ->toArray();
-                
+
                 $errorResponse = [
                     'success' => false,
                     'message' => 'Client not found.',
                     'exists' => false,
                 ];
-                
+
                 \Illuminate\Support\Facades\Log::warning('API: Policy number NOT FOUND', [
                     'insurance_company_id' => $insuranceCompanyId,
                     'insurance_company_name' => $insuranceCompanyDetails->name ?? 'N/A',
@@ -878,7 +935,7 @@ class BusinessController extends Controller
                     'all_insurance_companies' => $allInsuranceCompanies,
                     'response_data' => $errorResponse,
                 ]);
-                
+
                 return response()->json($errorResponse, 404);
             }
             
@@ -1014,6 +1071,149 @@ class BusinessController extends Controller
         } finally {
             \Illuminate\Support\Facades\Log::info('=== API: verifyPolicyNumber END ===');
         }
+    }
+
+    /**
+     * Check all open enrollment criteria and return a verification response using the
+     * insurer's generic policy, or null if any criterion is not met.
+     *
+     * Criteria evaluated (all optional — omitted = no restriction):
+     *   age range, gender, service category, enrollment window,
+     *   max invoice amount, nationality, marital status, client type.
+     *
+     * The caller passes request params that Kashtre already sends during verification.
+     */
+    private function verifyOpenEnrollment(
+        InsuranceCompany $insuranceCompany,
+        ?string $dateOfBirth,
+        ?string $gender,
+        ?string $servicesCategory = null,
+        ?float  $invoiceAmount    = null,
+        ?string $nationality      = null,
+        ?string $maritalStatus    = null,
+        ?string $clientType       = null
+    ): ?array {
+        $genericPolicy = $insuranceCompany->genericPolicy()->with('insuranceCompany')->first();
+        if (!$genericPolicy) {
+            return null;
+        }
+
+        $matchedCriteria = [];
+
+        // ── 1. Age ────────────────────────────────────────────────────────────
+        $minAge = $insuranceCompany->open_enrollment_min_age;
+        $maxAge = $insuranceCompany->open_enrollment_max_age;
+        if ($minAge !== null || $maxAge !== null) {
+            if (!$dateOfBirth) {
+                return null; // age criterion set but DOB not provided
+            }
+            $age = (int) \Carbon\Carbon::parse($dateOfBirth)->diffInYears(now());
+            if ($minAge !== null && $age < $minAge) return null;
+            if ($maxAge !== null && $age > $maxAge) return null;
+            $matchedCriteria[] = "age {$age}";
+        }
+
+        // ── 2. Gender ─────────────────────────────────────────────────────────
+        $allowedGenders = $insuranceCompany->open_enrollment_genders ?? [];
+        if (!empty($allowedGenders)) {
+            if (!$gender || !in_array(ucfirst(strtolower($gender)), $allowedGenders)) {
+                return null;
+            }
+            $matchedCriteria[] = "gender {$gender}";
+        }
+
+        // ── 3. Service category ───────────────────────────────────────────────
+        $allowedCategories = $insuranceCompany->open_enrollment_service_categories ?? [];
+        if (!empty($allowedCategories)) {
+            if (!$servicesCategory || !in_array(strtolower($servicesCategory), array_map('strtolower', $allowedCategories))) {
+                return null;
+            }
+            $matchedCriteria[] = "category {$servicesCategory}";
+        }
+
+        // ── 4. Enrollment window ──────────────────────────────────────────────
+        $startDate = $insuranceCompany->open_enrollment_start_date;
+        $endDate   = $insuranceCompany->open_enrollment_end_date;
+        if ($startDate && now()->lt($startDate)) return null;
+        if ($endDate && now()->gt($endDate))     return null;
+        if ($startDate || $endDate) {
+            $matchedCriteria[] = 'within enrollment window';
+        }
+
+        // ── 5. Max invoice amount ─────────────────────────────────────────────
+        $maxAmount = $insuranceCompany->open_enrollment_max_invoice_amount;
+        if ($maxAmount !== null && $invoiceAmount !== null && $invoiceAmount > (float) $maxAmount) {
+            return null;
+        }
+        if ($maxAmount !== null && $invoiceAmount !== null) {
+            $matchedCriteria[] = "amount within cap";
+        }
+
+        // ── 6. Nationality ────────────────────────────────────────────────────
+        $allowedNationalities = $insuranceCompany->open_enrollment_nationalities ?? [];
+        if (!empty($allowedNationalities)) {
+            if (!$nationality || !in_array(
+                strtolower(trim($nationality)),
+                array_map('strtolower', array_map('trim', $allowedNationalities))
+            )) {
+                return null;
+            }
+            $matchedCriteria[] = "nationality {$nationality}";
+        }
+
+        // ── 7. Marital status ─────────────────────────────────────────────────
+        $allowedMarital = $insuranceCompany->open_enrollment_marital_statuses ?? [];
+        if (!empty($allowedMarital)) {
+            if (!$maritalStatus || !in_array(
+                ucfirst(strtolower($maritalStatus)),
+                $allowedMarital
+            )) {
+                return null;
+            }
+            $matchedCriteria[] = "marital status {$maritalStatus}";
+        }
+
+        // ── 8. Client type ────────────────────────────────────────────────────
+        $allowedTypes = $insuranceCompany->open_enrollment_client_types ?? [];
+        if (!empty($allowedTypes)) {
+            if (!$clientType || !in_array(strtolower($clientType), array_map('strtolower', $allowedTypes))) {
+                return null;
+            }
+            $matchedCriteria[] = "type {$clientType}";
+        }
+
+        // ── All criteria passed ───────────────────────────────────────────────
+        $paymentInfo = [
+            'has_deductible'                        => $genericPolicy->has_deductible ?? false,
+            'deductible_amount'                     => $genericPolicy->deductible_amount ? (float) $genericPolicy->deductible_amount : null,
+            'copay_amount'                          => $genericPolicy->copay_amount ? (float) $genericPolicy->copay_amount : null,
+            'coinsurance_percentage'                => $genericPolicy->coinsurance_percentage ? (float) $genericPolicy->coinsurance_percentage : null,
+            'copay_max_limit'                       => $genericPolicy->copay_max_limit ? (float) $genericPolicy->copay_max_limit : null,
+            'copay_contributes_to_deductible'       => $genericPolicy->copayContributesToDeductible(),
+            'coinsurance_contributes_to_deductible' => $genericPolicy->coinsuranceContributesToDeductible(),
+        ];
+
+        return [
+            'success'             => true,
+            'message'             => 'Client verified via open enrollment'
+                                     . (count($matchedCriteria) ? ' (' . implode(', ', $matchedCriteria) . ')' : ''),
+            'exists'              => true,
+            'verification_method' => 'open_enrollment',
+            'verification_status' => 'verified',
+            'data'                => [
+                'policy_number'          => $genericPolicy->policy_number,
+                'insurance_company_id'   => $genericPolicy->insurance_company_id,
+                'insurance_company_name' => $genericPolicy->insuranceCompany->name ?? null,
+                'principal_member_id'    => null,
+                'principal_member_name'  => null,
+                'status'                 => $genericPolicy->status,
+                'expiry_date'            => $genericPolicy->expiry_date?->toDateString(),
+                'payment_responsibility' => $paymentInfo,
+                'open_enrollment'        => true,
+                'max_invoice_amount'     => $maxAmount ? (float) $maxAmount : null,
+            ],
+            'warnings' => [],
+        ];
     }
 
     /**
