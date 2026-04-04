@@ -7,13 +7,14 @@ use Illuminate\Http\Request;
 
 class PaymentResponsibilityController extends Controller
 {
+    
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
         $insuranceCompanyId = auth()->user()->insurance_company_id;
-        
+
         $paymentResponsibilities = PaymentResponsibility::with(['policy', 'policyBenefit', 'preAuthorization', 'transaction'])
             ->whereHas('policy', function($query) use ($insuranceCompanyId) {
                 $query->where('insurance_company_id', $insuranceCompanyId);
@@ -21,7 +22,7 @@ class PaymentResponsibilityController extends Controller
             ->whereIn('status', ['pending', 'calculated', 'partially_paid'])
             ->latest()
             ->paginate(15);
-            
+
         return view('payment-responsibilities.index', compact('paymentResponsibilities'));
     }
 

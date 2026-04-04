@@ -45,15 +45,15 @@ jobs:
           echo "Server: ${{ secrets.FTP_SERVER }}"
           echo "Port: 65002"
           echo "Username: ${{ secrets.FTP_USERNAME }}"
-          
+
           # Test basic connectivity
           echo "📡 Testing port connectivity..."
           timeout 10 bash -c "</dev/tcp/${{ secrets.FTP_SERVER }}/65002" && echo "✓ Port 65002 is reachable" || echo "✗ Port 65002 is not reachable"
-          
+
           # Test DNS resolution
           echo "🌐 Testing DNS resolution..."
           nslookup ${{ secrets.FTP_SERVER }} || dig ${{ secrets.FTP_SERVER }} || echo "⚠ DNS resolution test failed"
-          
+
           # Test SSH connection with verbose output and timeout
           echo "🔐 Testing SSH connection..."
           sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh \
@@ -66,7 +66,7 @@ jobs:
             -p 65002 \
             ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} \
             "whoami && echo 'SSH connection successful'"
-          
+
           echo "✅ Running additional test command..."
           sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh \
             -o StrictHostKeyChecking=no \
