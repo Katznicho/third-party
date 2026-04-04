@@ -24,12 +24,14 @@
             <h1 class="text-2xl font-bold text-slate-900">Clients</h1>
             <p class="text-slate-600 mt-1">Manage insurance clients</p>
         </div>
+        @if(request('tab') !== 'open_enrollment')
         <a href="{{ route('clients.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
             <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
             New Client
         </a>
+        @endif
     </div>
 
     <!-- Tabs -->
@@ -89,9 +91,14 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{{ route('clients.show', $client) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
-                                <a href="{{ route('clients.edit', $client) }}" class="text-slate-600 hover:text-slate-900 mr-3">Edit</a>
-                                <a href="{{ route('clients.account-statement', $client) }}" class="text-green-600 hover:text-green-900">Account Statement</a>
+                                @if(request('tab') !== 'open_enrollment')
+                                    <a href="{{ route('clients.show', $client) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
+                                    <a href="{{ route('clients.edit', $client) }}" class="text-slate-600 hover:text-slate-900 mr-3">Edit</a>
+                                    <a href="{{ route('clients.account-statement', $client) }}" class="text-green-600 hover:text-green-900">Account Statement</a>
+                                @else
+                                    <a href="{{ route('clients.show', $client) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
+                                    <a href="{{ route('clients.account-statement', $client) }}" class="text-green-600 hover:text-green-900">Account Statement</a>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
@@ -108,15 +115,19 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                 </svg>
                 <h3 class="mt-2 text-sm font-medium text-slate-900">No clients</h3>
-                <p class="mt-1 text-sm text-slate-500">Get started by creating a new client.</p>
-                <div class="mt-6">
-                    <a href="{{ route('clients.create') }}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                        </svg>
-                        New Client
-                    </a>
-                </div>
+                @if(request('tab') === 'open_enrollment')
+                    <p class="mt-1 text-sm text-slate-500">Clients registered via open enrollment from Kashtre will appear here.</p>
+                @else
+                    <p class="mt-1 text-sm text-slate-500">Get started by creating a new client.</p>
+                    <div class="mt-6">
+                        <a href="{{ route('clients.create') }}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            New Client
+                        </a>
+                    </div>
+                @endif
             </div>
         @endif
     </div>

@@ -39,9 +39,9 @@ class ClientController extends Controller
         };
         
         if ($tab === 'open_enrollment') {
-            // Get open enrollment clients
+            // Get open enrollment clients (no policy requirement - they may be newly registered)
             $clients = Client::where('registered_via_open_enrollment', true)
-                ->whereHas('policies', $baseQuery)
+                ->where('insurance_company_id', $insuranceCompanyId)
                 ->with(['policies' => function($query) use ($insuranceCompanyId) {
                     $query->where('insurance_company_id', $insuranceCompanyId);
                 }, 'principalMember', 'plan'])
@@ -907,7 +907,11 @@ class ClientController extends Controller
                 ->exists();
         }
         
-        if (!$hasPolicy) {
+        // Also allow viewing of open enrollment clients synced from kashtre (even without policies)
+        $isOpenEnrollmentClient = $client->registered_via_open_enrollment && 
+                                 $client->insurance_company_id == $insuranceCompanyId;
+        
+        if (!$hasPolicy && !$isOpenEnrollmentClient) {
             abort(403, 'You do not have access to this client.');
         }
         
@@ -1323,7 +1327,11 @@ class ClientController extends Controller
                 ->exists();
         }
         
-        if (!$hasPolicy) {
+        // Also allow viewing of open enrollment clients synced from kashtre (even without policies)
+        $isOpenEnrollmentClient = $client->registered_via_open_enrollment && 
+                                 $client->insurance_company_id == $insuranceCompanyId;
+        
+        if (!$hasPolicy && !$isOpenEnrollmentClient) {
             return redirect()->route('clients.index')->with('error', 'Client not found or you do not have access to this client.');
         }
 

@@ -265,54 +265,107 @@ class InvoiceAuthorizationController extends Controller
                     'message' => "Service category '{$serviceCategory->name}' is currently inactive.",
                 ], 422);
             } else {
-                $policyBenefit = PolicyBenefit::where('policy_id', $policy->id)
-                    ->where('service_category_id', $serviceCategory->id)
-                    ->first();
-
-                if (!$policyBenefit) {
-                    Log::warning('[InsuranceAuth] Policy does not cover this category', [
-                        'policy_id' => $policy->id,
-                        'category' => $serviceCategory->name,
+                // Check if this is an open enrollment policy (generic policy)
+                $isOpenEnrollmentPolicy = strtoupper($policyNumber) === 'GENERIC-BPXX4Q9C' || 
+                                         strpos(strtoupper($policyNumber), 'GENERIC-') === 0;
+                
+                if ($isOpenEnrollmentPolicy) {
+                    // For open enrollment clients, skip PolicyBenefit check and use open enrollment settings
+                    Log::info('[InsuranceAuth] Open enrollment client - using open enrollment settings', [
+                        'policy_number' => $policyNumber,
+                        'service_category' => $serviceCategory->name,
                     ]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => "This policy does not cover '{$serviceCategory->name}'. The selected service category is not included in the policy benefits.",
-                    ], 422);
-                }
+                    
+                    // Check if service category is allowed for open enrollment
+                    $allowedCategories = $insuranceCompany->open_enrollment_service_categories ?? [];
+                    if (is_string($allowedCategories)) {
+                        $allowedCategories = json_decode($allowedCategories, true) ?? [];
+                    }
+                    
+                    if (!empty($allowedCategories) && !in_array($serviceCategory->name, $allowedCategories)) {
+                        Log::warning('[InsuranceAuth] Service category not allowed for open enrollment', [
+                            'policy_number' => $policyNumber,
+                            'category' => $serviceCategory->name,
+                            'allowed_categories' => $allowedCategories,
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Service category '{$serviceCategory->name}' is not available for open enrollment.",
+                        ], 422);
+                    }
+                    
+                    // Check max invoice amount for open enrollment
+                    $maxInvoiceAmount = (float) ($insuranceCompany->open_enrollment_max_invoice_amount ?? 0);
+                    if ($maxInvoiceAmount > 0 && $totalAmount > $maxInvoiceAmount) {
+                        Log::warning('[InsuranceAuth] Open enrollment invoice exceeds max amount', [
+                            'policy_number' => $policyNumber,
+                            'total_amount' => $totalAmount,
+                            'max_invoice_amount' => $maxInvoiceAmount,
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Invoice amount ({$totalAmount}) exceeds the maximum allowed for open enrollment ({$maxInvoiceAmount}).",
+                        ], 422);
+                    }
+                    
+                    Log::info('[InsuranceAuth] Open enrollment authorization checks passed', [
+                        'policy_number' => $policyNumber,
+                        'service_category' => $serviceCategory->name,
+                        'total_amount' => $totalAmount,
+                        'max_invoice_amount' => $maxInvoiceAmount,
+                    ]);
+                } else {
+                    // Regular policy benefit check
+                    $policyBenefit = PolicyBenefit::where('policy_id', $policy->id)
+                        ->where('service_category_id', $serviceCategory->id)
+                        ->first();
 
-                if (!$policyBenefit->is_enabled) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "The '{$serviceCategory->name}' benefit is disabled for this policy.",
-                    ], 422);
-                }
+                    if (!$policyBenefit) {
+                        Log::warning('[InsuranceAuth] Policy does not cover this category', [
+                            'policy_id' => $policy->id,
+                            'category' => $serviceCategory->name,
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => "This policy does not cover '{$serviceCategory->name}'. The selected service category is not included in the policy benefits.",
+                        ], 422);
+                    }
 
-                if ($policyBenefit->expiry_date && $policyBenefit->expiry_date->isPast()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "The '{$serviceCategory->name}' benefit has expired (expired {$policyBenefit->expiry_date->format('M d, Y')}).",
-                    ], 422);
-                }
+                    // Check if benefit is enabled and not expired
+                    if (!$policyBenefit->is_enabled) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "The '{$serviceCategory->name}' benefit is disabled for this policy.",
+                        ], 422);
+                    }
 
-                if ($policyBenefit->effective_date && $policyBenefit->effective_date->isFuture()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "The '{$serviceCategory->name}' benefit is not yet effective (starts {$policyBenefit->effective_date->format('M d, Y')}).",
-                    ], 422);
-                }
+                    if ($policyBenefit->expiry_date && $policyBenefit->expiry_date->isPast()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "The '{$serviceCategory->name}' benefit has expired (expired {$policyBenefit->expiry_date->format('M d, Y')}).",
+                        ], 422);
+                    }
 
-                Log::info('[InsuranceAuth] Policy benefit found for category', [
-                    'category' => $serviceCategory->name,
-                    'benefit_amount' => $policyBenefit->benefit_amount,
-                    'used_amount' => $policyBenefit->used_amount,
-                    'remaining_amount' => $policyBenefit->remaining_amount,
-                ]);
+                    if ($policyBenefit->effective_date && $policyBenefit->effective_date->isFuture()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "The '{$serviceCategory->name}' benefit is not yet effective (starts {$policyBenefit->effective_date->format('M d, Y')}).",
+                        ], 422);
+                    }
 
-                $remainingBenefit = (float) ($policyBenefit->remaining_amount ?? $policyBenefit->benefit_amount);
-                if ($remainingBenefit <= 0) {
-                    $benefitWarnings[] = "Benefit for '{$serviceCategory->name}' is fully exhausted.";
-                } elseif ($totalAmount > $remainingBenefit) {
-                    $benefitWarnings[] = "Invoice amount ({$totalAmount}) exceeds remaining '{$serviceCategory->name}' benefit ({$remainingBenefit}).";
+                    Log::info('[InsuranceAuth] Policy benefit found for category', [
+                        'category' => $serviceCategory->name,
+                        'benefit_amount' => $policyBenefit->benefit_amount,
+                        'used_amount' => $policyBenefit->used_amount,
+                        'remaining_amount' => $policyBenefit->remaining_amount,
+                    ]);
+
+                    $remainingBenefit = (float) ($policyBenefit->remaining_amount ?? $policyBenefit->benefit_amount);
+                    if ($remainingBenefit <= 0) {
+                        $benefitWarnings[] = "Benefit for '{$serviceCategory->name}' is fully exhausted.";
+                    } elseif ($totalAmount > $remainingBenefit) {
+                        $benefitWarnings[] = "Invoice amount ({$totalAmount}) exceeds remaining '{$serviceCategory->name}' benefit ({$remainingBenefit}).";
+                    }
                 }
             }
         }

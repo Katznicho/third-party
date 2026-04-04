@@ -140,6 +140,11 @@ class ClientController extends Controller
     public function syncFromKashtre(Request $request)
     {
         try {
+            Log::info('API-VENDOR: syncFromKashtre - Sync request received', [
+                'kashtre_client_id' => $request->kashtre_client_id,
+                'insurance_company_id' => $request->insurance_company_id,
+            ]);
+
             $validator = Validator::make($request->all(), [
                 'kashtre_client_id' => 'required|string|max:255',
                 'insurance_company_id' => 'required|integer|exists:insurance_companies,id',
@@ -158,6 +163,10 @@ class ClientController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::warning('API-VENDOR: syncFromKashtre - Validation failed', [
+                    'kashtre_client_id' => $request->kashtre_client_id,
+                    'errors' => $validator->errors()->toArray(),
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -167,22 +176,27 @@ class ClientController extends Controller
 
             $insuranceCompany = InsuranceCompany::find($request->insurance_company_id);
             if (!$insuranceCompany) {
+                Log::warning('API-VENDOR: syncFromKashtre - Insurance company not found', [
+                    'kashtre_client_id' => $request->kashtre_client_id,
+                    'insurance_company_id' => $request->insurance_company_id,
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Insurance company not found',
                 ], 404);
             }
 
-            // Check if client already exists (by kashtre_client_id or policy number)
+            // Check if client already exists (by kashtre_client_id)
             $existingClient = Client::where('kashtre_client_id', $request->kashtre_client_id)
-                ->orWhere(function($query) use ($request) {
-                    $query->where('policy_number', $request->policy_number)
-                        ->where('insurance_company_id', $request->insurance_company_id);
-                })
                 ->first();
 
             if ($existingClient) {
                 // Update existing client
+                Log::info('API-VENDOR: syncFromKashtre - Updating existing client', [
+                    'kashtre_client_id' => $request->kashtre_client_id,
+                    'vendor_client_id' => $existingClient->id,
+                ]);
+
                 $existingClient->update([
                     'first_name' => $request->first_name,
                     'surname' => $request->surname,
@@ -194,15 +208,15 @@ class ClientController extends Controller
                     'marital_status' => $request->marital_status,
                     'occupation' => $request->occupation,
                     'nationality' => $request->nationality,
-                    'policy_number' => $request->policy_number,
+                    'id_passport_no' => null,
                     'insurance_company_id' => $request->insurance_company_id,
                     'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
                     'is_active' => true,
                 ]);
 
-                Log::info('Client updated via Kashtre sync', [
+                Log::info('API-VENDOR: syncFromKashtre - Client updated successfully', [
                     'kashtre_client_id' => $request->kashtre_client_id,
-                    'client_id' => $existingClient->id,
+                    'vendor_client_id' => $existingClient->id,
                     'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
                 ]);
 
@@ -214,7 +228,6 @@ class ClientController extends Controller
                             'id' => $existingClient->id,
                             'kashtre_client_id' => $existingClient->kashtre_client_id,
                             'full_name' => $existingClient->full_name,
-                            'policy_number' => $existingClient->policy_number,
                             'registered_via_open_enrollment' => $existingClient->registered_via_open_enrollment,
                         ],
                     ],
@@ -222,6 +235,12 @@ class ClientController extends Controller
             }
 
             // Create new client
+            Log::info('API-VENDOR: syncFromKashtre - Creating new client', [
+                'kashtre_client_id' => $request->kashtre_client_id,
+                'insurance_company_id' => $request->insurance_company_id,
+                'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
+            ]);
+
             $client = Client::create([
                 'kashtre_client_id' => $request->kashtre_client_id,
                 'type' => 'principal',
@@ -236,14 +255,14 @@ class ClientController extends Controller
                 'marital_status' => $request->marital_status,
                 'occupation' => $request->occupation,
                 'nationality' => $request->nationality,
-                'policy_number' => $request->policy_number,
+                'id_passport_no' => null,
                 'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
                 'is_active' => true,
             ]);
 
-            Log::info('Client created via Kashtre sync', [
+            Log::info('API-VENDOR: syncFromKashtre - Client created successfully', [
                 'kashtre_client_id' => $request->kashtre_client_id,
-                'client_id' => $client->id,
+                'vendor_client_id' => $client->id,
                 'registered_via_open_enrollment' => $request->registered_via_open_enrollment,
             ]);
 
@@ -255,17 +274,18 @@ class ClientController extends Controller
                         'id' => $client->id,
                         'kashtre_client_id' => $client->kashtre_client_id,
                         'full_name' => $client->full_name,
-                        'policy_number' => $client->policy_number,
                         'registered_via_open_enrollment' => $client->registered_via_open_enrollment,
                     ],
                 ],
             ], 201);
 
         } catch (\Exception $e) {
-            Log::error('Failed to sync client from Kashtre', [
+            Log::error('API-VENDOR: syncFromKashtre - Exception', [
                 'kashtre_client_id' => $request->kashtre_client_id ?? null,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error_message' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
             ]);
 
             return response()->json([

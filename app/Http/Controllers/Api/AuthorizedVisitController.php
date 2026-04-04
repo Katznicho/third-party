@@ -24,6 +24,12 @@ class AuthorizedVisitController extends Controller
     public function register(Request $request)
     {
         try {
+            Log::info('API-VENDOR: registerAuthorizedVisit - Visit registration request received', [
+                'kashtre_client_id' => $request->kashtre_client_id,
+                'visit_id' => $request->visit_id,
+                'insurance_company_id' => $request->insurance_company_id,
+            ]);
+
             $validator = Validator::make($request->all(), [
                 'kashtre_client_id' => 'required|string|max:255',
                 'visit_id' => 'required|string|max:255',
@@ -35,6 +41,11 @@ class AuthorizedVisitController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::warning('API-VENDOR: registerAuthorizedVisit - Validation failed', [
+                    'kashtre_client_id' => $request->kashtre_client_id,
+                    'visit_id' => $request->visit_id,
+                    'errors' => $validator->errors()->toArray(),
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -44,6 +55,11 @@ class AuthorizedVisitController extends Controller
 
             $insuranceCompany = InsuranceCompany::find($request->insurance_company_id);
             if (!$insuranceCompany) {
+                Log::warning('API-VENDOR: registerAuthorizedVisit - Insurance company not found', [
+                    'kashtre_client_id' => $request->kashtre_client_id,
+                    'visit_id' => $request->visit_id,
+                    'insurance_company_id' => $request->insurance_company_id,
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Insurance company not found',
@@ -51,16 +67,32 @@ class AuthorizedVisitController extends Controller
             }
 
             // Find client by kashtre_client_id
+            Log::info('API-VENDOR: registerAuthorizedVisit - Looking up client', [
+                'kashtre_client_id' => $request->kashtre_client_id,
+                'insurance_company_id' => $request->insurance_company_id,
+            ]);
+
             $client = Client::where('kashtre_client_id', $request->kashtre_client_id)
                 ->where('insurance_company_id', $request->insurance_company_id)
                 ->first();
 
             if (!$client) {
+                Log::warning('API-VENDOR: registerAuthorizedVisit - Client not found', [
+                    'kashtre_client_id' => $request->kashtre_client_id,
+                    'visit_id' => $request->visit_id,
+                    'insurance_company_id' => $request->insurance_company_id,
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Client not found or not synced yet',
                 ], 404);
             }
+
+            Log::info('API-VENDOR: registerAuthorizedVisit - Client found', [
+                'kashtre_client_id' => $request->kashtre_client_id,
+                'visit_id' => $request->visit_id,
+                'vendor_client_id' => $client->id,
+            ]);
 
             // Check if visit already registered
             $existingVisit = AuthorizedVisit::where('visit_id', $request->visit_id)
@@ -69,6 +101,12 @@ class AuthorizedVisitController extends Controller
 
             if ($existingVisit) {
                 // Update existing visit
+                Log::info('API-VENDOR: registerAuthorizedVisit - Updating existing visit', [
+                    'kashtre_client_id' => $request->kashtre_client_id,
+                    'visit_id' => $request->visit_id,
+                    'vendor_visit_id' => $existingVisit->id,
+                ]);
+
                 $existingVisit->update([
                     'visit_date' => $request->visit_date,
                     'expiry_at' => $request->expiry_at,
@@ -77,10 +115,11 @@ class AuthorizedVisitController extends Controller
                     'sync_data' => $request->all(),
                 ]);
 
-                Log::info('Authorized visit updated', [
+                Log::info('API-VENDOR: registerAuthorizedVisit - Visit updated successfully', [
                     'kashtre_client_id' => $request->kashtre_client_id,
                     'visit_id' => $request->visit_id,
-                    'client_id' => $client->id,
+                    'vendor_client_id' => $client->id,
+                    'vendor_visit_id' => $existingVisit->id,
                 ]);
 
                 return response()->json([
@@ -91,6 +130,7 @@ class AuthorizedVisitController extends Controller
                             'id' => $existingVisit->id,
                             'visit_id' => $existingVisit->visit_id,
                             'client_id' => $existingVisit->client_id,
+                            'kashtre_client_id' => $existingVisit->kashtre_client_id,
                             'status' => $existingVisit->status,
                             'visit_date' => $existingVisit->visit_date->toDateString(),
                             'expiry_at' => $existingVisit->expiry_at?->toDateTimeString(),
@@ -100,6 +140,12 @@ class AuthorizedVisitController extends Controller
             }
 
             // Create new authorized visit
+            Log::info('API-VENDOR: registerAuthorizedVisit - Creating new visit', [
+                'kashtre_client_id' => $request->kashtre_client_id,
+                'visit_id' => $request->visit_id,
+                'vendor_client_id' => $client->id,
+            ]);
+
             $visit = AuthorizedVisit::create([
                 'client_id' => $client->id,
                 'insurance_company_id' => $request->insurance_company_id,
@@ -113,11 +159,11 @@ class AuthorizedVisitController extends Controller
                 'sync_data' => $request->all(),
             ]);
 
-            Log::info('Authorized visit registered', [
+            Log::info('API-VENDOR: registerAuthorizedVisit - Visit created successfully', [
                 'kashtre_client_id' => $request->kashtre_client_id,
                 'visit_id' => $request->visit_id,
-                'client_id' => $client->id,
-                'visit_id_model' => $visit->id,
+                'vendor_client_id' => $client->id,
+                'vendor_visit_id' => $visit->id,
             ]);
 
             return response()->json([
@@ -128,6 +174,7 @@ class AuthorizedVisitController extends Controller
                         'id' => $visit->id,
                         'visit_id' => $visit->visit_id,
                         'client_id' => $visit->client_id,
+                        'kashtre_client_id' => $visit->kashtre_client_id,
                         'status' => $visit->status,
                         'visit_date' => $visit->visit_date->toDateString(),
                         'expiry_at' => $visit->expiry_at?->toDateTimeString(),
@@ -136,11 +183,13 @@ class AuthorizedVisitController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            Log::error('Failed to register authorized visit', [
+            Log::error('API-VENDOR: registerAuthorizedVisit - Exception', [
                 'kashtre_client_id' => $request->kashtre_client_id ?? null,
                 'visit_id' => $request->visit_id ?? null,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error_message' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
             ]);
 
             return response()->json([

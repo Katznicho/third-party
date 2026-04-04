@@ -100,6 +100,17 @@
                     Payments
                 </a>
 
+                <!-- Authorized Visits -->
+                <a 
+                    href="{{ route('authorized-visits.index') }}" 
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition duration-150 {{ request()->routeIs('authorized-visits.*') ? 'bg-blue-900/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700' }}"
+                >
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Authorized Visits
+                </a>
+
                 <!-- Invoices -->
                 <a 
                     href="{{ route('invoices.index') }}" 
