@@ -5,30 +5,95 @@
 
 @push('styles')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
 @endpush
 
 @section('content')
 <div class="space-y-6">
-    <!-- Welcome Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-slate-900">Dashboard</h1>
-            @if(auth()->user()->insuranceCompany)
-                <p class="text-slate-600 mt-1">{{ auth()->user()->insuranceCompany->name }}</p>
-            @endif
+    <!-- Welcome Banner -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-8 text-white">
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <h1 class="text-4xl font-bold mb-2">Welcome back, {{ auth()->user()->name }}!</h1>
+                <p class="text-blue-100 mb-4">Here's your insurance company dashboard overview</p>
+                @if(auth()->user()->insuranceCompany)
+                    <div class="flex items-center gap-4">
+                        <div class="bg-white bg-opacity-20 px-4 py-2 rounded-lg">
+                            <p class="text-sm text-blue-50">Insurance Company</p>
+                            <p class="text-xl font-semibold">{{ auth()->user()->insuranceCompany->name }}</p>
+                        </div>
+                        <div class="bg-white bg-opacity-20 px-4 py-2 rounded-lg">
+                            <p class="text-sm text-blue-50">Current Time</p>
+                            <p class="text-xl font-semibold">{{ now()->format('l, F j, Y') }}</p>
+                        </div>
+                    </div>
+                @endif
+            </div>
+            <div class="text-blue-100">
+                <svg class="w-24 h-24 opacity-20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+            </div>
         </div>
-        <div class="text-right text-sm text-slate-500">
-            <p>{{ now()->format('l, F j, Y') }}</p>
+    </div>
+
+    <!-- Date Filter Controls -->
+    <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-slate-700">📅 Filter by Date:</label>
+                <select id="dateFilter" name="date_filter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="updateDateFilter(this.value)">
+                    <option value="today" {{ $dateFilter === 'today' ? 'selected' : '' }}>Today</option>
+                    <option value="yesterday" {{ $dateFilter === 'yesterday' ? 'selected' : '' }}>Yesterday</option>
+                    <option value="this_week" {{ $dateFilter === 'this_week' ? 'selected' : '' }}>This Week</option>
+                    <option value="this_month" {{ $dateFilter === 'this_month' ? 'selected' : '' }}>This Month</option>
+                    <option value="last_month" {{ $dateFilter === 'last_month' ? 'selected' : '' }}>Last Month</option>
+                    <option value="last_30_days" {{ $dateFilter === 'last_30_days' ? 'selected' : '' }}>Last 30 Days</option>
+                    <option value="custom" {{ $dateFilter === 'custom' ? 'selected' : '' }}>Custom Range</option>
+                </select>
+            </div>
+
+            <!-- Custom Date Range (Hidden by default) -->
+            <div id="customDateRange" class="hidden flex items-center gap-2">
+                <label class="text-sm font-medium text-slate-700">From:</label>
+                <input type="date" id="startDate" name="start_date" value="{{ $customStartDate ? \Carbon\Carbon::parse($customStartDate)->format('Y-m-d') : '' }}" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label class="text-sm font-medium text-slate-700">To:</label>
+                <input type="date" id="endDate" name="end_date" value="{{ $customEndDate ? \Carbon\Carbon::parse($customEndDate)->format('Y-m-d') : '' }}" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="applyCustomDate()" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 transition">Apply</button>
+            </div>
+
+            <!-- Display Date Range Info -->
+            <div class="ml-auto text-sm text-slate-600">
+                <span id="dateRangeInfo">
+                    @if($dateFilter === 'today')
+                        <span class="font-medium text-blue-600">📊 Showing data for: Today</span>
+                    @elseif($dateFilter === 'yesterday')
+                        <span class="font-medium text-blue-600">📊 Showing data for: Yesterday</span>
+                    @elseif($dateFilter === 'this_week')
+                        <span class="font-medium text-blue-600">📊 Showing data for: This Week</span>
+                    @elseif($dateFilter === 'this_month')
+                        <span class="font-medium text-blue-600">📊 Showing data for: This Month</span>
+                    @elseif($dateFilter === 'last_month')
+                        <span class="font-medium text-blue-600">📊 Showing data for: Last Month</span>
+                    @elseif($dateFilter === 'last_30_days')
+                        <span class="font-medium text-blue-600">📊 Showing data for: Last 30 Days</span>
+                    @elseif($dateFilter === 'custom')
+                        <span class="font-medium text-blue-600">📊 Showing data from {{ $customStartDate }} to {{ $customEndDate }}</span>
+                    @endif
+                </span>
+            </div>
         </div>
     </div>
 
     @php
         $openEnrollmentCount = \App\Models\Client::where('registered_via_open_enrollment', true)
             ->where('insurance_company_id', auth()->user()->insurance_company_id)
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
         
         $activeVisitsCount = \App\Models\AuthorizedVisit::where('status', 'active')
             ->where('insurance_company_id', auth()->user()->insurance_company_id ?? 0)
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
         
         $expiringVisitsCount = \App\Models\AuthorizedVisit::where('status', 'active')
@@ -38,15 +103,18 @@
         
         $completedVisitsCount = \App\Models\AuthorizedVisit::where('status', 'completed')
             ->where('insurance_company_id', auth()->user()->insurance_company_id ?? 0)
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
         
         $totalClientsCount = \App\Models\Client::where('insurance_company_id', auth()->user()->insurance_company_id)
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
         
         $trackingDataCount = \App\Models\AuthorizedVisit::where('insurance_company_id', auth()->user()->insurance_company_id ?? 0)
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
         
-        // Payment stats (sample - adjust based on your payments table structure)
+        // Payment stats
         $monthlyRevenue = 0;
         $pendingPayments = 0;
     @endphp
@@ -134,6 +202,25 @@
         </div>
     </div>
 
+    <!-- Pie & Donut Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Visit Status Pie Chart -->
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Visit Status Distribution</h3>
+            <div style="position: relative; height: 300px;">
+                <canvas id="visitStatusPieChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Client Type Donut Chart -->
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Client Enrollment Distribution</h3>
+            <div style="position: relative; height: 300px;">
+                <canvas id="clientTypeDonutChart"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Visits Trend Chart -->
@@ -153,6 +240,7 @@
     @php
         $trackingData = \App\Models\AuthorizedVisit::where('insurance_company_id', auth()->user()->insurance_company_id ?? 0)
             ->with('client')
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->orderBy('created_at', 'desc')
             ->take(20)
             ->get();
@@ -288,6 +376,7 @@
             $activeVisits = \App\Models\AuthorizedVisit::where('status', 'active')
                 ->where('insurance_company_id', auth()->user()->insurance_company_id ?? 0)
                 ->with('client')
+                ->whereBetween('created_at', [$startDate, $endDate])
                 ->orderBy('expiry_at', 'asc')
                 ->take(10)
                 ->get();
@@ -470,6 +559,7 @@
     <!-- Clients Section -->
     @php
         $recentClients = \App\Models\Client::where('insurance_company_id', auth()->user()->insurance_company_id)
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->latest()
             ->take(8)
             ->get();
@@ -586,6 +676,128 @@
                     labels: { usePointStyle: true, padding: 15 }
                 }
             }
+        }
+    });
+
+    // Visit Status Pie Chart
+    const visitStatusCtx = document.getElementById('visitStatusPieChart').getContext('2d');
+    new Chart(visitStatusCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Active', 'Completed', 'Expired'],
+            datasets: [{
+                data: [{{ $activeVisitsCount }}, {{ $completedVisitsCount }}, {{ \App\Models\AuthorizedVisit::where('status', 'expired')->where('insurance_company_id', auth()->user()->insurance_company_id ?? 0)->whereBetween('created_at', [$startDate, $endDate])->count() }}],
+                backgroundColor: [
+                    '#3b82f6',  // Blue for Active
+                    '#10b981',  // Green for Completed
+                    '#ef4444'   // Red for Expired
+                ],
+                borderColor: '#fff',
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { 
+                        usePointStyle: true, 
+                        padding: 15,
+                        font: { size: 12 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Client Type Donut Chart
+    const clientTypeCtx = document.getElementById('clientTypeDonutChart').getContext('2d');
+    new Chart(clientTypeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Open Enrollment', 'Regular Clients'],
+            datasets: [{
+                data: [{{ $openEnrollmentCount }}, {{ ($totalClientsCount - $openEnrollmentCount) }}],
+                backgroundColor: [
+                    '#f97316',  // Orange for Open Enrollment
+                    '#6366f1'   // Indigo for Regular
+                ],
+                borderColor: '#fff',
+                borderWidth: 2,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { 
+                        usePointStyle: true, 
+                        padding: 15,
+                        font: { size: 12 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Date Filter Functions
+    function updateDateFilter(value) {
+        const customRange = document.getElementById('customDateRange');
+        if (value === 'custom') {
+            customRange.classList.remove('hidden');
+        } else {
+            customRange.classList.add('hidden');
+            // Redirect with selected filter
+            window.location.href = `{{ route('dashboard') }}?date_filter=${value}`;
+        }
+    }
+
+    function applyCustomDate() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        
+        if (!startDate || !endDate) {
+            alert('Please select both start and end dates');
+            return;
+        }
+        
+        if (new Date(startDate) > new Date(endDate)) {
+            alert('Start date must be before end date');
+            return;
+        }
+        
+        window.location.href = `{{ route('dashboard') }}?date_filter=custom&start_date=${startDate}&end_date=${endDate}`;
+    }
+
+    // Show/hide custom date range on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateFilter = document.getElementById('dateFilter');
+        const customRange = document.getElementById('customDateRange');
+        if (dateFilter && dateFilter.value === 'custom') {
+            customRange.classList.remove('hidden');
         }
     });
 </script>
