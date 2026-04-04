@@ -9,7 +9,43 @@
     <div class="flex justify-between items-center flex-wrap gap-4">
         <div>
             <h1 class="text-2xl font-bold text-slate-900">Payments</h1>
-            <p class="text-slate-600 mt-1">Manage payments and receipts</p>
+            <p class="text-slate-600 mt-1">Manage and track all payment activities</p>
+        </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        <div class="flex border-b border-slate-200">
+            <a href="{{ route('payments.index', ['tab' => 'received']) }}" 
+               class="flex-1 px-6 py-4 text-center font-medium transition-colors {{ $tab === 'received' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-slate-700 hover:bg-slate-50' }}">
+                <div class="flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Policy Payments</span>
+                    <span class="ml-2 px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">{{ $counts['received'] }}</span>
+                </div>
+            </a>
+            <a href="{{ route('payments.index', ['tab' => 'guarantee']) }}" 
+               class="flex-1 px-6 py-4 text-center font-medium transition-colors {{ $tab === 'guarantee' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600' : 'text-slate-700 hover:bg-slate-50' }}">
+                <div class="flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Guarantees</span>
+                    <span class="ml-2 px-2.5 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-semibold rounded-full">{{ $counts['guarantee'] }}</span>
+                </div>
+            </a>
+            <a href="{{ route('payments.index', ['tab' => 'made']) }}" 
+               class="flex-1 px-6 py-4 text-center font-medium transition-colors {{ $tab === 'made' ? 'bg-orange-50 text-orange-700 border-b-2 border-orange-600' : 'text-slate-700 hover:bg-slate-50' }}">
+                <div class="flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Payments Made</span>
+                    <span class="ml-2 px-2.5 py-0.5 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full">{{ $counts['made'] }}</span>
+                </div>
+            </a>
         </div>
     </div>
 
@@ -128,8 +164,8 @@
                 <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
                 </svg>
-                <h3 class="mt-2 text-sm font-medium text-slate-900">No payments</h3>
-                <p class="mt-1 text-sm text-slate-500">Payments will appear here when invoices are marked as paid.</p>
+                <h3 class="mt-2 text-sm font-medium text-slate-900">No payments found</h3>
+                <p class="mt-1 text-sm text-slate-500">No payments in this category yet.</p>
             </div>
         @endif
     </div>

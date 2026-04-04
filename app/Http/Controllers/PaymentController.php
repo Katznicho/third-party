@@ -15,14 +15,14 @@ class PaymentController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         $userId = auth()->id();
+        $tab = $request->query('tab', 'received'); // received, guarantee, made
         
-        // All payments for this insurer: staff’s own entries, any payment tied to a policy here,
-        // or Kashtre client-portion rows (metadata.insurance_company_id — int/string safe).
-        $payments = Payment::with(['invoice', 'policy', 'client'])
+        // Base query for all payments
+        $baseQuery = Payment::with(['invoice', 'policy', 'client'])
             ->where(function ($query) use ($insuranceCompanyId, $userId) {
                 $query->where('processed_by', $userId)
                     ->orWhereRelation('policy', 'insurance_company_id', $insuranceCompanyId)
@@ -30,11 +30,47 @@ class PaymentController extends Controller
                         $q->where('payment_metadata->insurance_company_id', $insuranceCompanyId)
                             ->orWhere('payment_metadata->insurance_company_id', (string) $insuranceCompanyId);
                     });
-            })
-            ->latest()
-            ->paginate(15);
+            });
+        
+        // Get paginated results based on tab
+        if ($tab === 'received') {
+            // Policy Payments Received (Premium payments)
+            $payments = (clone $baseQuery)
+                ->whereIn('payment_type', ['premium_payment', 'full_payment', 'partial_payment'])
+                ->latest()
+                ->paginate(15);
+                
+        } elseif ($tab === 'guarantee') {
+            // Payment Guarantees (claim settlements, insurance portions)
+            $payments = (clone $baseQuery)
+                ->whereIn('payment_type', ['claim_settlement', 'adjustment'])
+                ->latest()
+                ->paginate(15);
+                
+        } elseif ($tab === 'made') {
+            // Payments Made (refunds, reversals)
+            $payments = (clone $baseQuery)
+                ->whereIn('payment_type', ['refund', 'reversal'])
+                ->latest()
+                ->paginate(15);
+                
+        } else {
+            // Default to received
+            $payments = (clone $baseQuery)
+                ->whereIn('payment_type', ['premium_payment', 'full_payment', 'partial_payment'])
+                ->latest()
+                ->paginate(15);
+            $tab = 'received';
+        }
+        
+        // Get counts for each tab
+        $counts = [
+            'received' => (clone $baseQuery)->whereIn('payment_type', ['premium_payment', 'full_payment', 'partial_payment'])->count(),
+            'guarantee' => (clone $baseQuery)->whereIn('payment_type', ['claim_settlement', 'adjustment'])->count(),
+            'made' => (clone $baseQuery)->whereIn('payment_type', ['refund', 'reversal'])->count(),
+        ];
 
-        return view('payments.index', compact('payments'));
+        return view('payments.index', compact('payments', 'tab', 'counts'));
     }
 
     /**
