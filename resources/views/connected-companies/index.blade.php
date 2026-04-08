@@ -33,9 +33,24 @@
                 @foreach($connections as $connection)
                     <div class="p-6 flex items-center justify-between">
                         <div>
-                            <h3 class="text-lg font-semibold text-slate-900 truncate" title="{{ $connection->connected_business_name ?? 'Kashtre Business' }}">
-                                {{ $connection->connected_business_name ?? 'Kashtre Business' }}
-                            </h3>
+                            <div class="flex items-center gap-3">
+                                <h3 class="text-lg font-semibold text-slate-900 truncate" title="{{ $connection->connected_business_name ?? 'Kashtre Business' }}">
+                                    {{ $connection->connected_business_name ?? 'Kashtre Business' }}
+                                </h3>
+                                @if($connection->isActive())
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                        ✓ Active
+                                    </span>
+                                @elseif($connection->isSuspended())
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-100">
+                                        ⊘ Suspended
+                                    </span>
+                                @elseif($connection->isBlocked())
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-100">
+                                        ✕ Blocked
+                                    </span>
+                                @endif
+                            </div>
                             <p class="text-xs text-slate-500 mt-1">
                                 Connected {{ $connection->created_at->diffForHumans() }}
                             </p>

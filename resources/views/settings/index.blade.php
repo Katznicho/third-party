@@ -253,38 +253,51 @@
 
                 <!-- Open Enrollment Section -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mt-6">
-                    <h2 class="text-xl font-bold text-slate-900 mb-1">Open Enrollment</h2>
-                    <p class="text-sm text-slate-600 mb-6">
-                        When enabled, clients are accepted based on criteria (age, sex) without a pre-registered policy.
-                        A single <strong>generic policy</strong> is created and shared by all qualifying walk-in clients.
-                    </p>
-
-                    <form action="{{ route('settings.update-open-enrollment') }}" method="POST" class="space-y-6">
-                        @csrf
-                        @method('PUT')
-
-                        <!-- Enable toggle -->
-                        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-4">
-                            <div>
-                                <p class="text-sm font-semibold text-slate-800">Enable open enrollment</p>
-                                <p class="text-xs text-slate-500 mt-0.5">Clients without a personal policy will be matched against the generic policy if they meet the criteria below.</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    name="open_enrollment_enabled"
-                                    id="open_enrollment_enabled"
-                                    value="1"
-                                    {{ old('open_enrollment_enabled', $insuranceCompany->open_enrollment_enabled ?? false) ? 'checked' : '' }}
-                                    class="sr-only peer"
-                                    onchange="toggleOpenEnrollmentCriteria(this.checked)"
-                                >
-                                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 mb-1">Open Enrollment</h2>
+                            <p class="text-sm text-slate-600">
+                                When enabled, clients are accepted based on criteria (age, sex) without a pre-registered policy.
+                                A single <strong>generic policy</strong> is created and shared by all qualifying walk-in clients.
+                            </p>
                         </div>
+                        <div class="flex-shrink-0 ml-4">
+                            @if($insuranceCompany->open_enrollment_enabled)
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                    <svg class="w-2 h-2 mr-1.5 fill-green-600" viewBox="0 0 6 6" aria-hidden="true">
+                                        <circle cx="3" cy="3" r="3" />
+                                    </svg>
+                                    Enabled
+                                </span>
+                            @else
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-800">
+                                    <svg class="w-2 h-2 mr-1.5 fill-slate-600" viewBox="0 0 6 6" aria-hidden="true">
+                                        <circle cx="3" cy="3" r="3" />
+                                    </svg>
+                                    Not Enabled
+                                </span>
+                            @endif
+                        </div>
+                    </div>
 
-                        <!-- Criteria (shown when enabled) -->
-                        <div id="open-enrollment-criteria" class="{{ old('open_enrollment_enabled', $insuranceCompany->open_enrollment_enabled ?? false) ? '' : 'hidden' }} space-y-5">
+                    @if($insuranceCompany->open_enrollment_enabled)
+                        <form action="{{ route('settings.update-open-enrollment') }}" method="POST" class="space-y-6">
+                            @csrf
+                            @method('PUT')
+
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                <div class="flex items-start gap-3">
+                                    <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                    </svg>
+                                    <p class="text-sm text-blue-700">
+                                        <strong>Generic Policy:</strong> A generic policy (<code class="text-xs bg-blue-100 px-1.5 py-0.5 rounded">GENERIC-{{ strtoupper($insuranceCompany->code) }}</code>) has been created and is used for all open enrollment clients.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Criteria (shown when enabled) -->
+                            <div class="space-y-5">
 
                             <!-- Age range -->
                             <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
@@ -518,14 +531,27 @@
                                 <p class="text-xs text-amber-800">A generic policy will be created automatically when you save these settings for the first time.</p>
                             </div>
                             @endif
-                        </div>
+                            </div>
 
-                        <div class="flex justify-end pt-4 border-t border-slate-200">
-                            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
-                                Save Open Enrollment Settings
-                            </button>
+                            <div class="flex justify-end pt-4 border-t border-slate-200">
+                                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                                    Save Open Enrollment Settings
+                                </button>
+                            </div>
+                        </form>
+                    @else
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-6">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <p class="text-sm text-slate-700">
+                                    <strong>Open enrollment is not enabled</strong> for your vendor. This setting is configured at vendor creation and cannot be changed later. 
+                                    If you need to switch modes, contact your administrator.
+                                </p>
+                            </div>
                         </div>
-                    </form>
+                    @endif
                 </div>
             </div>
 
@@ -2288,12 +2314,52 @@
                                 <input 
                                     type="checkbox" 
                                     name="show_policy_details_at_registration" 
+                                    id="show_policy_details_toggle"
                                     value="1"
                                     {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? true) ? 'checked' : '' }}
                                     class="sr-only peer"
                                 >
                                 <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
+                        </div>
+
+                        <!-- Select Which Policy Details to Display -->
+                        <div id="policy_details_selection" style="display: {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? true) ? 'block' : 'none' }};">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <label class="text-sm font-medium text-slate-900 mb-3 block">Which policy details should clients see?</label>
+                                <p class="text-xs text-slate-600 mb-4">Select the fields to display at the registration desk:</p>
+                                
+                                <div class="space-y-3">
+                                    @php
+                                        $detailsOptions = [
+                                            'policy_number' => 'Policy Number',
+                                            'deductible_amount' => 'Deductible Amount',
+                                            'copay_amount' => 'Copay Amount',
+                                            'coinsurance_percentage' => 'Coinsurance Percentage',
+                                            'copay_max_limit' => 'Copay Max Limit',
+                                        ];
+                                        $selectedDetails = old('policy_details_to_display_at_registration', $insuranceCompany->policy_details_to_display_at_registration ?? ['policy_number']);
+                                    @endphp
+
+                                    @foreach($detailsOptions as $fieldKey => $fieldLabel)
+                                        <label class="flex items-center p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                                            <input 
+                                                type="checkbox" 
+                                                name="policy_details_to_display_at_registration[]" 
+                                                value="{{ $fieldKey }}"
+                                                {{ in_array($fieldKey, is_array($selectedDetails) ? $selectedDetails : []) ? 'checked' : '' }}
+                                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                                            >
+                                            <span class="ml-3 text-sm font-medium text-slate-700">{{ $fieldLabel }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+
+                                <div class="mt-3 p-3 bg-white rounded border border-blue-100 text-xs text-slate-600">
+                                    <p class="font-semibold text-slate-900 mb-1">Preview:</p>
+                                    <p>Selected fields will appear on the client's registration confirmation screen</p>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Info Box -->
@@ -2347,3 +2413,20 @@
             </div>
 
 @endsection
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const showPolicyDetailsToggle = document.getElementById('show_policy_details_toggle');
+    const policyDetailsSelection = document.getElementById('policy_details_selection');
+
+    if (showPolicyDetailsToggle) {
+        showPolicyDetailsToggle.addEventListener('change', function() {
+            if (this.checked) {
+                policyDetailsSelection.style.display = 'block';
+            } else {
+                policyDetailsSelection.style.display = 'none';
+            }
+        });
+    }
+});
+</script>

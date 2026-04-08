@@ -30,41 +30,15 @@ class ClientController extends Controller
                 ->with('error', 'You must be associated with an insurance company to view clients.');
         }
 
-        // Get the tab from query parameter (default to 'registered')
-        $tab = request('tab', 'registered');
-        
-        // Base query for clients with policies for this insurance company
-        $baseQuery = function($subQuery) use ($insuranceCompanyId) {
-            return $subQuery->where('insurance_company_id', $insuranceCompanyId);
-        };
-        
-        if ($tab === 'open_enrollment') {
-            // Get open enrollment clients (no policy requirement - they may be newly registered)
-            $clients = Client::where('registered_via_open_enrollment', true)
-                ->where('insurance_company_id', $insuranceCompanyId)
-                ->with(['policies' => function($query) use ($insuranceCompanyId) {
-                    $query->where('insurance_company_id', $insuranceCompanyId);
-                }, 'principalMember', 'plan'])
-                ->latest()
-                ->paginate(15);
-        } else {
-            // Get registered clients (not via open enrollment)
-            $clients = Client::where('registered_via_open_enrollment', false)
-                ->whereHas('policies', $baseQuery)
-                ->orWhere(function($query) use ($insuranceCompanyId) {
-                    $query->where('registered_via_open_enrollment', false)
-                        ->whereHas('principalMember.policies', function($q) use ($insuranceCompanyId) {
-                            $q->where('insurance_company_id', $insuranceCompanyId);
-                        });
-                })
-                ->with(['policies' => function($query) use ($insuranceCompanyId) {
-                    $query->where('insurance_company_id', $insuranceCompanyId);
-                }, 'principalMember', 'plan'])
-                ->latest()
-                ->paginate(15);
-        }
+        // Get all clients for the insurance company
+        $clients = Client::where('insurance_company_id', $insuranceCompanyId)
+            ->with(['policies' => function($query) use ($insuranceCompanyId) {
+                $query->where('insurance_company_id', $insuranceCompanyId);
+            }, 'principalMember', 'plan'])
+            ->latest()
+            ->paginate(15);
             
-        return view('clients.index', compact('clients', 'tab'));
+        return view('clients.index', compact('clients'));
     }
 
     /**
@@ -155,8 +129,9 @@ class ClientController extends Controller
         
         $insuranceCompany = $user->insuranceCompany;
         $requiredFields = $insuranceCompany ? $insuranceCompany->getRequiredFields() : ['first_name', 'id_passport_no'];
+        $countries = \App\Services\CountriesService::getCountriesForSelect();
         
-        return view('clients.create', compact('medicalQuestions', 'requiredFields', 'insuranceCompany'));
+        return view('clients.create', compact('medicalQuestions', 'requiredFields', 'insuranceCompany', 'countries'));
     }
 
     /**
@@ -1118,8 +1093,9 @@ class ClientController extends Controller
         
         $insuranceCompany = $user->insuranceCompany;
         $requiredFields = $insuranceCompany ? $insuranceCompany->getRequiredFields() : ['first_name', 'id_passport_no'];
+        $countries = \App\Services\CountriesService::getCountriesForSelect();
         
-        return view('clients.edit', compact('client', 'principals', 'medicalQuestions', 'requiredFields', 'insuranceCompany'));
+        return view('clients.edit', compact('client', 'principals', 'medicalQuestions', 'requiredFields', 'insuranceCompany', 'countries'));
     }
 
     /**

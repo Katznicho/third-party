@@ -132,12 +132,36 @@ class ConnectedCompaniesController extends Controller
             ]
         );
 
+        // Fetch service categories and category exclusions
+        $serviceCategories = \App\Models\ServiceCategory::where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        $excludedCategories = ConnectedCompanyServiceExclusion::where('insurance_company_id', $insuranceCompany->id)
+            ->where('business_connection_id', $connection->id)
+            ->where('is_active', true)
+            ->whereNotNull('service_category')
+            ->pluck('service_category')
+            ->unique();
+
+        $availableCategories = $serviceCategories->pluck('slug')
+            ->diff($excludedCategories)
+            ->map(function($slug) use ($serviceCategories) {
+                return optional($serviceCategories->firstWhere('slug', $slug))->name;
+            })
+            ->filter()
+            ->values();
+
         return view('connected-companies.show', [
             'insuranceCompany' => $insuranceCompany,
             'connection' => $connection,
             'excludedItems' => $excludedItems,
             'localExclusions' => $localExclusions,
             'items' => $paginatedItems,
+            'serviceCategories' => $serviceCategories,
+            'excludedCategories' => $excludedCategories,
+            'availableCategories' => $availableCategories,
         ]);
     }
 
@@ -245,5 +269,101 @@ class ConnectedCompaniesController extends Controller
         return redirect()
             ->route('connected-companies.show', $connectionId)
             ->with('success', 'Local exclusion added for this provider.');
+    }
+
+    /**
+     * Store category exclusions for a connected company.
+     */
+    public function storeCategoryExclusion(Request $request, int $connectionId)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+        
+        if (!$insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+
+        $validated = $request->validate([
+            'service_categories' => 'required|array|min:1',
+            'service_categories.*' => 'required|string|max:255',
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
+        foreach ($validated['service_categories'] as $category) {
+            ConnectedCompanyServiceExclusion::updateOrCreate(
+                [
+                    'insurance_company_id' => $insuranceCompany->id,
+                    'business_connection_id' => $connection->id,
+                    'service_category' => $category,
+                ],
+                [
+                    'service_code' => null,
+                    'reason' => $validated['reason'] ?? null,
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        return redirect()
+            ->route('connected-companies.show', $connectionId)
+            ->with('success', 'Service category exclusion added for this provider.');
+    }
+
+    /**
+     * Block a connection.
+     */
+    public function block(Request $request, int $connectionId)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+        
+        if (!$insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:1000',
+            'status' => 'required|in:blocked,suspended',
+        ]);
+
+        $statusLabel = $validated['status'] === 'suspended' ? 'Suspended' : 'Blocked';
+        
+        $connection->block(
+            $validated['reason'],
+            auth()->id(),
+            $validated['status']
+        );
+
+        return redirect()
+            ->route('connected-companies.show', $connectionId)
+            ->with('success', "{$statusLabel} successfully.");
+    }
+
+    /**
+     * Reactivate a blocked/suspended connection.
+     */
+    public function reactivate(Request $request, int $connectionId)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+        
+        if (!$insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+
+        if (!$connection->isBlocked() && !$connection->isSuspended()) {
+            return redirect()
+                ->route('connected-companies.show', $connectionId)
+                ->with('error', 'Connection is not blocked or suspended.');
+        }
+
+        $connection->reactivate();
+
+        return redirect()
+            ->route('connected-companies.show', $connectionId)
+            ->with('success', 'Connection reactivated successfully.');
     }
 }

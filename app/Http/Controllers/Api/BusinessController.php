@@ -40,6 +40,7 @@ class BusinessController extends Controller
                 'postal_address' => 'nullable|string',
                 'website' => 'nullable|string|max:255',
                 'description' => 'nullable|string',
+                'open_enrollment_enabled' => 'nullable|boolean',
                 
                 // User fields
                 'user_name' => 'required|string|max:255',
@@ -108,6 +109,7 @@ class BusinessController extends Controller
                 'postal_address' => $validated['postal_address'] ?? null,
                 'website' => $validated['website'] ?? null,
                 'description' => $validated['description'] ?? null,
+                'open_enrollment_enabled' => (bool) ($validated['open_enrollment_enabled'] ?? false),
                 'is_active' => true,
             ]);
 
@@ -163,6 +165,7 @@ class BusinessController extends Controller
                         'postal_address' => $insuranceCompany->postal_address,
                         'website' => $insuranceCompany->website,
                         'description' => $insuranceCompany->description,
+                        'open_enrollment_enabled' => (bool) $insuranceCompany->open_enrollment_enabled,
                         'is_active' => $insuranceCompany->is_active,
                     ],
                     'user' => [
@@ -2294,6 +2297,7 @@ class BusinessController extends Controller
                 'success' => true,
                 'message' => 'Insurance company registration settings retrieved successfully',
                 'show_policy_details_at_registration' => $insuranceCompany->show_policy_details_at_registration ?? true,
+                'policy_details_to_display_at_registration' => $insuranceCompany->policy_details_to_display_at_registration ?? ['policy_number'],
                 'visit_authorization_period_days' => $insuranceCompany->visit_authorization_period_days ?? 7,
             ]);
         } catch (\Exception $e) {

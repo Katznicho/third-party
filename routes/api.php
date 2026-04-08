@@ -72,22 +72,25 @@ Route::prefix('v1')->group(function () {
     Route::post('/clients/verify-otp-email', [ClientVerificationController::class, 'verifyOtpByEmail'])->name('api.clients.verify-otp-email');
     
     // Sync client from Kashtre (create/update client on third-party for open enrollment)
-    Route::post('/clients/sync', [\App\Http\Controllers\Api\ClientController::class, 'syncFromKashtre'])->name('api.clients.sync');
+    Route::post('/clients/sync', [\App\Http\Controllers\Api\ClientController::class, 'syncFromKashtre'])->middleware(\App\Http\Middleware\ValidateConnectionStatus::class)->name('api.clients.sync');
     
     // Register authorized visit from Kashtre
-    Route::post('/authorized-visits/register', [\App\Http\Controllers\Api\AuthorizedVisitController::class, 'register'])->name('api.authorized-visits.register');
+    Route::post('/authorized-visits/register', [\App\Http\Controllers\Api\AuthorizedVisitController::class, 'register'])->middleware(\App\Http\Middleware\ValidateConnectionStatus::class)->name('api.authorized-visits.register');
     
     // Create client account (for Kashtre integration)
     Route::post('/clients/{clientId}/account', [\App\Http\Controllers\Api\ClientController::class, 'createAccount'])->name('api.clients.account.create');
     
-    // Create payment responsibility payment (for Kashtre integration)
-    Route::post('/payments/responsibility', [\App\Http\Controllers\Api\PaymentController::class, 'createPaymentResponsibility'])->name('api.payments.responsibility.create');
+    // Protected endpoints - validate connection status before processing
+    Route::middleware(\App\Http\Middleware\ValidateConnectionStatus::class)->group(function () {
+        // Create payment responsibility payment (for Kashtre integration)
+        Route::post('/payments/responsibility', [\App\Http\Controllers\Api\PaymentController::class, 'createPaymentResponsibility'])->name('api.payments.responsibility.create');
 
-    // Record client portion payment (Kashtre calls after "Collect payment" succeeds)
-    Route::post('/payments/record-client-portion', [\App\Http\Controllers\Api\PaymentController::class, 'recordClientPortionPayment'])->name('api.payments.record-client-portion');
+        // Record client portion payment (Kashtre calls after "Collect payment" succeeds)
+        Route::post('/payments/record-client-portion', [\App\Http\Controllers\Api\PaymentController::class, 'recordClientPortionPayment'])->name('api.payments.record-client-portion');
 
-    // Invoice authorization (Kashtre sends invoice; third-party returns client_total and insurance_total)
-    Route::post('/invoice-authorization/request', [\App\Http\Controllers\Api\InvoiceAuthorizationController::class, 'request'])->name('api.invoice-authorization.request');
+        // Invoice authorization (Kashtre sends invoice; third-party returns client_total and insurance_total)
+        Route::post('/invoice-authorization/request', [\App\Http\Controllers\Api\InvoiceAuthorizationController::class, 'request'])->name('api.invoice-authorization.request');
+    });
     
     // Error logging (public, for client-side error reporting)
     Route::post('/log-error', function (\Illuminate\Http\Request $request) {

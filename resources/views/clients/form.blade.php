@@ -373,15 +373,19 @@
                         <span class="text-red-500">*</span>
                     @endif
                 </label>
-                <input 
-                    type="text" 
+                <select 
                     name="nationality" 
                     id="nationality" 
-                    value="{{ old('nationality', $client->nationality ?? 'Ugandan') }}" 
-                    placeholder="Enter nationality" 
                     @if(isset($requiredFields) && in_array('nationality', $requiredFields)) required @endif
                     class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('nationality') border-red-300 @enderror"
                 >
+                    <option value="">-- Select Nationality --</option>
+                    @foreach($countries as $code => $country)
+                        <option value="{{ $code }}" {{ old('nationality', $client->nationality ?? '') === $code ? 'selected' : '' }}>
+                            {{ $country }}
+                        </option>
+                    @endforeach
+                </select>
                 @error('nationality')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror

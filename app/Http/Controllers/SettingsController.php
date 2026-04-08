@@ -293,7 +293,7 @@ class SettingsController extends Controller
     }
 
     /**
-     * Update open enrollment settings
+     * Update open enrollment settings (configuration only, cannot toggle enabled/disabled)
      */
     public function updateOpenEnrollmentSettings(Request $request)
     {
@@ -302,8 +302,13 @@ class SettingsController extends Controller
             return redirect()->back()->with('error', 'You must be associated with an insurance company.');
         }
 
+        // Check if open enrollment is enabled for this vendor
+        $insuranceCompany = $user->insuranceCompany;
+        if (!$insuranceCompany->open_enrollment_enabled) {
+            return redirect()->back()->with('error', 'Open enrollment is not enabled for your vendor. This setting is configured at vendor creation.');
+        }
+
         $validated = $request->validate([
-            'open_enrollment_enabled'           => 'nullable|boolean',
             'open_enrollment_min_age'           => 'nullable|integer|min:0|max:150',
             'open_enrollment_max_age'           => 'nullable|integer|min:0|max:150|gte:open_enrollment_min_age',
             'open_enrollment_genders'           => 'nullable|array',
@@ -321,12 +326,8 @@ class SettingsController extends Controller
             'open_enrollment_client_types.*'    => 'string|in:principal,dependent',
         ]);
 
-        $insuranceCompany = $user->insuranceCompany;
-        $enabled = $request->boolean('open_enrollment_enabled', false);
-
-        DB::transaction(function () use ($insuranceCompany, $validated, $enabled) {
+        DB::transaction(function () use ($insuranceCompany, $validated) {
             $insuranceCompany->update([
-                'open_enrollment_enabled'            => $enabled,
                 'open_enrollment_min_age'            => $validated['open_enrollment_min_age'] ?? null,
                 'open_enrollment_max_age'            => $validated['open_enrollment_max_age'] ?? null,
                 'open_enrollment_genders'            => $validated['open_enrollment_genders'] ?? null,
@@ -339,8 +340,8 @@ class SettingsController extends Controller
                 'open_enrollment_client_types'       => $validated['open_enrollment_client_types'] ?? null,
             ]);
 
-            // Auto-create a generic policy when open enrollment is first enabled
-            if ($enabled && !$insuranceCompany->generic_policy_id) {
+            // Auto-create a generic policy if it doesn't exist yet
+            if (!$insuranceCompany->generic_policy_id) {
                 $genericPolicy = Policy::create([
                     'insurance_company_id' => $insuranceCompany->id,
                     'policy_number'        => 'GENERIC-' . strtoupper($insuranceCompany->code),
@@ -401,12 +402,21 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'visit_authorization_period_days' => 'required|integer|min:1|max:365',
             'show_policy_details_at_registration' => 'nullable|boolean',
+            'policy_details_to_display_at_registration' => 'nullable|array',
+            'policy_details_to_display_at_registration.*' => 'string|in:policy_number,deductible_amount,copay_amount,coinsurance_percentage,copay_max_limit',
         ]);
 
         $insuranceCompany = $user->insuranceCompany;
+        
+        // If display is disabled, clear the details array
+        $policyDetailsToDisplay = $request->boolean('show_policy_details_at_registration', true)
+            ? ($validated['policy_details_to_display_at_registration'] ?? ['policy_number'])
+            : [];
+
         $insuranceCompany->update([
             'visit_authorization_period_days' => $validated['visit_authorization_period_days'],
             'show_policy_details_at_registration' => $request->boolean('show_policy_details_at_registration', true),
+            'policy_details_to_display_at_registration' => $policyDetailsToDisplay,
         ]);
 
         $tab = $request->input('current_tab', 'visit-authorization');

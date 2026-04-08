@@ -91,6 +91,7 @@ class InsuranceCompany extends Model
         'visit_authorization_period_days',
         // Registration desk
         'show_policy_details_at_registration',
+        'policy_details_to_display_at_registration',
     ];
 
     protected function casts(): array
@@ -151,6 +152,7 @@ class InsuranceCompany extends Model
             'visit_authorization_period_days' => 'integer',
             // Registration desk
             'show_policy_details_at_registration' => 'boolean',
+            'policy_details_to_display_at_registration' => 'array',
         ];
     }
 

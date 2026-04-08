@@ -100,6 +100,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');
     Route::get('/connected-companies/{connectionId}/financial', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financial'])->name('connected-companies.financial');
     Route::post('/connected-companies/{connectionId}/local-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeLocalExclusion'])->name('connected-companies.local-exclusions.store');
+    Route::post('/connected-companies/{connectionId}/category-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeCategoryExclusion'])->name('connected-companies.category-exclusions.store');
+    Route::post('/connected-companies/{connectionId}/block', [\App\Http\Controllers\ConnectedCompaniesController::class, 'block'])->name('connected-companies.block');
+    Route::post('/connected-companies/{connectionId}/reactivate', [\App\Http\Controllers\ConnectedCompaniesController::class, 'reactivate'])->name('connected-companies.reactivate');
     
     // Vendor Code Email
     Route::get('/vendor-code/send', [\App\Http\Controllers\VendorCodeController::class, 'create'])->name('vendor-code.create');
