@@ -2296,8 +2296,8 @@ class BusinessController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Insurance company registration settings retrieved successfully',
-                'show_policy_details_at_registration' => $insuranceCompany->show_policy_details_at_registration ?? true,
-                'policy_details_to_display_at_registration' => $insuranceCompany->policy_details_to_display_at_registration ?? ['policy_number'],
+                'show_policy_details_at_registration' => $insuranceCompany->show_policy_details_at_registration ?? false,
+                'policy_details_to_display_at_registration' => $insuranceCompany->policy_details_to_display_at_registration ?? [],
                 'visit_authorization_period_days' => $insuranceCompany->visit_authorization_period_days ?? 7,
             ]);
         } catch (\Exception $e) {

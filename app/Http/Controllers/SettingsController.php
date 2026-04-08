@@ -409,13 +409,13 @@ class SettingsController extends Controller
         $insuranceCompany = $user->insuranceCompany;
         
         // If display is disabled, clear the details array
-        $policyDetailsToDisplay = $request->boolean('show_policy_details_at_registration', true)
+        $policyDetailsToDisplay = $request->boolean('show_policy_details_at_registration', false)
             ? ($validated['policy_details_to_display_at_registration'] ?? ['policy_number'])
             : [];
 
         $insuranceCompany->update([
             'visit_authorization_period_days' => $validated['visit_authorization_period_days'],
-            'show_policy_details_at_registration' => $request->boolean('show_policy_details_at_registration', true),
+            'show_policy_details_at_registration' => $request->boolean('show_policy_details_at_registration', false),
             'policy_details_to_display_at_registration' => $policyDetailsToDisplay,
         ]);
 

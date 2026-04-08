@@ -2316,7 +2316,7 @@
                                     name="show_policy_details_at_registration" 
                                     id="show_policy_details_toggle"
                                     value="1"
-                                    {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? true) ? 'checked' : '' }}
+                                    {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? false) ? 'checked' : '' }}
                                     class="sr-only peer"
                                 >
                                 <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -2324,7 +2324,7 @@
                         </div>
 
                         <!-- Select Which Policy Details to Display -->
-                        <div id="policy_details_selection" style="display: {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? true) ? 'block' : 'none' }};">
+                        <div id="policy_details_selection" style="display: {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? false) ? 'block' : 'none' }};"
                             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <label class="text-sm font-medium text-slate-900 mb-3 block">Which policy details should clients see?</label>
                                 <p class="text-xs text-slate-600 mb-4">Select the fields to display at the registration desk:</p>
