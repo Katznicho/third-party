@@ -870,6 +870,19 @@ class BusinessController extends Controller
                     );
 
                     if ($openResult !== null) {
+                        // Check if the function returned a failure reason
+                        if ($openResult['_failed'] ?? false) {
+                            \Illuminate\Support\Facades\Log::info('API: Open enrollment criteria not met', [
+                                'insurance_company_id' => $insuranceCompanyId,
+                                'reason' => $openResult['reason'],
+                            ]);
+                            return response()->json([
+                                'success' => false,
+                                'message' => $openResult['reason'],
+                                'exists'  => false,
+                            ], 422);
+                        }
+
                         \Illuminate\Support\Facades\Log::info('API: Open enrollment match — returning generic policy', [
                             'insurance_company_id' => $insuranceCompanyId,
                             'policy_number_queried' => $policyNumber,
@@ -1019,6 +1032,41 @@ class BusinessController extends Controller
                 return response()->json($errorResponse, 422);
             }
             
+            // Check service category exclusions for this connected company
+            $requestedCategory = $request->input('services_category');
+            $connectedBusinessId = $request->input('connected_business_id');
+
+            if ($requestedCategory && $connectedBusinessId) {
+                $connection = \App\Models\BusinessConnection::where('insurance_company_id', $insuranceCompanyId)
+                    ->where('connected_business_id', $connectedBusinessId)
+                    ->first();
+
+                if ($connection) {
+                    $excluded = \App\Models\ConnectedCompanyServiceExclusion::where('insurance_company_id', $insuranceCompanyId)
+                        ->where('business_connection_id', $connection->id)
+                        ->where('is_active', true)
+                        ->whereNotNull('service_category')
+                        ->whereNull('service_code')
+                        ->get()
+                        ->first(fn($ex) => strtolower(trim($ex->service_category)) === strtolower(trim($requestedCategory)));
+
+                    if ($excluded) {
+                        \Illuminate\Support\Facades\Log::warning('API: Policy verification REJECTED — service category excluded for this provider', [
+                            'policy_number'       => $policy->policy_number,
+                            'services_category'   => $requestedCategory,
+                            'connected_business_id' => $connectedBusinessId,
+                            'exclusion_reason'    => $excluded->reason,
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => ucfirst($requestedCategory) . ' services are not covered for your facility' . ($excluded->reason ? ': ' . $excluded->reason : '.'),
+                            'exists'  => false,
+                        ], 422);
+                    }
+                }
+            }
+
             // Build payment responsibility information
             $benefitBalance = null;
             if ($policy->principalMember) {
@@ -1111,43 +1159,60 @@ class BusinessController extends Controller
         }
 
         $matchedCriteria = [];
+        $failReason = null;
 
         // ── 1. Age ────────────────────────────────────────────────────────────
         $minAge = $insuranceCompany->open_enrollment_min_age;
         $maxAge = $insuranceCompany->open_enrollment_max_age;
         if ($minAge !== null || $maxAge !== null) {
             if (!$dateOfBirth) {
-                return null; // age criterion set but DOB not provided
+                $failReason = 'Date of birth is required to verify age eligibility.';
+            } else {
+                $age = (int) \Carbon\Carbon::parse($dateOfBirth)->diffInYears(now());
+                if ($minAge !== null && $age < $minAge) {
+                    $failReason = "Client age ({$age}) is below the minimum required age of {$minAge}.";
+                } elseif ($maxAge !== null && $age > $maxAge) {
+                    $failReason = "Client age ({$age}) exceeds the maximum allowed age of {$maxAge}.";
+                } else {
+                    $matchedCriteria[] = "age {$age}";
+                }
             }
-            $age = (int) \Carbon\Carbon::parse($dateOfBirth)->diffInYears(now());
-            if ($minAge !== null && $age < $minAge) return null;
-            if ($maxAge !== null && $age > $maxAge) return null;
-            $matchedCriteria[] = "age {$age}";
         }
+        if ($failReason) return ['_failed' => true, 'reason' => $failReason];
 
         // ── 2. Gender ─────────────────────────────────────────────────────────
         $allowedGenders = $insuranceCompany->open_enrollment_genders ?? [];
         if (!empty($allowedGenders)) {
             if (!$gender || !in_array(ucfirst(strtolower($gender)), $allowedGenders)) {
-                return null;
+                $failReason = 'Client gender (' . ($gender ?: 'not provided') . ') is not covered. Allowed: ' . implode(', ', $allowedGenders) . '.';
+            } else {
+                $matchedCriteria[] = "gender {$gender}";
             }
-            $matchedCriteria[] = "gender {$gender}";
         }
+        if ($failReason) return ['_failed' => true, 'reason' => $failReason];
 
         // ── 3. Service category ───────────────────────────────────────────────
         $allowedCategories = $insuranceCompany->open_enrollment_service_categories ?? [];
         if (!empty($allowedCategories)) {
-            if (!$servicesCategory || !in_array(strtolower($servicesCategory), array_map('strtolower', $allowedCategories))) {
-                return null;
+            if (!$servicesCategory) {
+                $failReason = 'Service category is required. Allowed: ' . implode(', ', $allowedCategories) . '.';
+            } elseif (!in_array(strtolower($servicesCategory), array_map('strtolower', $allowedCategories))) {
+                $failReason = ucfirst($servicesCategory) . ' is not covered under this plan. Covered categories: ' . implode(', ', $allowedCategories) . '.';
+            } else {
+                $matchedCriteria[] = "category {$servicesCategory}";
             }
-            $matchedCriteria[] = "category {$servicesCategory}";
         }
+        if ($failReason) return ['_failed' => true, 'reason' => $failReason];
 
         // ── 4. Enrollment window ──────────────────────────────────────────────
         $startDate = $insuranceCompany->open_enrollment_start_date;
         $endDate   = $insuranceCompany->open_enrollment_end_date;
-        if ($startDate && now()->lt($startDate)) return null;
-        if ($endDate && now()->gt($endDate))     return null;
+        if ($startDate && now()->lt($startDate)) {
+            return ['_failed' => true, 'reason' => 'Enrollment has not started yet. It opens on ' . $startDate->toDateString() . '.'];
+        }
+        if ($endDate && now()->gt($endDate)) {
+            return ['_failed' => true, 'reason' => 'Enrollment period has closed (ended ' . $endDate->toDateString() . ').'];
+        }
         if ($startDate || $endDate) {
             $matchedCriteria[] = 'within enrollment window';
         }
@@ -1155,7 +1220,7 @@ class BusinessController extends Controller
         // ── 5. Max invoice amount ─────────────────────────────────────────────
         $maxAmount = $insuranceCompany->open_enrollment_max_invoice_amount;
         if ($maxAmount !== null && $invoiceAmount !== null && $invoiceAmount > (float) $maxAmount) {
-            return null;
+            return ['_failed' => true, 'reason' => 'Invoice amount exceeds the maximum allowed (' . number_format($maxAmount) . ').'];
         }
         if ($maxAmount !== null && $invoiceAmount !== null) {
             $matchedCriteria[] = "amount within cap";
@@ -1168,7 +1233,7 @@ class BusinessController extends Controller
                 strtolower(trim($nationality)),
                 array_map('strtolower', array_map('trim', $allowedNationalities))
             )) {
-                return null;
+                return ['_failed' => true, 'reason' => 'Client nationality (' . ($nationality ?: 'not provided') . ') is not eligible. Allowed: ' . implode(', ', $allowedNationalities) . '.'];
             }
             $matchedCriteria[] = "nationality {$nationality}";
         }
@@ -1176,11 +1241,8 @@ class BusinessController extends Controller
         // ── 7. Marital status ─────────────────────────────────────────────────
         $allowedMarital = $insuranceCompany->open_enrollment_marital_statuses ?? [];
         if (!empty($allowedMarital)) {
-            if (!$maritalStatus || !in_array(
-                ucfirst(strtolower($maritalStatus)),
-                $allowedMarital
-            )) {
-                return null;
+            if (!$maritalStatus || !in_array(ucfirst(strtolower($maritalStatus)), $allowedMarital)) {
+                return ['_failed' => true, 'reason' => 'Client marital status (' . ($maritalStatus ?: 'not provided') . ') is not eligible. Allowed: ' . implode(', ', $allowedMarital) . '.'];
             }
             $matchedCriteria[] = "marital status {$maritalStatus}";
         }
@@ -1189,7 +1251,7 @@ class BusinessController extends Controller
         $allowedTypes = $insuranceCompany->open_enrollment_client_types ?? [];
         if (!empty($allowedTypes)) {
             if (!$clientType || !in_array(strtolower($clientType), array_map('strtolower', $allowedTypes))) {
-                return null;
+                return ['_failed' => true, 'reason' => 'Client type (' . ($clientType ?: 'not provided') . ') is not eligible. Allowed: ' . implode(', ', $allowedTypes) . '.'];
             }
             $matchedCriteria[] = "type {$clientType}";
         }

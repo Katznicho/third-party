@@ -22,7 +22,7 @@
     <div class="flex justify-between items-center">
         <div>
             <h1 class="text-2xl font-bold text-slate-900">Service Providers</h1>
-            <p class="text-slate-600 mt-1">Service providers connected to {{ $insuranceCompany->name }}</p>
+            <p class="text-slate-600 mt-1">Service providers for {{ $insuranceCompany->name }}</p>
         </div>
     </div>
 
@@ -52,7 +52,7 @@
                                 @endif
                             </div>
                             <p class="text-xs text-slate-500 mt-1">
-                                Connected {{ $connection->created_at->diffForHumans() }}
+                                Registered {{ $connection->created_at->diffForHumans() }}
                             </p>
                         </div>
                         <div class="flex items-center gap-3">

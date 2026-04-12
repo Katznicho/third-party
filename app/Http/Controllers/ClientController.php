@@ -30,6 +30,8 @@ class ClientController extends Controller
                 ->with('error', 'You must be associated with an insurance company to view clients.');
         }
 
+        $insuranceCompany = InsuranceCompany::find($insuranceCompanyId);
+
         // Get all clients for the insurance company
         $clients = Client::where('insurance_company_id', $insuranceCompanyId)
             ->with(['policies' => function($query) use ($insuranceCompanyId) {
@@ -37,8 +39,8 @@ class ClientController extends Controller
             }, 'principalMember', 'plan'])
             ->latest()
             ->paginate(15);
-            
-        return view('clients.index', compact('clients'));
+
+        return view('clients.index', compact('clients', 'insuranceCompany'));
     }
 
     /**
