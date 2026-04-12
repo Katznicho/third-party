@@ -44,10 +44,10 @@
             <form method="POST" action="{{ route('login') }}" class="space-y-6" id="login-form">
                 @csrf
 
-                <!-- Username Field -->
+                <!-- Username or Email Field -->
                 <div>
                     <label for="username" class="block text-sm font-medium text-slate-700 mb-2">
-                        Username
+                        Username or Email
                     </label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -55,15 +55,15 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                             </svg>
                         </div>
-                        <input 
-                            type="text" 
-                            id="username" 
-                            name="username" 
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
                             value="{{ old('username') }}"
-                            required 
+                            required
                             autofocus
                             class="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-lg bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150"
-                            placeholder="Enter your username"
+                            placeholder="Enter your username or email"
                         >
                     </div>
                     @error('username')

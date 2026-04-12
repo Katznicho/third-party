@@ -18,11 +18,11 @@
                 <p class="text-blue-100 mb-4">Here's your insurance company dashboard overview</p>
                 @if(auth()->user()->insuranceCompany)
                     <div class="flex items-center gap-4">
-                        <div class="bg-white bg-opacity-20 px-4 py-2 rounded-lg">
+                        <div class="border border-white border-opacity-30 px-4 py-2 rounded-lg">
                             <p class="text-sm text-blue-50">Insurance Company</p>
                             <p class="text-xl font-semibold">{{ auth()->user()->insuranceCompany->name }}</p>
                         </div>
-                        <div class="bg-white bg-opacity-20 px-4 py-2 rounded-lg">
+                        <div class="border border-white border-opacity-30 px-4 py-2 rounded-lg">
                             <p class="text-sm text-blue-50">Current Time</p>
                             <p class="text-xl font-semibold">{{ now()->format('l, F j, Y') }}</p>
                         </div>
@@ -41,7 +41,7 @@
     <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
         <div class="flex flex-wrap items-center gap-4">
             <div class="flex items-center gap-2">
-                <label class="text-sm font-medium text-slate-700">📅 Filter by Date:</label>
+                <label class="text-sm font-medium text-slate-700">Filter by Date:</label>
                 <select id="dateFilter" name="date_filter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="updateDateFilter(this.value)">
                     <option value="today" {{ $dateFilter === 'today' ? 'selected' : '' }}>Today</option>
                     <option value="yesterday" {{ $dateFilter === 'yesterday' ? 'selected' : '' }}>Yesterday</option>
@@ -66,19 +66,19 @@
             <div class="ml-auto text-sm text-slate-600">
                 <span id="dateRangeInfo">
                     @if($dateFilter === 'today')
-                        <span class="font-medium text-blue-600">📊 Showing data for: Today</span>
+                        <span class="font-medium text-blue-600">Showing data for: Today</span>
                     @elseif($dateFilter === 'yesterday')
-                        <span class="font-medium text-blue-600">📊 Showing data for: Yesterday</span>
+                        <span class="font-medium text-blue-600">Showing data for: Yesterday</span>
                     @elseif($dateFilter === 'this_week')
-                        <span class="font-medium text-blue-600">📊 Showing data for: This Week</span>
+                        <span class="font-medium text-blue-600">Showing data for: This Week</span>
                     @elseif($dateFilter === 'this_month')
-                        <span class="font-medium text-blue-600">📊 Showing data for: This Month</span>
+                        <span class="font-medium text-blue-600">Showing data for: This Month</span>
                     @elseif($dateFilter === 'last_month')
-                        <span class="font-medium text-blue-600">📊 Showing data for: Last Month</span>
+                        <span class="font-medium text-blue-600">Showing data for: Last Month</span>
                     @elseif($dateFilter === 'last_30_days')
-                        <span class="font-medium text-blue-600">📊 Showing data for: Last 30 Days</span>
+                        <span class="font-medium text-blue-600">Showing data for: Last 30 Days</span>
                     @elseif($dateFilter === 'custom')
-                        <span class="font-medium text-blue-600">📊 Showing data from {{ $customStartDate }} to {{ $customEndDate }}</span>
+                        <span class="font-medium text-blue-600">Showing data from {{ $customStartDate }} to {{ $customEndDate }}</span>
                     @endif
                 </span>
             </div>
@@ -341,7 +341,7 @@
                 <svg class="w-5 h-5 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 4v2M4.22 4.22a9 9 0 1112.76 12.76M4.22 4.22l5.66 5.66m0 0a9 9 0 0112.76 12.76M4.22 4.22l5.66 5.66m12.76-5.66a9 9 0 01-12.76 12.76m0 0l-5.66-5.66m0 0a9 9 0 01-12.76-12.76"></path>
                 </svg>
-                <h2 class="text-lg font-semibold text-red-900">⚠️ Visits Expiring Soon</h2>
+                <h2 class="text-lg font-semibold text-red-900">Visits Expiring Soon</h2>
             </div>
             <div class="space-y-2 max-h-64 overflow-y-auto">
                 @foreach($expiringVisits as $visit)
@@ -353,7 +353,7 @@
                             <p class="font-semibold text-slate-900 group-hover:text-red-700 transition">{{ $visit->client->full_name }}</p>
                             <p class="text-sm text-slate-600">
                                 @if($hoursUntilExpiry < 1)
-                                    <span class="text-red-700 font-semibold">⚠️ Less than 1 hour remaining</span>
+                                    <span class="text-red-700 font-semibold">Less than 1 hour remaining</span>
                                 @else
                                     Expires in {{ $hoursUntilExpiry }} hours
                                 @endif

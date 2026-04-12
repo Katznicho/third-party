@@ -141,7 +141,7 @@ class BusinessController extends Controller
                 'name' => $validated['user_name'],
                 'username' => $validated['user_username'],
                 'email' => $validated['user_email'],
-                'password' => Hash::make('password'),
+                'password' => Hash::make($validated['user_password']),
                 'insurance_company_id' => $insuranceCompany->id,
             ]);
 
@@ -1020,7 +1020,16 @@ class BusinessController extends Controller
             }
             
             // Build payment responsibility information
+            $benefitBalance = null;
+            if ($policy->principalMember) {
+                $account = $policy->principalMember->account;
+                if ($account) {
+                    $benefitBalance = (float) $account->available_balance;
+                }
+            }
+
             $paymentInfo = [
+                'benefit_balance' => $benefitBalance,
                 'has_deductible' => $policy->has_deductible ?? false,
                 'deductible_amount' => $policy->deductible_amount ? (float)$policy->deductible_amount : null,
                 'copay_amount' => $policy->copay_amount ? (float)$policy->copay_amount : null,

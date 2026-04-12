@@ -28,8 +28,12 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        // Attempt to find user by username (case-insensitive)
-        $user = User::whereRaw('LOWER(username) = ?', [strtolower($request->username)])->first();
+        $identifier = strtolower(trim($request->username));
+
+        // Accept login by username or email (case-insensitive)
+        $user = User::whereRaw('LOWER(username) = ?', [$identifier])
+            ->orWhereRaw('LOWER(email) = ?', [$identifier])
+            ->first();
 
         if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
             Auth::login($user, $request->boolean('remember'));

@@ -2306,8 +2306,8 @@
                         <!-- Show Policy Details at Registration -->
                         <div class="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                             <div>
-                                <label class="text-sm font-medium text-slate-900">Display Policy Details at Registration</label>
-                                <p class="text-xs text-slate-600 mt-1">Show client policy details at the registration desk when checking in</p>
+                                <label class="text-sm font-medium text-slate-900">Display Benefit Details at Verification</label>
+                                <p class="text-xs text-slate-600 mt-1">Show client benefit details during visit authorization verification</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="hidden" name="show_policy_details_at_registration" value="0">
@@ -2326,19 +2326,18 @@
                         <!-- Select Which Policy Details to Display -->
                         <div id="policy_details_selection" style="display: {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? false) ? 'block' : 'none' }};"
                             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <label class="text-sm font-medium text-slate-900 mb-3 block">Which policy details should clients see?</label>
-                                <p class="text-xs text-slate-600 mb-4">Select the fields to display at the registration desk:</p>
-                                
+                                <label class="text-sm font-medium text-slate-900 mb-3 block">Which benefit details should be shown at verification?</label>
+                                <p class="text-xs text-slate-600 mb-4">Select the fields to display during visit authorization verification:</p>
+
                                 <div class="space-y-3">
                                     @php
                                         $detailsOptions = [
-                                            'policy_number' => 'Policy Number',
+                                            'benefit_balance' => 'Benefit Balance',
                                             'deductible_amount' => 'Deductible Amount',
                                             'copay_amount' => 'Copay Amount',
-                                            'coinsurance_percentage' => 'Coinsurance Percentage',
-                                            'copay_max_limit' => 'Copay Max Limit',
+                                            'coinsurance_percentage' => 'Co-insurance Percentage',
                                         ];
-                                        $selectedDetails = old('policy_details_to_display_at_registration', $insuranceCompany->policy_details_to_display_at_registration ?? ['policy_number']);
+                                        $selectedDetails = old('policy_details_to_display_at_registration', $insuranceCompany->policy_details_to_display_at_registration ?? ['benefit_balance', 'deductible_amount']);
                                     @endphp
 
                                     @foreach($detailsOptions as $fieldKey => $fieldLabel)
