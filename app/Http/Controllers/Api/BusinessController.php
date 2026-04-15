@@ -1067,6 +1067,45 @@ class BusinessController extends Controller
                 }
             }
 
+            // Check that the policy's benefits cover the requested service category.
+            // Only enforced when the policy has at least one benefit defined.
+            if ($requestedCategory) {
+                $policyBenefits = $policy->benefits()->where('is_enabled', true)->with('serviceCategory')->get();
+
+                if ($policyBenefits->isNotEmpty()) {
+                    $normalised = strtolower(trim($requestedCategory));
+
+                    $covered = $policyBenefits->first(function ($benefit) use ($normalised) {
+                        $cat = $benefit->serviceCategory;
+                        if (!$cat) {
+                            return false;
+                        }
+                        // Match against slug (e.g. "outpatient") or slug prefix (e.g. "funeral" → "funeral-expenses")
+                        $slug = strtolower(trim($cat->slug ?? ''));
+                        $name = strtolower(trim($cat->name ?? ''));
+
+                        return $slug === $normalised
+                            || str_starts_with($slug, $normalised)
+                            || $name === $normalised
+                            || str_starts_with($name, $normalised);
+                    });
+
+                    if (!$covered) {
+                        \Illuminate\Support\Facades\Log::warning('API: Policy verification REJECTED — service category not covered by policy benefits', [
+                            'policy_number'     => $policy->policy_number,
+                            'services_category' => $requestedCategory,
+                            'covered_categories' => $policyBenefits->map(fn($b) => $b->serviceCategory?->slug)->filter()->values(),
+                        ]);
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => ucfirst($requestedCategory) . ' is not covered under this policy.',
+                            'exists'  => false,
+                        ], 422);
+                    }
+                }
+            }
+
             // Build payment responsibility information
             $benefitBalance = null;
             if ($policy->principalMember) {
