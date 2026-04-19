@@ -51,6 +51,13 @@
         </div>
     @endif
 
+    <!-- Auto Generate Button (Test) -->
+    <div class="text-center mb-6">
+        <button type="button" onclick="autoGenerateTestData()" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full transition duration-150 inline-flex items-center gap-2">
+            <span>🔄</span> Auto Generate (Test)
+        </button>
+    </div>
+
     <!-- Header Section -->
     <div class="text-center border-b border-slate-300 pb-4 mb-6">
         <h1 class="text-2xl font-bold text-slate-900 mb-2">HEALTH INSURANCE APPLICATION FORM</h1>
@@ -1457,6 +1464,115 @@
             </p>
         </div>
     </div>
+
+    <!-- Auto Generate Test Data Script -->
+    <script>
+        function autoGenerateTestData() {
+            // Generate random test data
+            const timestamp = Date.now();
+            const randomNum = Math.floor(Math.random() * 10000);
+            
+            // Fill in basic personal information
+            document.getElementById('title').value = 'Mr';
+            document.getElementById('first_name').value = 'TEST USER';
+            document.getElementById('surname').value = 'SYSTEM' + randomNum;
+            document.getElementById('other_names').value = 'AUTO GEN';
+            
+            // ID / Passport - generate a realistic number
+            const idNumber = 'ID' + timestamp.toString().slice(-8);
+            document.getElementById('id_passport_no').value = idNumber;
+            
+            // Gender
+            document.querySelector('input[name="gender"][value="Male"]').checked = true;
+            
+            // TIN
+            document.getElementById('tin').value = '1' + timestamp.toString().slice(-9);
+            
+            // Date of Birth - set to 40 years ago
+            const dob = new Date();
+            dob.setFullYear(dob.getFullYear() - 40);
+            document.getElementById('date_of_birth').value = dob.toISOString().split('T')[0];
+            
+            // Marital Status
+            document.getElementById('marital_status').value = 'Single';
+            
+            // Height
+            document.getElementById('height').value = "5'10\"";
+            
+            // Occupation
+            if (document.getElementById('occupation')) {
+                document.getElementById('occupation').value = 'Professional';
+            }
+            
+            // Phone Number
+            if (document.getElementById('phone_number')) {
+                document.getElementById('phone_number').value = '256' + randomNum.toString().padStart(4, '0');
+            }
+            
+            // Email
+            if (document.getElementById('email')) {
+                document.getElementById('email').value = 'test' + timestamp + '@example.com';
+            }
+            
+            // Nationality
+            if (document.getElementById('nationality')) {
+                document.getElementById('nationality').value = 'Ugandan';
+            }
+            
+            // Employer Details
+            if (document.getElementById('employer_name')) {
+                document.getElementById('employer_name').value = 'TEST COMPANY ' + randomNum;
+            }
+            
+            if (document.getElementById('employer_category')) {
+                document.getElementById('employer_category').value = 'Private';
+            }
+            
+            if (document.getElementById('employer_phone')) {
+                document.getElementById('employer_phone').value = '256-' + randomNum;
+            }
+            
+            if (document.getElementById('employer_email')) {
+                document.getElementById('employer_email').value = 'employer' + randomNum + '@test.com';
+            }
+            
+            // Auto-check ALL medical questions/benefits checkboxes
+            const medicalCheckboxes = document.querySelectorAll('input[type="checkbox"][name="medical_questions[]"]');
+            medicalCheckboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            
+            // Auto-check all benefits/coverage checkboxes
+            const benefitCheckboxes = document.querySelectorAll('input[type="checkbox"][name^="benefits"], input[type="checkbox"][name^="coverage"]');
+            benefitCheckboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            
+            // Fill any select dropdowns with first available option
+            const selects = document.querySelectorAll('select');
+            selects.forEach(select => {
+                if (select.id !== 'title' && select.id !== 'gender' && select.id !== 'marital_status') {
+                    // Only set if not already set and has options
+                    if (!select.value && select.options.length > 1) {
+                        select.value = select.options[1].value;
+                    }
+                }
+            });
+            
+            // Fill any textarea fields with test data
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(textarea => {
+                if (!textarea.value) {
+                    textarea.value = 'Test data for ' + timestamp;
+                }
+            });
+            
+            // Scroll to top so user sees what was filled
+            window.scrollTo(0, 0);
+            
+            alert('✅ Test data generated! All fields, benefits, and medical questions are filled.\n\nReview the form and click Save to continue.');
+        }
+    </script>
 </form>
 
 @if($method === 'POST')

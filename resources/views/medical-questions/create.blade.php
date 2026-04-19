@@ -5,6 +5,13 @@
 
 @section('content')
 <div class="max-w-4xl mx-auto">
+    <!-- Auto Generate Button (Test) -->
+    <div class="text-center mb-6">
+        <button type="button" onclick="autoGenerateMedicalQuestionTestData()" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full transition duration-150 inline-flex items-center gap-2">
+            <span>🔄</span> Auto Generate (Test)
+        </button>
+    </div>
+
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <form action="{{ route('medical-questions.store') }}" method="POST" class="space-y-6">
             @csrf
@@ -390,5 +397,108 @@
             radio.addEventListener('change', toggleAmountType);
         });
     });
+
+    // Auto Generate Test Data for Medical Questions
+    function autoGenerateMedicalQuestionTestData() {
+        const timestamp = Date.now();
+        const randomNum = Math.floor(Math.random() * 10000);
+        
+        // Sample medical questions
+        const sampleQuestions = [
+            { 
+                text: 'Do you have a history of high blood pressure?',
+                type: 'yes_no',
+                hasExclusion: false
+            },
+            { 
+                text: 'Have you been diagnosed with diabetes?',
+                type: 'yes_no',
+                hasExclusion: true,
+                keywords: 'diabetes, type 1, type 2, gestational'
+            },
+            { 
+                text: 'Do you have any heart conditions?',
+                type: 'yes_no',
+                hasExclusion: true,
+                keywords: 'heart disease, cardiac, arrhythmia, angina'
+            },
+            { 
+                text: 'Describe any major surgeries you have had',
+                type: 'text',
+                hasExclusion: false
+            },
+            { 
+                text: 'When was your last medical check-up?',
+                type: 'date',
+                hasExclusion: false
+            },
+            { 
+                text: 'How many times per week do you exercise?',
+                type: 'number',
+                hasExclusion: false
+            }
+        ];
+        
+        const selectedQuestion = sampleQuestions[Math.floor(Math.random() * sampleQuestions.length)];
+        
+        // Fill question text
+        document.getElementById('question_text').value = selectedQuestion.text;
+        
+        // Fill question type
+        document.getElementById('question_type').value = selectedQuestion.type;
+        
+        // Handle exclusion list
+        if (selectedQuestion.hasExclusion) {
+            document.getElementById('has_exclusion_list').checked = true;
+            document.getElementById('exclusion-keywords-field').style.display = 'block';
+            document.getElementById('exclusion_keywords').value = selectedQuestion.keywords;
+        }
+        
+        // Randomly set additional info requirement
+        if (Math.random() > 0.7) {
+            document.getElementById('requires_additional_info').checked = true;
+            document.getElementById('additional-info-fields').style.display = 'block';
+            if (document.getElementById('follow_up_question_text')) {
+                document.getElementById('follow_up_question_text').value = 'Please provide additional details';
+            }
+        }
+        
+        // Randomly set monetary impact (30% chance)
+        if (Math.random() > 0.7 && document.getElementById('has_monetary_impact')) {
+            document.getElementById('has_monetary_impact').checked = true;
+            document.getElementById('monetary-impact-fields').style.display = 'block';
+            
+            if (document.getElementById('monetary_impact_type')) {
+                document.getElementById('monetary_impact_type').value = Math.random() > 0.5 ? 'premium_adjustment' : 'copay_adjustment';
+            }
+            
+            if (document.getElementById('monetary_impact_amount')) {
+                document.getElementById('monetary_impact_amount').value = Math.random() > 0.5 ? '500000' : '15';
+                // If percentage, check the percentage radio
+                if (Math.random() > 0.5) {
+                    const percentageRadio = document.querySelector('input[name="monetary_impact_is_percentage"][value="1"]');
+                    if (percentageRadio) {
+                        percentageRadio.checked = true;
+                        toggleAmountType();
+                    }
+                }
+            }
+            
+            if (document.getElementById('monetary_impact_description')) {
+                document.getElementById('monetary_impact_description').value = 'Adjustment for ' + selectedQuestion.text;
+            }
+        }
+        
+        // Set to active/enabled
+        if (document.getElementById('is_active')) {
+            document.getElementById('is_active').checked = true;
+        }
+        
+        // Scroll to top
+        window.scrollTo(0, 0);
+        
+        alert('✅ Test medical question generated!\n\nReview the form and click "Create Question" to continue.');
+    }
+
 </script>
 @endsection

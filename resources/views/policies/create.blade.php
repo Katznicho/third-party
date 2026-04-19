@@ -16,6 +16,13 @@
         </a>
     </div>
 
+    <!-- Auto Generate Button (Test) -->
+    <div class="text-center mb-6">
+        <button type="button" onclick="autoGeneratePolicyTestData()" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full transition duration-150 inline-flex items-center gap-2">
+            <span>🔄</span> Auto Generate (Test)
+        </button>
+    </div>
+
     <!-- Create Form -->
     <form action="{{ route('policies.store') }}" method="POST" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
         @csrf
@@ -255,5 +262,61 @@
 
     // Initialize calculation on page load
     calculateTotalPremiumDue();
+
+    // Auto Generate Test Data for Policies
+    function autoGeneratePolicyTestData() {
+        const timestamp = Date.now();
+        const randomNum = Math.floor(Math.random() * 10000);
+        
+        // Generate unique policy number
+        const policyNumber = 'POL-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + randomNum;
+        document.getElementById('policy_number').value = policyNumber;
+        
+        // Select first available client (Principal Member)
+        const memberSelect = document.getElementById('principal_member_id');
+        if (memberSelect.options.length > 1) {
+            memberSelect.value = memberSelect.options[1].value;
+        }
+        
+        // Select a random plan type
+        const planTypes = ['Prestige', 'Executive', 'Standard Plus', 'Standard', 'Regular', 'Budget'];
+        document.getElementById('plan_type').value = planTypes[Math.floor(Math.random() * planTypes.length)];
+        
+        // Set status to active
+        document.getElementById('status').value = 'active';
+        
+        // Set dates
+        const today = new Date();
+        const inceptionDate = new Date(today);
+        const expiryDate = new Date(today);
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        
+        document.getElementById('inception_date').value = inceptionDate.toISOString().split('T')[0];
+        document.getElementById('expiry_date').value = expiryDate.toISOString().split('T')[0];
+        document.getElementById('desired_start_date').value = inceptionDate.toISOString().split('T')[0];
+        
+        // Set premium amounts
+        const basePremium = (Math.random() * 5000000 + 500000).toFixed(2);
+        document.getElementById('total_premium').value = basePremium;
+        document.getElementById('insurance_training_levy').value = (parseFloat(basePremium) * 0.02).toFixed(2);
+        document.getElementById('stamp_duty').value = '35000';
+        
+        // Calculate total premium due
+        calculateTotalPremiumDue();
+        
+        // Set agent/broker name
+        document.getElementById('agent_broker_name').value = 'Test Agent ' + randomNum;
+        
+        // Check "is paid" and set payment date
+        document.getElementById('is_paid').checked = true;
+        document.getElementById('payment_date').value = today.toISOString().split('T')[0];
+        document.getElementById('payment-date-field').style.display = 'block';
+        
+        // Scroll to top
+        window.scrollTo(0, 0);
+        
+        alert('✅ Test policy data generated!\n\nReview the form and click "Create Policy" to continue.');
+    }
+
 </script>
 @endsection

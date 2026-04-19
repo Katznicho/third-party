@@ -148,6 +148,7 @@ class ClientController extends Controller
         ]);
 
         $client = Client::query()
+            ->where('insurance_company_id', auth()->user()->insurance_company_id)
             ->whereRaw('UPPER(TRIM(first_name)) = ?', [strtoupper(trim($validated['first_name']))])
             ->whereRaw('UPPER(TRIM(surname)) = ?', [strtoupper(trim($validated['surname']))])
             ->whereDate('date_of_birth', $validated['date_of_birth'])

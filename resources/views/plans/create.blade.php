@@ -16,6 +16,13 @@
         </a>
     </div>
 
+    <!-- Auto Generate Button (Test) -->
+    <div class="text-center mb-6">
+        <button type="button" onclick="autoGeneratePlanTestData()" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full transition duration-150 inline-flex items-center gap-2">
+            <span>🔄</span> Auto Generate (Test)
+        </button>
+    </div>
+
     <!-- Create Form -->
     <form action="{{ route('plans.store') }}" method="POST" enctype="multipart/form-data" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
         @csrf
@@ -371,5 +378,82 @@
     document.getElementById('code').addEventListener('input', function() {
         this.value = this.value.toUpperCase();
     });
+
+    // Auto Generate Test Data for Plans
+    function autoGeneratePlanTestData() {
+        const timestamp = Date.now();
+        const randomNum = Math.floor(Math.random() * 10000);
+        
+        // Plan names and codes
+        const planOptions = [
+            { name: 'Prestige Plan', code: 'PRE' },
+            { name: 'Executive Plan', code: 'EXE' },
+            { name: 'Standard Plus Plan', code: 'STD+' },
+            { name: 'Standard Plan', code: 'STD' },
+            { name: 'Regular Plan', code: 'REG' },
+            { name: 'Budget Plan', code: 'BUD' }
+        ];
+        
+        const selectedPlan = planOptions[Math.floor(Math.random() * planOptions.length)];
+        
+        // Fill plan name
+        document.getElementById('name').value = selectedPlan.name;
+        
+        // Fill code
+        document.getElementById('code').value = selectedPlan.code;
+        
+        // Fill sort order
+        document.getElementById('sort_order').value = Math.floor(Math.random() * 10);
+        
+        // Fill description
+        if (document.getElementById('description')) {
+            document.getElementById('description').value = 'Test plan for ' + selectedPlan.name + ' - Generated on ' + new Date().toLocaleDateString();
+        }
+        
+        // Fill age limits
+        if (document.getElementById('min_enrollment_age')) {
+            document.getElementById('min_enrollment_age').value = '18';
+        }
+        
+        if (document.getElementById('max_enrollment_age')) {
+            document.getElementById('max_enrollment_age').value = '65';
+        }
+        
+        // Check all coverage checkboxes
+        const coverageCheckboxes = document.querySelectorAll('input[type="checkbox"][name*="coverage"]');
+        coverageCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        
+        // Check all category checkboxes
+        const categoryCheckboxes = document.querySelectorAll('input[type="checkbox"][name*="category"]');
+        categoryCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+            // Show associated fields
+            if (checkbox.id) {
+                const categoryId = checkbox.id.replace('category_', '');
+                const fields = document.getElementById('fields_' + categoryId);
+                if (fields) {
+                    fields.style.display = 'grid';
+                }
+            }
+        });
+        
+        // Fill any input fields with defaults
+        const inputs = document.querySelectorAll('input[type="number"], input[type="text"]');
+        inputs.forEach(input => {
+            if (!input.value && input.id !== 'name' && input.id !== 'code' && input.id !== 'sort_order') {
+                if (input.name.includes('amount') || input.name.includes('percentage') || input.name.includes('limit')) {
+                    input.value = '1000000';
+                }
+            }
+        });
+        
+        // Scroll to top
+        window.scrollTo(0, 0);
+        
+        alert('✅ Test plan data generated!\n\nReview the form and click "Create Plan" to continue.');
+    }
+
 </script>
 @endsection

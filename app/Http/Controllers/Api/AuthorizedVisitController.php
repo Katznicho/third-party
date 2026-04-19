@@ -94,9 +94,10 @@ class AuthorizedVisitController extends Controller
                 'vendor_client_id' => $client->id,
             ]);
 
-            // Check if visit already registered
+            // Check if visit already registered (for this specific vendor)
             $existingVisit = AuthorizedVisit::where('visit_id', $request->visit_id)
                 ->where('client_id', $client->id)
+                ->where('insurance_company_id', $request->insurance_company_id)
                 ->first();
 
             if ($existingVisit) {
