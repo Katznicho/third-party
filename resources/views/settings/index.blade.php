@@ -2324,7 +2324,7 @@
                         </div>
 
                         <!-- Select Which Policy Details to Display -->
-                        <div id="policy_details_selection" style="display: {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? false) ? 'block' : 'none' }};"
+                        <div id="policy_details_selection" style="display: {{ old('show_policy_details_at_registration', $insuranceCompany->show_policy_details_at_registration ?? false) ? 'block' : 'none' }};">
                             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <label class="text-sm font-medium text-slate-900 mb-3 block">Which benefit details should be shown at verification?</label>
                                 <p class="text-xs text-slate-600 mb-4">Select the fields to display during visit authorization verification:</p>

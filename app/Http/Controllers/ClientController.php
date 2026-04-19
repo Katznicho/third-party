@@ -258,6 +258,9 @@ class ClientController extends Controller
         unset($validated['payment_methods']);
         unset($validated['premium_payment_method']);
 
+        // Set insurance company ID from authenticated user
+        $validated['insurance_company_id'] = auth()->user()->insurance_company_id;
+
         $client = Client::create($validated);
         $policyNumber = null;
         

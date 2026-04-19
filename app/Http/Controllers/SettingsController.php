@@ -403,7 +403,7 @@ class SettingsController extends Controller
             'visit_authorization_period_days' => 'required|integer|min:1|max:365',
             'show_policy_details_at_registration' => 'nullable|boolean',
             'policy_details_to_display_at_registration' => 'nullable|array',
-            'policy_details_to_display_at_registration.*' => 'string|in:policy_number,deductible_amount,copay_amount,coinsurance_percentage,copay_max_limit',
+            'policy_details_to_display_at_registration.*' => 'string|in:benefit_balance,policy_number,deductible_amount,copay_amount,coinsurance_percentage,copay_max_limit',
         ]);
 
         $insuranceCompany = $user->insuranceCompany;
