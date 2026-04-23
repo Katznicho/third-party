@@ -68,14 +68,29 @@ class InvoiceController extends Controller
 
         // Also include locally synced invoices from Kashtre (that were recorded via API)
         $localInvoices = Invoice::all()->map(function ($inv) {
+            // Extract Kashtre client name from notes if available
+            $kashtreName = 'Kashtre Sync';
+            if ($inv->notes && preg_match('/Client:\s*([^,]+)/', $inv->notes, $matches)) {
+                $kashtreName = trim($matches[1]);
+            }
+            
             return [
                 'id' => $inv->id,
                 'invoice_number' => $inv->invoice_number,
                 'total_amount' => $inv->total_amount,
                 'paid_amount' => $inv->paid_amount ?? 0,
                 'balance_amount' => $inv->balance_amount ?? 0,
+                'balance_due' => $inv->balance_amount ?? 0,
                 'status' => $inv->status,
+                'payment_status' => $inv->status,
                 'invoice_date' => $inv->invoice_date,
+                'created_at' => $inv->created_at,
+                'client_name' => $kashtreName,
+                'client_id' => null,
+                'client_phone' => null,
+                'business_name' => null,
+                'branch_name' => null,
+                'notes' => $inv->notes ?? null,
                 'source' => 'local_sync',
             ];
         })->toArray();

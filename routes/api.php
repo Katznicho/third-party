@@ -96,6 +96,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/transactions/record-from-kashtre', [TransactionSyncController::class, 'recordFromKashtre'])->name('api.transactions.record-from-kashtre');
     });
     
+    // Public query endpoints - allow Kashtre to fetch synced transactions/invoices
+    Route::get('/transactions/by-vendor/{vendorId}', [\App\Http\Controllers\Api\VendorTransactionQueryController::class, 'byVendor'])->name('api.transactions.by-vendor');
+    Route::get('/invoices/by-vendor/{vendorId}', [\App\Http\Controllers\Api\VendorTransactionQueryController::class, 'invoicesByVendor'])->name('api.invoices.by-vendor');
+    
     // Error logging (public, for client-side error reporting)
     Route::post('/log-error', function (\Illuminate\Http\Request $request) {
         \Illuminate\Support\Facades\Log::error('Client-side error', [

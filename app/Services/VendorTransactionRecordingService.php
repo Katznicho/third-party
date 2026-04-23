@@ -69,9 +69,9 @@ class VendorTransactionRecordingService
                 'amount' => $data['amount'] ?? null,
             ]);
 
-            // Create Invoice record from Kashtre data - make unique per vendor
+            // Create Invoice record from Kashtre data (same invoice_number, unique per vendor via transaction link)
             $vendorInvoice = \App\Models\Invoice::create([
-                'invoice_number' => ($data['invoice_number'] ?? 'KST-' . $data['transaction_id']) . '-V' . ($data['vendor_id'] ?? time()),
+                'invoice_number' => $data['invoice_number'] ?? 'KST-' . $data['transaction_id'],
                 'policy_id' => 1, // Default policy
                 'invoice_type' => 'claim',
                 'description' => 'Payment from Kashtre - ' . ($data['description'] ?? 'Client Payment'),
@@ -83,7 +83,7 @@ class VendorTransactionRecordingService
                 'paid_amount' => $data['amount'] ?? 0,
                 'balance_amount' => 0,
                 'status' => 'paid',
-                'notes' => 'Automatic sync from Kashtre - Client: ' . ($data['client_name'] ?? 'Unknown') . ', Insurance Portion: ' . ($data['insurance_portion'] ?? 0),
+                'notes' => 'Automatic sync from Kashtre - Client: ' . ($data['client_name'] ?? 'Unknown') . ', Insurance Portion: ' . ($data['insurance_portion'] ?? 0) . ', Vendor: ' . ($data['vendor_name'] ?? 'N/A'),
                 'line_items' => [
                     [
                         'description' => 'Payment from Kashtre invoice ' . ($data['invoice_number'] ?? 'N/A'),
@@ -97,6 +97,7 @@ class VendorTransactionRecordingService
                 'vendor_invoice_id' => $vendorInvoice->id,
                 'invoice_number' => $vendorInvoice->invoice_number,
                 'kashtre_invoice_number' => $data['invoice_number'] ?? null,
+                'vendor_id' => $vendorId,
             ]);
 
             // Also create a Payment record for payment tracking
