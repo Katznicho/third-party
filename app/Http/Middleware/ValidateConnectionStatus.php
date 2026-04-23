@@ -18,14 +18,14 @@ class ValidateConnectionStatus
      */
     public function handle(Request $request, Closure $next)
     {
-        // Get insurance company ID from request
-        $insuranceCompanyId = $request->input('insurance_company_id');
+        // Get insurance company ID from request - accept both vendor_id and insurance_company_id
+        $insuranceCompanyId = $request->input('insurance_company_id') ?? $request->input('vendor_id');
         $connectedBusinessId = $request->input('connected_business_id');
 
         if (!$insuranceCompanyId) {
             return response()->json([
                 'success' => false,
-                'message' => 'Missing insurance_company_id in request',
+                'message' => 'Missing insurance_company_id or vendor_id in request',
             ], 400);
         }
 

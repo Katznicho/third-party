@@ -15,8 +15,13 @@ class TransactionController extends Controller
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         
         $transactions = Transaction::with(['policy', 'client', 'preAuthorization'])
-            ->whereHas('policy', function($query) use ($insuranceCompanyId) {
-                $query->where('insurance_company_id', $insuranceCompanyId);
+            ->where(function($query) use ($insuranceCompanyId) {
+                // Include transactions linked via policy
+                $query->whereHas('policy', function($q) use ($insuranceCompanyId) {
+                    $q->where('insurance_company_id', $insuranceCompanyId);
+                })
+                // OR include transactions synced from Kashtre for this vendor
+                ->orWhereRaw('JSON_EXTRACT(metadata, "$.vendor_id") = ?', [$insuranceCompanyId]);
             })
             ->latest()
             ->paginate(15);
@@ -32,8 +37,13 @@ class TransactionController extends Controller
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         
         $transactions = Transaction::with(['policy', 'client'])
-            ->whereHas('policy', function($query) use ($insuranceCompanyId) {
-                $query->where('insurance_company_id', $insuranceCompanyId);
+            ->where(function($query) use ($insuranceCompanyId) {
+                // Include transactions linked via policy
+                $query->whereHas('policy', function($q) use ($insuranceCompanyId) {
+                    $q->where('insurance_company_id', $insuranceCompanyId);
+                })
+                // OR include transactions synced from Kashtre for this vendor
+                ->orWhereRaw('JSON_EXTRACT(metadata, "$.vendor_id") = ?', [$insuranceCompanyId]);
             })
             ->where(function($query) {
                 $query->where('transaction_status', '!=', 'cleared')
@@ -53,8 +63,13 @@ class TransactionController extends Controller
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         
         $transactions = Transaction::with(['policy', 'client'])
-            ->whereHas('policy', function($query) use ($insuranceCompanyId) {
-                $query->where('insurance_company_id', $insuranceCompanyId);
+            ->where(function($query) use ($insuranceCompanyId) {
+                // Include transactions linked via policy
+                $query->whereHas('policy', function($q) use ($insuranceCompanyId) {
+                    $q->where('insurance_company_id', $insuranceCompanyId);
+                })
+                // OR include transactions synced from Kashtre for this vendor
+                ->orWhereRaw('JSON_EXTRACT(metadata, "$.vendor_id") = ?', [$insuranceCompanyId]);
             })
             ->where('transaction_status', 'cleared')
             ->latest()

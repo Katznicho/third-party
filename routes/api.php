@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\AuthController as ApiAuthController;
 use App\Http\Controllers\Api\ClientVerificationController;
+use App\Http\Controllers\Api\TransactionSyncController;
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +91,9 @@ Route::prefix('v1')->group(function () {
 
         // Invoice authorization (Kashtre sends invoice; third-party returns client_total and insurance_total)
         Route::post('/invoice-authorization/request', [\App\Http\Controllers\Api\InvoiceAuthorizationController::class, 'request'])->name('api.invoice-authorization.request');
+        
+        // Record transaction from Kashtre payment system
+        Route::post('/transactions/record-from-kashtre', [TransactionSyncController::class, 'recordFromKashtre'])->name('api.transactions.record-from-kashtre');
     });
     
     // Error logging (public, for client-side error reporting)

@@ -65,8 +65,24 @@ class InvoiceController extends Controller
             ]);
             $invoicesData = [];
         }
-        
-        $invoices = collect($invoicesData);
+
+        // Also include locally synced invoices from Kashtre (that were recorded via API)
+        $localInvoices = Invoice::all()->map(function ($inv) {
+            return [
+                'id' => $inv->id,
+                'invoice_number' => $inv->invoice_number,
+                'total_amount' => $inv->total_amount,
+                'paid_amount' => $inv->paid_amount ?? 0,
+                'balance_amount' => $inv->balance_amount ?? 0,
+                'status' => $inv->status,
+                'invoice_date' => $inv->invoice_date,
+                'source' => 'local_sync',
+            ];
+        })->toArray();
+
+        // Merge API invoices with local synced invoices
+        $allInvoices = array_merge($invoicesData, $localInvoices);
+        $invoices = collect($allInvoices);
             
         return view('invoices.index', compact('invoices'));
     }
