@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -48,6 +50,8 @@ class UserController extends Controller
             'name' => $validated['name'],
             'username' => $validated['username'],
             'email' => $validated['email'],
+            // Required DB field; user will replace this via reset-password flow.
+            'password' => Hash::make(Str::random(32)),
             'insurance_company_id' => auth()->user()->insurance_company_id,
             'role_id' => $validated['role_id'] ?? null,
         ]);
