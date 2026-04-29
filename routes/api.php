@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\TransactionSyncController;
 */
 
 
+
 // Public API routes (no authentication required for registration)
 Route::prefix('v1')->group(function () {
     // Business and User Registration
