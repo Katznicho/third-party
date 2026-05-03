@@ -8,14 +8,35 @@ use Illuminate\Support\Facades\Log;
 
 class KashtreApiService
 {
+    /** Kashtre application root (scheme + host + port only — never ends with /api). */
     protected $baseUrl;
 
     public function __construct()
     {
-        // Get the base URL from config
-        // Defaults to https://demo.kashtre.com unless KASHTRE_API_URL is set
-        // For local development, set KASHTRE_API_URL=http://127.0.0.1:8000 in .env (must match where Kashtre runs)
-        $this->baseUrl = config('services.kashtre.api_url', 'https://demo.kashtre.com');
+        // Defaults to https://demo.kashtre.com unless KASHTRE_API_URL is set.
+        // Local: KASHTRE_API_URL=http://127.0.0.1:8000 (same machine as insurer portal on :8001).
+        // Common mistake: .../api or .../api/v1 — that would build .../api/api/v1/... and Laravel returns "route could not be found".
+        $raw = (string) config('services.kashtre.api_url', 'https://demo.kashtre.com');
+        $this->baseUrl = $this->normalizeKashtreBaseUrl($raw);
+    }
+
+    /**
+     * Strip accidental /api or /api/v1 suffix so callers always append /api/v1/... once.
+     */
+    protected function normalizeKashtreBaseUrl(string $url): string
+    {
+        $url = rtrim($url, '/');
+        if ($url === '') {
+            return 'https://demo.kashtre.com';
+        }
+
+        foreach (['/api/v1', '/api'] as $suffix) {
+            if (str_ends_with($url, $suffix)) {
+                $url = rtrim(substr($url, 0, -strlen($suffix)), '/');
+            }
+        }
+
+        return $url !== '' ? $url : 'https://demo.kashtre.com';
     }
 
     /**
@@ -108,7 +129,7 @@ class KashtreApiService
                     $status
                 );
             } elseif ($status === 404) {
-                $message = 'Kashtre returned 404. Either no clinic exists with that business id in Kashtre (check connected_business_id on this connection), or this Kashtre app does not expose the insurer-portal API (use the same Kashtre codebase that added these routes, then run php artisan route:clear).';
+                $message = 'Kashtre returned 404. Either no clinic exists with that business id in Kashtre (check connected_business_id), or the insurer-portal API is missing on that Kashtre deploy (run php artisan route:clear there). If the message mentions "route could not be found", check KASHTRE_API_URL is only the app root (e.g. http://127.0.0.1:8000) with no /api suffix — otherwise URLs become /api/api/v1/...';
             } else {
                 $message = sprintf('Kashtre returned HTTP %d.', $status);
             }
