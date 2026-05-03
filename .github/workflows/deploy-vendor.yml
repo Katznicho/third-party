@@ -3,7 +3,7 @@ name: Deploy Vendor
 on:
   push:
     branches:
-      - vendor
+      - main
 
 concurrency:
   group: deploy-vendor
@@ -26,7 +26,7 @@ jobs:
             git config --global --add safe.directory /var/www/third-party
 
             cd /var/www/third-party
-            
+
 
             git fetch origin
             git reset --hard origin/vendor
