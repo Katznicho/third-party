@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -13,13 +14,141 @@ class KashtreApiService
     {
         // Get the base URL from config
         // Defaults to https://demo.kashtre.com unless KASHTRE_API_URL is set
-        // For local development, set KASHTRE_API_URL=http://127.0.0.1:8002 in .env
+        // For local development, set KASHTRE_API_URL=http://127.0.0.1:8000 in .env (must match where Kashtre runs)
         $this->baseUrl = config('services.kashtre.api_url', 'https://demo.kashtre.com');
+    }
+
+    /**
+     * Ledger summary, recent transactions, invoices, and exclusions (mirrors Kashtre third-party vendor show).
+     *
+     * @return array{success: bool, data: ?array, error?: string, http_status?: ?int}
+     */
+    public function getInsurerPortalVendorSummary(int $businessId, int $thirdPartyVendorId): array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendors/{$thirdPartyVendorId}/insurer-portal-summary";
+
+        try {
+            $response = Http::timeout(30)->acceptJson()->get($url);
+
+            return $this->interpretInsurerPortalJsonResponse($response, $url);
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: insurer-portal-summary exception', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'data' => null,
+                'error' => $this->connectionErrorMessage($url, $e->getMessage()),
+                'http_status' => null,
+            ];
+        }
+    }
+
+    /**
+     * Paginated balance history for the insurer portal full statement.
+     *
+     * @return array{success: bool, data: ?array, error?: string, http_status?: ?int}
+     */
+    public function getInsurerPortalBalanceHistory(int $businessId, int $thirdPartyVendorId, int $page = 1, int $perPage = 50): array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendors/{$thirdPartyVendorId}/insurer-portal-balance-history"
+            . '?' . http_build_query([
+                'page' => max(1, $page),
+                'per_page' => min(max($perPage, 1), 100),
+            ]);
+
+        try {
+            $response = Http::timeout(30)->acceptJson()->get($url);
+
+            return $this->interpretInsurerPortalJsonResponse($response, $url);
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: insurer-portal-balance-history exception', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'data' => null,
+                'error' => $this->connectionErrorMessage($url, $e->getMessage()),
+                'http_status' => null,
+            ];
+        }
+    }
+
+    /**
+     * @return array{success: bool, data: ?array, error?: string, http_status?: ?int}
+     */
+    protected function interpretInsurerPortalJsonResponse(Response $response, string $url): array
+    {
+        $json = $response->json();
+        $status = $response->status();
+
+        if ($response->successful() && is_array($json) && ($json['success'] ?? false) === true) {
+            return [
+                'success' => true,
+                'data' => is_array($json['data'] ?? null) ? $json['data'] : [],
+                'http_status' => $status,
+            ];
+        }
+
+        $message = null;
+        if (is_array($json) && !empty($json['message'])) {
+            $message = (string) $json['message'];
+        }
+
+        if ($message === null) {
+            if (!is_array($json)) {
+                $message = sprintf(
+                    'Kashtre returned HTTP %d with a non-JSON response. Set KASHTRE_API_URL in .env to your Kashtre app root (no trailing path), e.g. http://127.0.0.1:8000. On Kashtre run php artisan route:clear after deploying API routes.',
+                    $status
+                );
+            } elseif ($status === 404) {
+                $message = 'Kashtre returned 404. Either no clinic exists with that business id in Kashtre (check connected_business_id on this connection), or this Kashtre app does not expose the insurer-portal API (use the same Kashtre codebase that added these routes, then run php artisan route:clear).';
+            } else {
+                $message = sprintf('Kashtre returned HTTP %d.', $status);
+            }
+        }
+
+        if (config('app.debug')) {
+            $message .= ' Requested URL: '.$url;
+        }
+
+        Log::warning('KashtreApiService: insurer portal HTTP response not successful', [
+            'url' => $url,
+            'status' => $status,
+            'body_preview' => substr($response->body(), 0, 800),
+        ]);
+
+        return [
+            'success' => false,
+            'data' => null,
+            'error' => $message,
+            'http_status' => $status,
+        ];
+    }
+
+    protected function connectionErrorMessage(string $url, string $exceptionMessage): string
+    {
+        $base = rtrim($this->baseUrl, '/');
+        $msg = "Could not reach Kashtre at {$base}. {$exceptionMessage}. "
+            .'Set KASHTRE_API_URL in .env to the Kashtre application URL (same host/port as the provider app; no /api suffix).';
+
+        if (config('app.debug')) {
+            $msg .= ' Full URL: '.$url;
+        }
+
+        return $msg;
     }
 
     /**
      * Get excluded items for a specific Kashtre business and insurance company.
      */
+
     public function getExcludedItemsForProvider(int $businessId, int $insuranceCompanyId): array
     {
         $baseUrl = rtrim($this->baseUrl, '/');

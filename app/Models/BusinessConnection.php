@@ -44,11 +44,21 @@ class BusinessConnection extends Model
     }
 
     /**
+     * Effective status (imports / legacy rows may have null → treat as active).
+     */
+    protected function effectiveStatus(): string
+    {
+        $s = $this->attributes['status'] ?? null;
+
+        return ($s === null || $s === '') ? 'active' : (string) $s;
+    }
+
+    /**
      * Check if this connection is blocked.
      */
     public function isBlocked(): bool
     {
-        return $this->status === 'blocked';
+        return $this->effectiveStatus() === 'blocked';
     }
 
     /**
@@ -56,7 +66,7 @@ class BusinessConnection extends Model
      */
     public function isSuspended(): bool
     {
-        return $this->status === 'suspended';
+        return $this->effectiveStatus() === 'suspended';
     }
 
     /**
@@ -64,7 +74,7 @@ class BusinessConnection extends Model
      */
     public function isActive(): bool
     {
-        return $this->status === 'active';
+        return $this->effectiveStatus() === 'active';
     }
 
     /**

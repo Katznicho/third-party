@@ -98,6 +98,7 @@ Route::middleware('auth')->group(function () {
     // Service Providers
     Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
     Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');
+    Route::get('/connected-companies/{connectionId}/financial/statement', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financialStatement'])->name('connected-companies.financial-statement');
     Route::get('/connected-companies/{connectionId}/financial', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financial'])->name('connected-companies.financial');
     Route::post('/connected-companies/{connectionId}/local-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeLocalExclusion'])->name('connected-companies.local-exclusions.store');
     Route::post('/connected-companies/{connectionId}/category-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeCategoryExclusion'])->name('connected-companies.category-exclusions.store');

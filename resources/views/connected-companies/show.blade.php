@@ -181,74 +181,6 @@
         </div>
     </div>
 
-    <!-- Actions Card -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div class="px-6 py-4 border-b border-slate-200">
-            <h2 class="text-sm font-semibold text-slate-900">Connection Management</h2>
-        </div>
-        <div class="px-6 py-5">
-            @if($connection->isActive())
-                <!-- Active - show suspend/block buttons -->
-                <div class="space-y-4">
-                    <p class="text-sm text-slate-600 mb-4">This connection is currently active. You can suspend or block it.</p>
-                    
-                    <!-- Suspend Form -->
-                    <div class="border-l-4 border-yellow-400 bg-yellow-50 p-4 rounded">
-                        <h3 class="font-semibold text-yellow-900 mb-3">⊘ Suspend Connection</h3>
-                        <p class="text-sm text-yellow-800 mb-3">Temporarily suspend this provider. They can be reactivated later.</p>
-                        <form action="{{ route('connected-companies.block', $connection->id) }}" method="POST" class="space-y-3">
-                            @csrf
-                            <input type="hidden" name="status" value="suspended">
-                            <div>
-                                <label class="block text-sm font-medium text-yellow-900 mb-2">Reason for suspension:</label>
-                                <textarea name="reason" required placeholder="Enter reason for suspension..."
-                                          class="w-full px-3 py-2 border border-yellow-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500" rows="2"></textarea>
-                            </div>
-                            <button type="submit" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-yellow-600 text-white hover:bg-yellow-700">
-                                Suspend
-                            </button>
-                        </form>
-                    </div>
-
-                    <!-- Block Form -->
-                    <div class="border-l-4 border-red-400 bg-red-50 p-4 rounded">
-                        <h3 class="font-semibold text-red-900 mb-3">✕ Block Connection</h3>
-                        <p class="text-sm text-red-800 mb-3">Permanently block this provider. This prevents any new authorizations.</p>
-                        <form action="{{ route('connected-companies.block', $connection->id) }}" method="POST" class="space-y-3">
-                            @csrf
-                            <input type="hidden" name="status" value="blocked">
-                            <div>
-                                <label class="block text-sm font-medium text-red-900 mb-2">Reason for blocking:</label>
-                                <textarea name="reason" required placeholder="Enter reason for blocking..."
-                                          class="w-full px-3 py-2 border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" rows="2"></textarea>
-                            </div>
-                            <button type="submit" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700"
-                                    onclick="return confirm('Are you sure you want to block this connection?')">
-                                Block
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            @else
-                <!-- Suspended or Blocked - show reactivate button -->
-                <div class="border-l-4 border-green-400 bg-green-50 p-4 rounded">
-                    <h3 class="font-semibold text-green-900 mb-3">✓ Reactivate Connection</h3>
-                    <p class="text-sm text-green-800 mb-4">
-                        This connection is currently {{ $connection->status === 'suspended' ? 'suspended' : 'blocked' }}.
-                        Click below to reactivate it.
-                    </p>
-                    <form action="{{ route('connected-companies.reactivate', $connection->id) }}" method="POST" class="inline">
-                        @csrf
-                        <button type="submit" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700"
-                                onclick="return confirm('Are you sure you want to reactivate this connection?')">
-                            Reactivate Connection
-                        </button>
-                    </form>
-                </div>
-            @endif
-        </div>
-    </div>
-
     <!-- Items available / excluded (two tabs) -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200">
         <div class="px-6 py-4 border-b border-slate-200">
@@ -477,6 +409,71 @@
                     </form>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Connection Management (last on page: suspend / block / reactivate) -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-sm font-semibold text-slate-900">Connection Management</h2>
+        </div>
+        <div class="px-6 py-5">
+            @if($connection->isActive())
+                <div class="space-y-4">
+                    <p class="text-sm text-slate-600 mb-4">This connection is currently active. You can suspend or block it.</p>
+
+                    <div class="border-l-4 border-yellow-400 bg-yellow-50 p-4 rounded">
+                        <h3 class="font-semibold text-yellow-900 mb-3">⊘ Suspend Connection</h3>
+                        <p class="text-sm text-yellow-800 mb-3">Temporarily suspend this provider. They can be reactivated later.</p>
+                        <form action="{{ route('connected-companies.block', $connection->id) }}" method="POST" class="space-y-3">
+                            @csrf
+                            <input type="hidden" name="status" value="suspended">
+                            <div>
+                                <label class="block text-sm font-medium text-yellow-900 mb-2">Reason for suspension:</label>
+                                <textarea name="reason" required placeholder="Enter reason for suspension..."
+                                          class="w-full px-3 py-2 border border-yellow-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500" rows="2"></textarea>
+                            </div>
+                            <button type="submit" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-yellow-600 text-white hover:bg-yellow-700"
+                                    onclick="return confirm('Suspend this provider connection? They cannot authorize visits or sync until reactivated.')">
+                                Suspend
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="border-l-4 border-red-400 bg-red-50 p-4 rounded">
+                        <h3 class="font-semibold text-red-900 mb-3">✕ Block Connection</h3>
+                        <p class="text-sm text-red-800 mb-3">Permanently block this provider. This prevents any new authorizations.</p>
+                        <form action="{{ route('connected-companies.block', $connection->id) }}" method="POST" class="space-y-3">
+                            @csrf
+                            <input type="hidden" name="status" value="blocked">
+                            <div>
+                                <label class="block text-sm font-medium text-red-900 mb-2">Reason for blocking:</label>
+                                <textarea name="reason" required placeholder="Enter reason for blocking..."
+                                          class="w-full px-3 py-2 border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" rows="2"></textarea>
+                            </div>
+                            <button type="submit" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700"
+                                    onclick="return confirm('Are you sure you want to block this connection?')">
+                                Block
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            @else
+                <div class="border-l-4 border-green-400 bg-green-50 p-4 rounded">
+                    <h3 class="font-semibold text-green-900 mb-3">✓ Reactivate Connection</h3>
+                    <p class="text-sm text-green-800 mb-4">
+                        This connection is currently {{ $connection->isSuspended() ? 'suspended' : 'blocked' }}.
+                        Click below to reactivate it.
+                    </p>
+                    <form action="{{ route('connected-companies.reactivate', $connection->id) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700"
+                                onclick="return confirm('Are you sure you want to reactivate this connection?')">
+                            Reactivate Connection
+                        </button>
+                    </form>
+                </div>
+            @endif
         </div>
     </div>
 </div>
