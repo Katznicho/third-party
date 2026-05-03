@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to VPS (Vendor)
+      - name: Deploy to VPS (root)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 187.124.117.169
