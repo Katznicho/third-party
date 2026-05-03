@@ -4,9 +4,10 @@ on:
   push:
     branches:
       - main
+      - demo
 
 concurrency:
-  group: deploy-vendor
+  group: deploy-vendor-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,17 +24,24 @@ jobs:
           script: |
             set -e
 
+            BRANCH="${{ github.ref_name }}"
+            echo "🚀 Deploying third-party from branch: ${BRANCH}"
+
             git config --global --add safe.directory /var/www/third-party
 
             cd /var/www/third-party
 
             git fetch origin
-            git reset --hard origin/main
+            git reset --hard "origin/${BRANCH}"
 
             export COMPOSER_ALLOW_SUPERUSER=1
+            echo "📦 Installing PHP dependencies..."
             composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs
 
-            npm ci
+            echo "📦 Installing Node dependencies..."
+            npm install --no-audit --no-fund
+
+            echo "🏗 Building frontend..."
             npm run build
 
             chown -R www-data:www-data /var/www/third-party
