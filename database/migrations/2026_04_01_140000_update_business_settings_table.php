@@ -11,8 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('business_settings')) {
+            return;
+        }
+        if (! Schema::hasColumn('business_settings', 'business_id')) {
+            return;
+        }
+        if (Schema::hasColumn('business_settings', 'business_connection_id')) {
+            return;
+        }
         Schema::table('business_settings', function (Blueprint $table) {
-            // Rename column to business_connection_id
             $table->renameColumn('business_id', 'business_connection_id');
         });
     }

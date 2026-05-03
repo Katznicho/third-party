@@ -26,6 +26,11 @@ class DatabaseSeeder extends Seeder
             ServiceCategorySeeder::class,
         ]);
 
+        // Medical underwriting questions (master data; keep populated after fresh seed)
+        $this->call([
+            MedicalQuestionSeeder::class,
+        ]);
+
         // Seed Plans (depends on Insurance Companies and Service Categories)
         $this->call([
             PlanSeeder::class,

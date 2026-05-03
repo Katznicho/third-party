@@ -8,6 +8,7 @@ use App\Models\PolicyBenefit;
 use App\Models\Plan;
 use App\Models\InsuranceCompany;
 use App\Models\PolicyDeductibleLedger;
+use App\Models\InsuranceAuthorization;
 use App\Models\Payment;
 use App\Payments\YoAPI;
 use App\Support\PaymentReference;
@@ -21,7 +22,7 @@ class ClientController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         $insuranceCompanyId = auth()->user()->insurance_company_id;
         
@@ -32,15 +33,41 @@ class ClientController extends Controller
 
         $insuranceCompany = InsuranceCompany::find($insuranceCompanyId);
 
-        // Get all clients for the insurance company
-        $clients = Client::where('insurance_company_id', $insuranceCompanyId)
-            ->with(['policies' => function($query) use ($insuranceCompanyId) {
+        // This insurer only: same insurance_company_id as the logged-in user, and plan belongs to this insurer
+        $clientsQuery = Client::where('insurance_company_id', $insuranceCompanyId)
+            ->whereNotNull('plan_id')
+            ->whereHas('plan', function ($query) use ($insuranceCompanyId) {
                 $query->where('insurance_company_id', $insuranceCompanyId);
-            }, 'principalMember', 'plan'])
-            ->latest()
-            ->paginate(15);
+            })
+            ->with(['policies' => function ($query) use ($insuranceCompanyId) {
+                $query->where('insurance_company_id', $insuranceCompanyId);
+            }, 'principalMember', 'plan']);
 
-        return view('clients.index', compact('clients', 'insuranceCompany'));
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $term = '%' . addcslashes($search, '%_\\') . '%';
+            $clientsQuery->where(function ($q) use ($term, $insuranceCompanyId) {
+                $q->where('first_name', 'like', $term)
+                    ->orWhere('surname', 'like', $term)
+                    ->orWhere('other_names', 'like', $term)
+                    ->orWhere('id_passport_no', 'like', $term)
+                    ->orWhere('cell_phone', 'like', $term)
+                    ->orWhere('email', 'like', $term)
+                    ->orWhere('kashtre_client_id', 'like', $term)
+                    ->orWhereHas('plan', function ($pq) use ($term, $insuranceCompanyId) {
+                        $pq->where('insurance_company_id', $insuranceCompanyId)
+                            ->where('name', 'like', $term);
+                    })
+                    ->orWhereHas('policies', function ($pq) use ($term, $insuranceCompanyId) {
+                        $pq->where('insurance_company_id', $insuranceCompanyId)
+                            ->where('policy_number', 'like', $term);
+                    });
+            });
+        }
+
+        $clients = $clientsQuery->latest()->paginate(15)->withQueryString();
+
+        return view('clients.index', compact('clients', 'insuranceCompany', 'search'));
     }
 
     /**
@@ -1639,26 +1666,37 @@ class ClientController extends Controller
                 ->with('error', 'This client has no policies with your company.');
         }
 
-        $query = PolicyDeductibleLedger::with(['policy'])
+        // Visit-level breakdown lives on insurance_authorizations (created at invoice authorization).
+        // policy_deductible_ledgers rows are appended only after Kashtre confirms client portion payment.
+        $authQuery = InsuranceAuthorization::with(['policy'])
             ->where('insurance_company_id', $insuranceCompany->id)
             ->whereIn('policy_id', $policyIds)
-            ->orderByDesc('created_at');
+            ->orderByDesc('requested_at');
 
         if ($policyNumber = request('policy_number')) {
-            $query->whereHas('policy', function ($q) use ($policyNumber) {
+            $authQuery->whereHas('policy', function ($q) use ($policyNumber) {
                 $q->where('policy_number', 'like', '%' . $policyNumber . '%');
             });
         }
 
         if ($invoiceNumber = request('invoice_number')) {
-            $query->where('external_invoice_number', 'like', '%' . $invoiceNumber . '%');
+            $authQuery->where(function ($q) use ($invoiceNumber) {
+                $q->where('external_invoice_number', 'like', '%' . $invoiceNumber . '%')
+                    ->orWhere('kashtre_invoice_id', 'like', '%' . $invoiceNumber . '%');
+            });
         }
 
-        $ledgers = $query->paginate(20)->withQueryString();
+        $authorizations = $authQuery->paginate(20)->withQueryString();
+
+        $ledgerByAuthId = PolicyDeductibleLedger::whereIn(
+            'authorization_id',
+            $authorizations->getCollection()->pluck('id')->filter()->values()->all()
+        )->get()->keyBy('authorization_id');
 
         return view('clients.deductible-ledger', [
             'client' => $client,
-            'ledgers' => $ledgers,
+            'authorizations' => $authorizations,
+            'ledgerByAuthId' => $ledgerByAuthId,
         ]);
     }
 

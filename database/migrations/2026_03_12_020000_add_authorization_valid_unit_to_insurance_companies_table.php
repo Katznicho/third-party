@@ -14,11 +14,7 @@ return new class extends Migration
                     ->nullable()
                     ->after('authorization_valid_days');
             }
-            if (!Schema::hasColumn('insurance_companies', 'stop_credit_after_grace_behavior')) {
-                $table->string('stop_credit_after_grace_behavior', 32)
-                    ->nullable()
-                    ->after('stop_credit_after_grace');
-            }
+            // stop_credit_after_grace_behavior is added in a later migration after stop_credit_after_grace exists.
         });
     }
 
@@ -27,9 +23,6 @@ return new class extends Migration
         Schema::table('insurance_companies', function (Blueprint $table) {
             if (Schema::hasColumn('insurance_companies', 'authorization_valid_unit')) {
                 $table->dropColumn('authorization_valid_unit');
-            }
-            if (Schema::hasColumn('insurance_companies', 'stop_credit_after_grace_behavior')) {
-                $table->dropColumn('stop_credit_after_grace_behavior');
             }
         });
     }

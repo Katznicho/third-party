@@ -67,7 +67,7 @@
                             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700">Category</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700">Visit Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700">Session valid until</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700">Session code</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700">Visit expires</th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700">Tracked</th>
                         </tr>
@@ -105,14 +105,7 @@
                                     <span class="text-sm text-slate-600">{{ $visit->visit_date->format('M d, Y') }}</span>
                                 </td>
                                 <td class="px-6 py-3">
-                                    @php
-                                        $sessEnd = $visit->session_expires_at;
-                                        $sessBad = $sessEnd && $sessEnd < now();
-                                    @endphp
-                                    <span class="text-xs font-mono text-slate-700 block">{{ $visit->session_code ? \Illuminate\Support\Str::limit($visit->session_code, 14, '…') : '—' }}</span>
-                                    <span class="text-sm {{ $sessBad ? 'text-red-600 font-semibold' : 'text-emerald-800' }}">
-                                        {{ $sessEnd?->format('M d, Y H:i') ?? '—' }}
-                                    </span>
+                                    <span class="text-xs font-mono text-slate-700">{{ $visit->session_code ? \Illuminate\Support\Str::limit($visit->session_code, 14, '…') : '—' }}</span>
                                 </td>
                                 <td class="px-6 py-3">
                                     <span class="text-sm {{ $visit->expiry_at && $visit->expiry_at < now() ? 'text-red-600 font-semibold' : 'text-slate-600' }}">

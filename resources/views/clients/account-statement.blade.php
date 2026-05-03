@@ -93,7 +93,7 @@
         <a href="{{ route('clients.usage.deductible', $client) }}" class="bg-white rounded-xl shadow-sm border border-amber-200 p-6 block hover:bg-amber-50 transition">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-slate-600">Deductible used</p>
+                    <p class="text-sm text-slate-600">Authorized deductible (sum)</p>
                     <p class="text-2xl font-bold text-amber-700 mt-1">UGX {{ number_format($totalDeductibleUsed ?? 0, 2) }}</p>
                 </div>
                 <div class="p-3 bg-amber-50 rounded-lg">
@@ -154,7 +154,7 @@
                     id="account-tab-deductible-ledger"
                     class="flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                 >
-                    Deductible ledger
+                    Visit breakdown
                 </button>
             </nav>
         </div>

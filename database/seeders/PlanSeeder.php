@@ -177,8 +177,7 @@ class PlanSeeder extends Seeder
 
                     $syncData[$serviceCategory->id] = [
                         'benefit_amount' => $benefitAmount,
-                        'copay_percentage' => 0,
-                        'copay_type' => 'percentage',
+                        'base_amount' => 0,
                         'waiting_period_days' => $categoryName === 'Maternity' ? 365 : 0,
                         'is_enabled' => true,
                     ];

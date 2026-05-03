@@ -78,6 +78,11 @@
                         <p><span class="font-semibold text-slate-700">Co‑insurance (this visit):</span>
                             <span class="text-slate-800">UGX {{ number_format($breakdown['coinsurance'] ?? 0, 2) }}</span>
                         </p>
+                        @if((float) ($breakdown['excluded'] ?? 0) > 0)
+                            <p><span class="font-semibold text-slate-700">Excluded / not covered (this visit):</span>
+                                <span class="text-slate-800">UGX {{ number_format($breakdown['excluded'] ?? 0, 2) }}</span>
+                            </p>
+                        @endif
                     </div>
                 </div>
 
@@ -87,6 +92,7 @@
                         $dedPart = $breakdown['deductible'] ?? 0;
                         $copayPart = $breakdown['copay'] ?? 0;
                         $coinsPart = $breakdown['coinsurance'] ?? 0;
+                        $excludedPart = (float) ($breakdown['excluded'] ?? 0);
                         $remainingAfterCopay = $approved - $copayPart;
                         $remainingAfterCoins = $remainingAfterCopay - $coinsPart;
                         $remainingAfterDed   = $remainingAfterCoins - $dedPart;
@@ -121,20 +127,33 @@
                                 deductible taken from that pool this visit
                                 <strong>OD = UGX {{ number_format($odThisVisit, 2) }}</strong>
                                 (same as Step 3). Compute <strong>V = OI − OD</strong> =
-                                <strong>UGX {{ number_format($v, 2) }}</strong>.
+                                <strong>UGX {{ number_format($v, 2) }}</strong>
+                                (the insurer’s share of the approved pool after co‑pay and co‑insurance).
                                 @if($v > 0)
-                                    Because <strong>V &gt; 0</strong>, <strong>OD</strong> stays with the client and <strong>V</strong> is the insurer's share of the post‑co‑pay/co‑ins pool—matching Step 3's remainder for insurer.
+                                    Because <strong>V &gt; 0</strong>, <strong>OD</strong> stays with the client and <strong>V</strong> is <strong>Insurance total (this visit)</strong>.
                                 @else
                                     Because <strong>V ≤ 0</strong>, the full <strong>OI</strong> stays client-side for this slice (insurer <strong>0</strong> from that pool), in addition to co‑pay and co‑insurance.
                                 @endif
                             </li>
+                            @if($excludedPart > 0)
+                                <li>Excluded lines (not part of the approved pool above) add <strong>UGX {{ number_format($excludedPart, 2) }}</strong> to the client’s bill.</li>
+                            @endif
                         </ul>
                         <p class="text-xs text-slate-600 mt-1">
-                            So the client's share is
+                            <strong>Final split stored on this authorization:</strong> client
+                            <strong>UGX {{ number_format($authorization->client_total ?? 0, 2) }}</strong>,
+                            insurer
+                            <strong>UGX {{ number_format($authorization->insurance_total ?? 0, 2) }}</strong>.
+                            @php
+                                $sumParts = (float) ($authorization->client_total ?? 0) + (float) ($authorization->insurance_total ?? 0);
+                                $expectedInvoice = (float) ($authorization->total_amount ?? 0) + $excludedPart;
+                            @endphp
+                            @if(abs($sumParts - $expectedInvoice) < 0.05)
+                                Together these match the invoice total for this authorization (approved pool @if($excludedPart > 0)plus excluded lines @endif).
+                            @endif
+                            The co‑pay, co‑insurance, and deductible lines explain the cost‑sharing rules; they sum to
                             <strong>UGX {{ number_format($dedPart + $copayPart + $coinsPart, 2) }}</strong>
-                            and the insurer's share is
-                            <strong>UGX {{ number_format($approved - ($dedPart + $copayPart + $coinsPart), 2) }}</strong>,
-                            which always adds back to the approved invoice total.
+                            for the covered portion only—then excluded amounts (if any) are added to reach the client total above.
                         </p>
                     </div>
 

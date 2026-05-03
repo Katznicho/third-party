@@ -193,7 +193,8 @@ class RecordClientPortionService
             $query->where('authorization_reference', $authRef);
         }
 
-        $auth = $query->first();
+        // Prefer latest authorization row when kashtre_invoice_id matches several snapshots (should be rare).
+        $auth = $query->orderByDesc('id')->first();
         if (!$auth) {
             Log::info('[RecordClientPortionService] No authorization match for deductible ledger', [
                 'kashtre_invoice_id' => $kashtreInvoiceId,

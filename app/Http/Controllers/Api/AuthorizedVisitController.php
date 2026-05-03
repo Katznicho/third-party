@@ -115,6 +115,8 @@ class AuthorizedVisitController extends Controller
                 ->where('insurance_company_id', $request->insurance_company_id)
                 ->first();
 
+            // Authorization end date follows insurer "Visit authorization period (days)" + visit date,
+            // not Kashtre's operational visit_expires_at (often next midnight).
             [$sessionCode, $sessionExpiresAt] = $this->newVisitSession($insuranceCompany, $request->visit_date);
 
             if ($existingVisit) {
@@ -127,7 +129,7 @@ class AuthorizedVisitController extends Controller
 
                 $existingVisit->update([
                     'visit_date' => $request->visit_date,
-                    'expiry_at' => $request->expiry_at,
+                    'expiry_at' => $sessionExpiresAt,
                     'session_code' => $sessionCode,
                     'session_expires_at' => $sessionExpiresAt,
                     'services_category' => $request->services_category,
@@ -177,7 +179,7 @@ class AuthorizedVisitController extends Controller
                 'visit_id' => $request->visit_id,
                 'session_code' => $sessionCode,
                 'visit_date' => $request->visit_date,
-                'expiry_at' => $request->expiry_at,
+                'expiry_at' => $sessionExpiresAt,
                 'session_expires_at' => $sessionExpiresAt,
                 'status' => 'active',
                 'services_category' => $request->services_category,

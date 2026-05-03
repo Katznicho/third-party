@@ -505,14 +505,8 @@ class InvoiceAuthorizationController extends Controller
         // Only the non-excluded part can be covered by insurance
         $approvedAmount = max(0.0, (float) $totalAmount - $excludedAmount);
 
-        // If we have a policy benefit, cap the insurable amount at the remaining benefit
-        $benefitCap = null;
-        if ($policyBenefit) {
-            $remainingBenefit = (float) ($policyBenefit->remaining_amount ?? $policyBenefit->benefit_amount);
-            if ($remainingBenefit >= 0) {
-                $benefitCap = $remainingBenefit;
-            }
-        }
+        // Policy benefit remaining (`policy_benefits.remaining_amount`) may still inform warnings below,
+        // but we do not cap insurer payment at that figure — splits follow co-pay / co-insurance / deductible / V only.
 
         $deductibleAmountPolicy = $policy->has_deductible ? (float) ($policy->deductible_amount ?? 0) : 0;
 
@@ -614,14 +608,8 @@ class InvoiceAuthorizationController extends Controller
         $clientTotalCore = round($deductiblePortion + $copayPortion + $coinsurancePortion, 2);
         $clientTotal = $clientTotalCore;
 
-        // Cap insurance portion at the remaining category benefit
+        // No "benefit excess" — insurer share is exactly V from the split above (never truncated by category balance).
         $benefitExcess = 0;
-        if ($benefitCap !== null && $insuranceTotal > $benefitCap) {
-            $benefitExcess = round($insuranceTotal - $benefitCap, 2);
-            $insuranceTotal = round($benefitCap, 2);
-            $clientTotal = round($approvedAmount - $insuranceTotal, 2);
-            $benefitWarnings[] = "Insurance portion capped at remaining benefit ({$benefitCap}). Client pays additional {$benefitExcess}.";
-        }
 
         // Add fully excluded items to client total (insurance never pays for these)
         if ($excludedAmount > 0) {
@@ -654,7 +642,6 @@ class InvoiceAuthorizationController extends Controller
             'deductible_ledger_id' => $latestLedger?->id,
             'copay_coinsurance_toward_deductible' => $copayCoinsuranceTowardDeductible,
             'deductible_od_for_oi_split' => $od,
-            'benefit_cap' => $benefitCap,
             'benefit_excess' => $benefitExcess,
             'breakdown' => $breakdown,
         ]);

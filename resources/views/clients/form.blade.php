@@ -51,13 +51,6 @@
         </div>
     @endif
 
-    <!-- Auto Generate Button (Test) -->
-    <div class="text-center mb-6">
-        <button type="button" onclick="autoGenerateTestData()" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-full transition duration-150 inline-flex items-center gap-2">
-            <span>🔄</span> Auto Generate (Test)
-        </button>
-    </div>
-
     <!-- Header Section -->
     <div class="text-center border-b border-slate-300 pb-4 mb-6">
         <h1 class="text-2xl font-bold text-slate-900 mb-2">HEALTH INSURANCE APPLICATION FORM</h1>
@@ -1465,114 +1458,6 @@
         </div>
     </div>
 
-    <!-- Auto Generate Test Data Script -->
-    <script>
-        function autoGenerateTestData() {
-            // Generate random test data
-            const timestamp = Date.now();
-            const randomNum = Math.floor(Math.random() * 10000);
-            
-            // Fill in basic personal information
-            document.getElementById('title').value = 'Mr';
-            document.getElementById('first_name').value = 'TEST USER';
-            document.getElementById('surname').value = 'SYSTEM' + randomNum;
-            document.getElementById('other_names').value = 'AUTO GEN';
-            
-            // ID / Passport - generate a realistic number
-            const idNumber = 'ID' + timestamp.toString().slice(-8);
-            document.getElementById('id_passport_no').value = idNumber;
-            
-            // Gender
-            document.querySelector('input[name="gender"][value="Male"]').checked = true;
-            
-            // TIN
-            document.getElementById('tin').value = '1' + timestamp.toString().slice(-9);
-            
-            // Date of Birth - set to 40 years ago
-            const dob = new Date();
-            dob.setFullYear(dob.getFullYear() - 40);
-            document.getElementById('date_of_birth').value = dob.toISOString().split('T')[0];
-            
-            // Marital Status
-            document.getElementById('marital_status').value = 'Single';
-            
-            // Height
-            document.getElementById('height').value = "5'10\"";
-            
-            // Occupation
-            if (document.getElementById('occupation')) {
-                document.getElementById('occupation').value = 'Professional';
-            }
-            
-            // Phone Number
-            if (document.getElementById('phone_number')) {
-                document.getElementById('phone_number').value = '256' + randomNum.toString().padStart(4, '0');
-            }
-            
-            // Email
-            if (document.getElementById('email')) {
-                document.getElementById('email').value = 'test' + timestamp + '@example.com';
-            }
-            
-            // Nationality
-            if (document.getElementById('nationality')) {
-                document.getElementById('nationality').value = 'Ugandan';
-            }
-            
-            // Employer Details
-            if (document.getElementById('employer_name')) {
-                document.getElementById('employer_name').value = 'TEST COMPANY ' + randomNum;
-            }
-            
-            if (document.getElementById('employer_category')) {
-                document.getElementById('employer_category').value = 'Private';
-            }
-            
-            if (document.getElementById('employer_phone')) {
-                document.getElementById('employer_phone').value = '256-' + randomNum;
-            }
-            
-            if (document.getElementById('employer_email')) {
-                document.getElementById('employer_email').value = 'employer' + randomNum + '@test.com';
-            }
-            
-            // Auto-check ALL medical questions/benefits checkboxes
-            const medicalCheckboxes = document.querySelectorAll('input[type="checkbox"][name="medical_questions[]"]');
-            medicalCheckboxes.forEach(checkbox => {
-                checkbox.checked = true;
-            });
-            
-            // Auto-check all benefits/coverage checkboxes
-            const benefitCheckboxes = document.querySelectorAll('input[type="checkbox"][name^="benefits"], input[type="checkbox"][name^="coverage"]');
-            benefitCheckboxes.forEach(checkbox => {
-                checkbox.checked = true;
-            });
-            
-            // Fill any select dropdowns with first available option
-            const selects = document.querySelectorAll('select');
-            selects.forEach(select => {
-                if (select.id !== 'title' && select.id !== 'gender' && select.id !== 'marital_status') {
-                    // Only set if not already set and has options
-                    if (!select.value && select.options.length > 1) {
-                        select.value = select.options[1].value;
-                    }
-                }
-            });
-            
-            // Fill any textarea fields with test data
-            const textareas = document.querySelectorAll('textarea');
-            textareas.forEach(textarea => {
-                if (!textarea.value) {
-                    textarea.value = 'Test data for ' + timestamp;
-                }
-            });
-            
-            // Scroll to top so user sees what was filled
-            window.scrollTo(0, 0);
-            
-            alert('✅ Test data generated! All fields, benefits, and medical questions are filled.\n\nReview the form and click Save to continue.');
-        }
-    </script>
 </form>
 
 @if($method === 'POST')
@@ -1713,180 +1598,245 @@
     });
     @endif
 
-    // Auto-generate form with test data
+    // Auto-generate form with test data — fills every visible control (principal, NOK, plan benefits, medical, payment, dependant)
     function autoGenerateForm() {
-        if (!confirm('This will fill all form fields with test data. Continue?')) {
-            return;
+        const form = document.querySelector('form[action*="clients"]') || document.querySelector('form[enctype="multipart/form-data"]') || document.querySelector('form');
+        const rnd = (n) => Math.floor(Math.random() * n);
+        const ts = Date.now();
+        const idNum = 'CM' + String(Math.floor(100000000 + Math.random() * 900000000));
+        const phone = '+2567' + String(1000000 + rnd(8999999)).padStart(9, '0').slice(0, 10);
+
+        const firstNames = ['JOHN', 'PETER', 'DAVID', 'MICHAEL', 'SIMON', 'PAUL'];
+        const surnames = ['DOE', 'SMITH', 'KATENDE', 'SSEMUWEMBA', 'KASULE'];
+        const pick = (a) => a[rnd(a.length)];
+
+        const pFirst = pick(firstNames);
+        const pSur = pick(surnames);
+        const pOther = 'NICHOLAS';
+        const kFirst = pick(firstNames.filter((x) => x !== pFirst)) || 'JANE';
+        const kSur = pick(surnames.filter((x) => x !== pSur)) || 'DOE';
+
+        function dispatch(el) {
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
-        // Principal Member Details (randomised each time)
-        const firstNames = ['JOHN', 'PETER', 'DAVID', 'ROBERT', 'JAMES', 'MICHAEL', 'PAUL', 'ANDREW', 'SIMON', 'ALEX'];
-        const surnames = ['DOE', 'SMITH', 'KATENDE', 'OKELLO', 'MUGISHA', 'KABUYE', 'NANYONJO', 'SSEMUWEMBA', 'KASULE'];
-        const otherNames = ['MICHAEL', 'NICHOLAS', 'BRIAN', 'STEPHEN', 'FRANK', 'GEORGE'];
-
-        function pickRandom(arr) {
-            return arr[Math.floor(Math.random() * arr.length)];
+        function setRadioName(name, value) {
+            const r = document.querySelector(`input[name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`);
+            if (r) {
+                r.checked = true;
+                dispatch(r);
+            }
         }
 
-        const principalFirstName = pickRandom(firstNames);
-        const principalSurname = pickRandom(surnames);
-        const principalOtherName = pickRandom(otherNames);
+        function setVal(el, val) {
+            if (!el || el.readOnly || el.disabled) return;
+            if (el.type === 'radio' || el.type === 'checkbox') return;
+            el.value = val;
+            dispatch(el);
+        }
 
-        const nextOfKinFirstName = pickRandom(firstNames.filter(n => n !== principalFirstName)) || 'JANE';
-        const nextOfKinSurname = pickRandom(surnames.filter(n => n !== principalSurname)) || 'DOE';
+        function fillById(id, val) {
+            setVal(document.getElementById(id), val);
+        }
 
-        // Generate a random ID/passport number so it doesn't always clash
-        const randomIdNumber = 'CM' + Math.floor(100000000 + Math.random() * 900000000);
+        // --- Principal
+        fillById('title', 'Mr');
+        fillById('surname', pSur);
+        fillById('first_name', pFirst);
+        fillById('other_names', pOther);
+        fillById('id_passport_no', idNum);
+        setRadioName('gender', 'Male');
+        fillById('tin', '100' + String(ts).slice(-7));
+        fillById('date_of_birth', '1985-06-15');
+        fillById('marital_status', 'Married');
+        fillById('height', "5'10\"");
+        fillById('weight', '78');
+        fillById('occupation', 'Professional');
+        fillById('employer_name', 'Test Employer Ltd');
+        fillById('nationality', 'Ugandan');
+        fillById('home_physical_address', 'Plot 10 Test Street, Kampala');
+        fillById('office_physical_address', 'Plot 20 Office Park, Kampala');
+        fillById('home_telephone', '0414' + rnd(999999));
+        fillById('office_telephone', '0312' + rnd(999999));
+        fillById('cell_phone', phone);
+        fillById('whatsapp_line', phone);
+        fillById('email', `${pFirst.toLowerCase()}.${pSur.toLowerCase()}.${ts}@example.test`);
 
-        const testData = {
-            // Personal Information
-            first_name: principalFirstName,
-            surname: principalSurname,
-            other_names: principalOtherName,
-            date_of_birth: '1985-05-15',
-            gender: 'male',
-            marital_status: 'married',
-            id_passport_no: randomIdNumber,
-            nationality: 'Ugandan',
-            
-            // Contact Information
-            cell_phone: '+2567' + Math.floor(1000000 + Math.random() * 8999999),
-            email: principalFirstName.toLowerCase() + '.' + principalSurname.toLowerCase() + '@example.com',
-            postal_address: 'P.O. Box 12345, Kampala',
-            physical_address: 'Plot 45, Nakawa Road, Kampala',
-            
-            // Next of Kin
-            next_of_kin_name: nextOfKinFirstName + ' ' + nextOfKinSurname,
-            next_of_kin_relationship: 'spouse',
-            next_of_kin_cell_phone: '+2567' + Math.floor(1000000 + Math.random() * 8999999),
-            next_of_kin_email: nextOfKinFirstName.toLowerCase() + '.' + nextOfKinSurname.toLowerCase() + '@example.com',
-            next_of_kin_post_address: 'P.O. Box 12345, Kampala',
-            next_of_kin_physical_address: 'Plot 45, Nakawa Road, Kampala',
-            
-            // Employment
-            occupation: 'Software Engineer',
-            employer_name: 'Tech Solutions Ltd',
-            employer_address: 'Plot 100, Industrial Area, Kampala',
-            
-            // Plan and Benefits
-            plan_id: null, // Will select first available plan
-            copay_amount: '20000',
-            copay_max_limit: '200000',
-            coinsurance_percentage: '10',
-            deductible_amount: '100000',
-            
-            // Declaration
-            desired_start_date: new Date().toISOString().split('T')[0],
-            agent_broker_name: 'Test Agent'
-        };
+        // --- Next of kin (actual field names on this form)
+        fillById('next_of_kin_title', 'Mrs');
+        fillById('next_of_kin_surname', kSur);
+        fillById('next_of_kin_first_name', kFirst);
+        fillById('next_of_kin_other_names', 'ANN');
+        fillById('next_of_kin_relation', 'Spouse');
+        fillById('next_of_kin_id_passport_no', 'CM' + String(Math.floor(100000000 + Math.random() * 900000000)));
+        fillById('next_of_kin_cell_phone', '+2567' + String(1000000 + rnd(8999999)).slice(0, 9));
+        fillById('next_of_kin_email', `${kFirst.toLowerCase()}.${kSur.toLowerCase()}.${ts}@example.test`);
+        fillById('next_of_kin_post_address', 'P.O. Box ' + (1000 + rnd(9000)) + ', Kampala');
+        fillById('next_of_kin_physical_address', 'Plot 7 Next Of Kin Road, Kampala');
 
-        // Fill text inputs
-        Object.keys(testData).forEach(key => {
-            if (testData[key] !== null) {
-                const field = document.getElementById(key) || document.querySelector(`input[name="${key}"]`) || document.querySelector(`select[name="${key}"]`);
-                if (field) {
-                    if (field.type === 'radio') {
-                        const radio = document.querySelector(`input[name="${key}"][value="${testData[key]}"]`);
-                        if (radio) radio.checked = true;
-                    } else if (field.type === 'checkbox') {
-                        field.checked = testData[key] === '1' || testData[key] === true;
-                    } else {
-                        field.value = testData[key];
-                        // Trigger change event for fields that need it
-                        field.dispatchEvent(new Event('change', { bubbles: true }));
-                        field.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
+        // --- Policy / copay / deductible (numeric fields use ids from blade)
+        fillById('copay_amount', '20000');
+        fillById('copay_max_limit', '200000');
+        fillById('coinsurance_percentage', '10');
+        fillById('insurance_payable_percentage', '100');
+        fillById('premium_grace_days', '30');
+        fillById('active_period_days', '365');
+        setRadioName('has_deductible', '1');
+        fillById('deductible_amount', '100000');
+        const copayContrib = document.querySelector('input[name="copay_contributes_to_deductible"]');
+        const coinsContrib = document.querySelector('input[name="coinsurance_contributes_to_deductible"]');
+        if (copayContrib) {
+            copayContrib.checked = true;
+            dispatch(copayContrib);
+        }
+        if (coinsContrib) {
+            coinsContrib.checked = true;
+            dispatch(coinsContrib);
+        }
+        setRadioName('telemedicine_only', '0');
+
+        // --- Declaration
+        fillById('desired_start_date', new Date().toISOString().split('T')[0]);
+        fillById('agent_broker_name', 'Test Agent');
+
+        // --- First plan + all enabled benefits for that plan row
+        const firstPlanRadio = document.querySelector('input.plan-radio') || document.querySelector('input[name="plan_id"]');
+        if (firstPlanRadio) {
+            firstPlanRadio.checked = true;
+            dispatch(firstPlanRadio);
+        }
+
+        function tickAllBenefits() {
+            document.querySelectorAll('.benefit-checkbox:not(:disabled)').forEach((cb) => {
+                cb.checked = true;
+                dispatch(cb);
+            });
+        }
+
+        function fillMedicalAndMedication() {
+            const root = form || document;
+            document.querySelectorAll('input.question-response[type="radio"][value="no"]').forEach((radio) => {
+                radio.checked = true;
+                dispatch(radio);
+            });
+            root.querySelectorAll('textarea.question-response, textarea[name*="medical_questions"][name*="[response]"]').forEach((ta) => {
+                if (!ta.name || ta.name.includes('[additional_info]')) return;
+                if (!ta.value.trim()) {
+                    ta.value = 'Not applicable (auto-fill test).';
+                    dispatch(ta);
+                }
+            });
+            root.querySelectorAll('input.question-response[type="date"], input[name*="medical_questions"][name*="[response]"][type="date"]').forEach((inp) => {
+                if (!inp.value) {
+                    inp.value = '1990-01-01';
+                    dispatch(inp);
+                }
+            });
+            root.querySelectorAll('input.question-response[type="number"], input[name*="medical_questions"][name*="[response]"][type="number"]').forEach((inp) => {
+                if (inp.value === '' || inp.value === null) {
+                    inp.value = '0';
+                    dispatch(inp);
+                }
+            });
+            root.querySelectorAll('textarea[name*="medical_questions"][name*="additional_info"]').forEach((ta) => {
+                if (!ta.value.trim()) {
+                    ta.value = 'N/A';
+                    dispatch(ta);
+                }
+            });
+            root.querySelectorAll('input[name^="medications["]').forEach((inp) => {
+                if (!inp.value.trim()) {
+                    if (inp.type === 'date') inp.value = '2020-01-01';
+                    else inp.value = 'Test';
+                    dispatch(inp);
+                }
+            });
+        }
+
+        function fillPremiumPayment() {
+            const pm = document.getElementById('premium_payment_method');
+            if (pm && pm.tagName === 'SELECT') {
+                const opt = Array.from(pm.options).find((o) => o.value);
+                if (opt) {
+                    pm.value = opt.value;
+                    dispatch(pm);
+                }
+                if (pm.value === 'mobile_money') {
+                    const wrap = document.getElementById('premium-payment-phone-wrap');
+                    if (wrap) wrap.classList.remove('hidden');
+                    fillById('premium_payment_phone', phone.replace('+', ''));
                 }
             }
-        });
-
-        // Select first available plan
-        const firstPlan = document.querySelector('input[name="plan_id"]');
-        if (firstPlan) {
-            firstPlan.checked = true;
-            firstPlan.dispatchEvent(new Event('change', { bubbles: true }));
-            
-            // Wait a bit then select benefits
-            setTimeout(() => {
-                // Select inpatient (required) and a few other benefits
-                const benefitCheckboxes = document.querySelectorAll('.benefit-checkbox:not(:disabled)');
-                benefitCheckboxes.forEach((checkbox, index) => {
-                    if (index < 3) { // Select first 3 available benefits
-                        checkbox.checked = true;
-                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
-            }, 100);
         }
 
-        // Add a test dependant
-        setTimeout(() => {
-            const addDependantBtn = document.getElementById('add-dependant-btn');
-            if (addDependantBtn && addDependantBtn.style.display !== 'none') {
-                addDependant();
-                
-                // Fill dependant data
-                setTimeout(() => {
-                    const dependantSections = document.querySelectorAll('.dependant-section');
-                    if (dependantSections.length > 0) {
-                        const firstDependant = dependantSections[dependantSections.length - 1];
-                        const firstNameInput = firstDependant.querySelector('input[name*="[first_name]"]');
-                        const surnameInput = firstDependant.querySelector('input[name*="[surname]"]');
-                        const dobInput = firstDependant.querySelector('input[name*="[date_of_birth]"]');
-                        const genderSelect = firstDependant.querySelector('select[name*="[gender]"]');
-                        
-                        if (firstNameInput) {
-                            firstNameInput.value = 'MARY';
-                            firstNameInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        }
-                        if (surnameInput) {
-                            surnameInput.value = 'DOE';
-                            surnameInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        }
-                        if (dobInput) {
-                            dobInput.value = '2010-03-20';
-                            dobInput.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                        if (genderSelect) {
-                            genderSelect.value = 'female';
-                            genderSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
+        function fillDependantSection(section) {
+            if (!section) return;
+            const q = (sel) => section.querySelector(sel);
+            section.querySelectorAll('select[name*="[title]"]').forEach((s) => setVal(s, 'Miss'));
+            setVal(q('input[name*="[surname]"]'), 'DOE');
+            setVal(q('input[name*="[first_name]"]'), 'MARY');
+            setVal(q('input[name*="[other_names]"]'), 'JANE');
+            setVal(q('input[name*="[id_passport_no]"]'), 'CM' + String(Math.floor(100000000 + Math.random() * 900000000)));
+            setVal(q('input[name*="[date_of_birth]"]'), '2012-04-10');
+            setVal(q('input[name*="[relation_to_principal]"]'), 'Child');
+            setVal(q('input[name*="[occupation]"]'), 'Student');
+            setVal(q('input[name*="[height]"]'), "4'2\"");
+            setVal(q('input[name*="[weight]"]'), '32');
+            section.querySelectorAll('select[name*="[marital_status]"]').forEach((s) => setVal(s, 'Single'));
+            const female = section.querySelector('input[name*="[gender]"][value="Female"]');
+            if (female) {
+                female.checked = true;
+                dispatch(female);
+            }
+        }
+
+        function fillRemainingEmpty() {
+            if (!form) return;
+            form.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="radio"]):not([type="checkbox"]):not([readonly]), select:not([disabled]), textarea:not([readonly])').forEach((el) => {
+                if (el.readOnly || el.disabled || el.name === 'number_of_dependents') return;
+                if (el.type === 'file') return;
+                if (el.value && String(el.value).trim() !== '') return;
+                if (el.tagName === 'SELECT') {
+                    const opts = Array.from(el.options).filter((o) => o.value !== '');
+                    if (opts.length) {
+                        el.value = opts[0].value;
+                        dispatch(el);
                     }
-                }, 100);
-            }
-        }, 200);
-
-        // Set deductible to YES
-        setTimeout(() => {
-            const deductibleYes = document.querySelector('input[name="has_deductible"][value="1"]');
-            if (deductibleYes) {
-                deductibleYes.checked = true;
-                deductibleYes.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }, 300);
-
-        // Answer medical questions (set all to "no" for simplicity)
-        setTimeout(() => {
-            document.querySelectorAll('.question-response[type="radio"][value="no"]').forEach(radio => {
-                radio.checked = true;
-                radio.dispatchEvent(new Event('change', { bubbles: true }));
+                    return;
+                }
+                if (el.type === 'date') el.value = '2000-01-01';
+                else if (el.type === 'number') el.value = '0';
+                else el.value = 'TEST';
+                dispatch(el);
             });
-        }, 350);
+        }
 
-        // Trigger premium calculation
+        // Stagger so plan-specific UI enables before benefits / premium block
         setTimeout(() => {
-            if (typeof calculatePremium === 'function') {
-                calculatePremium();
-            }
-            if (typeof updateDependentsCount === 'function') {
-                updateDependentsCount();
-            }
-        }, 400);
+            tickAllBenefits();
+            fillMedicalAndMedication();
+            fillPremiumPayment();
+        }, 250);
 
-        // Scroll to top to show filled form
+        setTimeout(() => {
+            const addBtn = document.getElementById('add-dependant-btn');
+            if (addBtn && addBtn.style.display !== 'none') {
+                addDependant();
+                setTimeout(() => {
+                    const sections = document.querySelectorAll('.dependant-section');
+                    fillDependantSection(sections[sections.length - 1]);
+                }, 80);
+            }
+        }, 280);
+
+        setTimeout(() => {
+            fillRemainingEmpty();
+            if (typeof calculatePremium === 'function') calculatePremium();
+            if (typeof updateDependentsCount === 'function') updateDependentsCount();
+        }, 550);
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-        alert('Form auto-filled with test data! Review and click "Submit Application" when ready.');
     }
 
     // Count valid dependants (those with at least first name or surname filled)
@@ -1923,7 +1873,6 @@
     // Add dependant
     function addDependant() {
         if (dependantCount >= 8) {
-            alert('Maximum of 8 dependants allowed');
             return;
         }
         
