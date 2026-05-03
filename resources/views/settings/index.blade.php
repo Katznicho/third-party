@@ -2300,6 +2300,7 @@
                             >
                             <p class="text-xs text-slate-500 mt-2">
                                 Number of days a visit authorization remains valid for admitted patients. Common values: 3 days, 7 days, 14 days, 30 days.
+                                When Kashtre registers a visit, we issue a <strong>session code</strong> and set its expiry to the visit date plus this many days (end of day); both sides store it for verification.
                             </p>
                         </div>
 

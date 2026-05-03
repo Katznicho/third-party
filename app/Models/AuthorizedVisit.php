@@ -14,8 +14,10 @@ class AuthorizedVisit extends Model
         'insurance_company_id',
         'kashtre_client_id',
         'visit_id',
+        'session_code',
         'visit_date',
         'expiry_at',
+        'session_expires_at',
         'status',
         'services_category',
         'notes',
@@ -27,6 +29,7 @@ class AuthorizedVisit extends Model
         return [
             'visit_date' => 'date',
             'expiry_at' => 'datetime',
+            'session_expires_at' => 'datetime',
             'sync_data' => 'array',
         ];
     }
@@ -58,16 +61,29 @@ class AuthorizedVisit extends Model
         return $query->where('client_id', $clientId);
     }
 
-    // Check if visit is still valid
+    /**
+     * Visit is valid until the earliest of: Kashtre visit expiry, insurer session expiry (visit date + authorization period days).
+     */
     public function isValid()
     {
         if ($this->status !== 'active') {
             return false;
         }
 
-        if ($this->expiry_at && now()->isAfter($this->expiry_at)) {
-            $this->update(['status' => 'expired']);
-            return false;
+        $deadlines = [];
+        if ($this->expiry_at) {
+            $deadlines[] = $this->expiry_at;
+        }
+        if ($this->session_expires_at) {
+            $deadlines[] = $this->session_expires_at;
+        }
+
+        if ($deadlines !== []) {
+            $effectiveEnd = collect($deadlines)->min();
+            if (now()->isAfter($effectiveEnd)) {
+                $this->update(['status' => 'expired']);
+                return false;
+            }
         }
 
         return true;

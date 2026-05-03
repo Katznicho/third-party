@@ -6,12 +6,27 @@ use App\Http\Controllers\Controller;
 use App\Models\AuthorizedVisit;
 use App\Models\Client;
 use App\Models\InsuranceCompany;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class AuthorizedVisitController extends Controller
 {
+    /**
+     * Session token + expiry from insurer "Visit authorization period (days)" setting.
+     *
+     * @return array{0: string, 1: \Carbon\Carbon}
+     */
+    protected function newVisitSession(InsuranceCompany $insuranceCompany, string $visitDate): array
+    {
+        $periodDays = max(1, min(365, (int) ($insuranceCompany->visit_authorization_period_days ?? 7)));
+        $sessionExpiresAt = Carbon::parse($visitDate)->startOfDay()->addDays($periodDays)->endOfDay();
+        $sessionCode = bin2hex(random_bytes(16));
+
+        return [$sessionCode, $sessionExpiresAt];
+    }
+
     /**
      * Register an authorized visit from Kashtre
      * 
@@ -100,6 +115,8 @@ class AuthorizedVisitController extends Controller
                 ->where('insurance_company_id', $request->insurance_company_id)
                 ->first();
 
+            [$sessionCode, $sessionExpiresAt] = $this->newVisitSession($insuranceCompany, $request->visit_date);
+
             if ($existingVisit) {
                 // Update existing visit
                 Log::info('API-VENDOR: registerAuthorizedVisit - Updating existing visit', [
@@ -111,10 +128,13 @@ class AuthorizedVisitController extends Controller
                 $existingVisit->update([
                     'visit_date' => $request->visit_date,
                     'expiry_at' => $request->expiry_at,
+                    'session_code' => $sessionCode,
+                    'session_expires_at' => $sessionExpiresAt,
                     'services_category' => $request->services_category,
                     'notes' => $request->notes,
                     'sync_data' => $request->all(),
                 ]);
+                $existingVisit->refresh();
 
                 Log::info('API-VENDOR: registerAuthorizedVisit - Visit updated successfully', [
                     'kashtre_client_id' => $request->kashtre_client_id,
@@ -135,6 +155,9 @@ class AuthorizedVisitController extends Controller
                             'status' => $existingVisit->status,
                             'visit_date' => $existingVisit->visit_date->toDateString(),
                             'expiry_at' => $existingVisit->expiry_at?->toDateTimeString(),
+                            'session_code' => $existingVisit->session_code,
+                            'session_expires_at' => $existingVisit->session_expires_at?->toDateTimeString(),
+                            'visit_authorization_period_days' => $insuranceCompany->visit_authorization_period_days ?? 7,
                         ],
                     ],
                 ], 200);
@@ -152,8 +175,10 @@ class AuthorizedVisitController extends Controller
                 'insurance_company_id' => $request->insurance_company_id,
                 'kashtre_client_id' => $request->kashtre_client_id,
                 'visit_id' => $request->visit_id,
+                'session_code' => $sessionCode,
                 'visit_date' => $request->visit_date,
                 'expiry_at' => $request->expiry_at,
+                'session_expires_at' => $sessionExpiresAt,
                 'status' => 'active',
                 'services_category' => $request->services_category,
                 'notes' => $request->notes,
@@ -179,6 +204,9 @@ class AuthorizedVisitController extends Controller
                         'status' => $visit->status,
                         'visit_date' => $visit->visit_date->toDateString(),
                         'expiry_at' => $visit->expiry_at?->toDateTimeString(),
+                        'session_code' => $visit->session_code,
+                        'session_expires_at' => $visit->session_expires_at?->toDateTimeString(),
+                        'visit_authorization_period_days' => $insuranceCompany->visit_authorization_period_days ?? 7,
                     ],
                 ],
             ], 201);
@@ -227,12 +255,14 @@ class AuthorizedVisitController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'visits' => $visits->map(function($visit) {
+                    'visits' => $visits->map(function ($visit) {
                         return [
                             'id' => $visit->id,
                             'visit_id' => $visit->visit_id,
                             'visit_date' => $visit->visit_date->toDateString(),
                             'expiry_at' => $visit->expiry_at?->toDateTimeString(),
+                            'session_code' => $visit->session_code,
+                            'session_expires_at' => $visit->session_expires_at?->toDateTimeString(),
                             'services_category' => $visit->services_category,
                             'status' => $visit->status,
                             'is_valid' => $visit->isValid(),

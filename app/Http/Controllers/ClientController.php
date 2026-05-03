@@ -1540,6 +1540,21 @@ class ClientController extends Controller
         $authorizations = collect();
         $totalMetric = 0;
 
+        $ledgerStatement = collect();
+        $policiesWithDeductible = collect();
+        if ($metric === 'deductible' && !empty($policyIds)) {
+            $ledgerStatement = PolicyDeductibleLedger::with(['policy:id,policy_number'])
+                ->where('insurance_company_id', $insuranceCompanyId)
+                ->whereIn('policy_id', $policyIds)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            $policiesWithDeductible = Policy::whereIn('id', $policyIds)
+                ->where('has_deductible', true)
+                ->orderBy('policy_number')
+                ->get(['id', 'policy_number', 'deductible_amount']);
+        }
+
         if (!empty($policyIds)) {
             $allAuthsQuery = \App\Models\InsuranceAuthorization::where('insurance_company_id', $insuranceCompanyId)
                 ->whereIn('policy_id', $policyIds);
@@ -1576,24 +1591,27 @@ class ClientController extends Controller
             );
         }
 
+        $viewData = [
+            'client' => $client,
+            'authorizations' => $authorizations,
+            'totalMetric' => $totalMetric,
+        ];
+        if ($metric === 'deductible') {
+            $viewData['ledgerStatement'] = $ledgerStatement;
+            $viewData['policiesWithDeductible'] = $policiesWithDeductible;
+        }
+
         if (request('export') === 'pdf') {
-            $pdf = Pdf::loadView($view, [
-                'client' => $client,
-                'authorizations' => $authorizations,
-                'totalMetric' => $totalMetric,
+            $pdf = Pdf::loadView($view, array_merge($viewData, [
                 'isPdfExport' => true,
-            ])->setPaper('a4', 'portrait');
+            ]))->setPaper('a4', 'portrait');
 
             $fileName = $metric . '-usage-' . Str::slug($client->full_name ?? 'client') . '-' . now()->format('YmdHis') . '.pdf';
 
             return $pdf->download($fileName);
         }
 
-        return view($view, [
-            'client' => $client,
-            'authorizations' => $authorizations,
-            'totalMetric' => $totalMetric,
-        ]);
+        return view($view, $viewData);
     }
 
     /**
