@@ -34,8 +34,8 @@ jobs:
             git fetch origin
             git reset --hard "origin/${BRANCH}"
 
-            if [ "${BRANCH}" = "demo" ]; then
-              echo "🔧 Setting KASHTRE_API_URL to demo for demo deploy..."
+            if [ "${BRANCH}" = "demo" ] || [ "${BRANCH}" = "main" ]; then
+              echo "🔧 Setting KASHTRE_API_URL to demo for ${BRANCH} deploy..."
               if grep -q "^KASHTRE_API_URL=" .env; then
                 sed -i "s|^KASHTRE_API_URL=.*|KASHTRE_API_URL=https://demo.kashtre.com|" .env
               else
