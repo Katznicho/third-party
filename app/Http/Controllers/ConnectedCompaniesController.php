@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\ConnectedCompanyServiceExclusion;
 use App\Models\BusinessConnection;
+use App\Models\ConnectedCompanyServiceExclusion;
+use App\Services\InsurerPortalLedgerPresenter;
 use App\Services\KashtreApiService;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -165,7 +166,7 @@ class ConnectedCompaniesController extends Controller
     }
 
     /**
-     * Financial summary for a connected provider — mirrors Kashtre’s third-party vendor detail (ledger, invoices, exclusions).
+     * Financial summary for a connected provider — mirrors Kashtre third-party vendor detail (Items + Transactions; statement by item or transaction).
      */
     public function financial(int $connectionId, KashtreApiService $kashtreApi)
     {
@@ -196,12 +197,16 @@ class ConnectedCompaniesController extends Controller
             $ledgerError = 'This connection is not linked to a provider business id yet.';
         }
 
+        $recent = collect($ledger['recent_transactions'] ?? []);
+        $itemStatementRows = InsurerPortalLedgerPresenter::rowsFromHistoryArrays($recent);
+
         return view('connected-companies.financial', [
             'insuranceCompany' => $insuranceCompany,
             'connection' => $connection,
             'ledger' => $ledger,
             'ledgerError' => $ledgerError,
             'kashtreBusinessId' => $kashtreBusinessId,
+            'itemStatementRows' => $itemStatementRows,
         ]);
     }
 
@@ -224,6 +229,11 @@ class ConnectedCompaniesController extends Controller
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 50;
 
+        $statementView = $request->query('view', 'items');
+        if (! in_array($statementView, ['items', 'transactions'], true)) {
+            $statementView = 'items';
+        }
+
         $history = null;
         $historyError = null;
 
@@ -243,12 +253,19 @@ class ConnectedCompaniesController extends Controller
             $historyError = 'This connection is not linked to a provider business id yet.';
         }
 
+        $rows = collect($history['rows'] ?? []);
+        $itemStatementRows = $statementView === 'items'
+            ? InsurerPortalLedgerPresenter::rowsFromHistoryArrays($rows)
+            : collect();
+
         return view('connected-companies.financial-statement', [
             'insuranceCompany' => $insuranceCompany,
             'connection' => $connection,
             'history' => $history,
             'historyError' => $historyError,
             'page' => $page,
+            'statementView' => $statementView,
+            'itemStatementRows' => $itemStatementRows,
         ]);
     }
 

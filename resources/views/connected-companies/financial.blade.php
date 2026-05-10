@@ -120,7 +120,7 @@
                                 <p class="text-xs text-slate-500 mt-1">Credit limit changes are requested by the service provider in Kashtre.</p>
                             </div>
                         </dl>
-                        <a href="{{ route('connected-companies.financial-statement', $connection->id) }}"
+                        <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'items']) }}"
                            class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700">
                             Open financial summary
                         </a>
@@ -136,26 +136,109 @@
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="border-b border-slate-200">
             <nav class="-mb-px flex" aria-label="Tabs">
-                <button type="button" onclick="showTabCc('transactions')" id="tab-cc-transactions" class="tab-cc-btn active w-1/3 py-4 px-4 text-center border-b-2 font-medium text-sm">
-                    <span class="border-b-2 border-blue-500 pb-4 px-1 text-blue-600">Transactions</span>
+                <button type="button" onclick="showTabCc('items')" id="tab-cc-items" class="tab-cc-btn active w-1/2 py-4 px-4 text-center border-b-2 font-medium text-sm">
+                    <span class="border-b-2 border-blue-500 pb-4 px-1 text-blue-600">Items</span>
                 </button>
-                <button type="button" onclick="showTabCc('invoices')" id="tab-cc-invoices" class="tab-cc-btn w-1/3 py-4 px-4 text-center border-b-2 font-medium text-sm">
-                    <span class="border-b-2 border-transparent pb-4 px-1 text-slate-500 hover:text-slate-700">Invoices</span>
-                </button>
-                <button type="button" onclick="showTabCc('exclusions')" id="tab-cc-exclusions" class="tab-cc-btn w-1/3 py-4 px-4 text-center border-b-2 font-medium text-sm">
-                    <span class="border-b-2 border-transparent pb-4 px-1 text-slate-500 hover:text-slate-700">Service Exclusions</span>
+                <button type="button" onclick="showTabCc('transactions')" id="tab-cc-transactions" class="tab-cc-btn w-1/2 py-4 px-4 text-center border-b-2 font-medium text-sm">
+                    <span class="border-b-2 border-transparent pb-4 px-1 text-slate-500 hover:text-slate-700">Transactions</span>
                 </button>
             </nav>
         </div>
 
-        <div id="content-cc-transactions" class="tab-cc-content p-6">
+        <div id="content-cc-items" class="tab-cc-content p-6">
             <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
                 <div>
-                    <h3 class="text-lg font-medium text-slate-900">Recent Transactions</h3>
-                    <p class="text-sm text-slate-500">Showing last 10 transactions</p>
+                    <h3 class="text-lg font-medium text-slate-900">Recent activity by item</h3>
+                    <p class="text-sm text-slate-500">Each debit is split across invoice line items by line totals when Kashtre sends item rows; credits stay one row each.</p>
                 </div>
-                <a href="{{ route('connected-companies.financial-statement', $connection->id) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-                    View Full Statement
+                <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'items']) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                    View full statement (by item)
+                </a>
+            </div>
+
+            @if(isset($itemStatementRows) && $itemStatementRows->count() > 0)
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Item / line</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invoice</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Type</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Amount</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Balance</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach($itemStatementRows as $row)
+                                <tr>
+                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">{{ !empty($row['created_at']) ? \Carbon\Carbon::parse($row['created_at'])->format('Y-m-d H:i:s') : '—' }}</td>
+                                    <td class="px-4 py-3 text-slate-800">
+                                        <span class="font-medium">{{ $row['line_label'] ?? '—' }}</span>
+                                        @if(!empty($row['detail_description']) && ($row['detail_description'] ?? '') !== ($row['line_label'] ?? ''))
+                                            <div class="text-xs text-slate-500 mt-0.5">{{ $row['detail_description'] }}</div>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">
+                                        @if(!empty($row['client']))
+                                            <span class="font-medium">{{ $row['client']['name'] ?? '' }}</span>
+                                            @if(!empty($row['client']['client_id']))
+                                                <br><span class="text-xs text-slate-500">ID: {{ $row['client']['client_id'] }}</span>
+                                            @endif
+                                        @else
+                                            <span class="text-slate-400">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">{{ data_get($row, 'invoice.invoice_number', 'N/A') }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs rounded-full {{ ($row['transaction_type'] ?? '') === 'credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                            {{ ucfirst($row['transaction_type'] ?? '') }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium {{ ($row['transaction_type'] ?? '') === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                                        {{ ($row['transaction_type'] ?? '') === 'credit' ? '+' : '-' }}{{ number_format((float) ($row['amount'] ?? 0), 2) }} UGX
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">
+                                        @if($row['new_balance'] !== null)
+                                            {{ number_format((float) $row['new_balance'], 2) }} UGX
+                                        @else
+                                            <span class="text-slate-400">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        @if(!empty($row['payment_status']))
+                                            <span class="px-2 py-1 text-xs rounded-full {{ $row['payment_status'] === 'paid' ? 'bg-green-100 text-green-800' : ($row['payment_status'] === 'pending_payment' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800') }}">
+                                                {{ ucfirst(str_replace('_', ' ', $row['payment_status'])) }}
+                                            </span>
+                                        @else
+                                            <span class="text-slate-400">N/A</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 text-center">
+                    <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'items']) }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                        View full statement (by item) →
+                    </a>
+                </div>
+            @else
+                <p class="text-sm text-slate-500 text-center py-8">No activity yet.</p>
+            @endif
+        </div>
+
+        <div id="content-cc-transactions" class="tab-cc-content p-6 hidden">
+            <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+                <div>
+                    <h3 class="text-lg font-medium text-slate-900">Recent transactions</h3>
+                    <p class="text-sm text-slate-500">Showing last 10 ledger rows</p>
+                </div>
+                <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'transactions']) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                    View full statement (by transaction)
                 </a>
             </div>
 
@@ -221,95 +304,12 @@
                     </table>
                 </div>
                 <div class="mt-4 text-center">
-                    <a href="{{ route('connected-companies.financial-statement', $connection->id) }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
-                        View all transactions →
+                    <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'transactions']) }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                        View full statement (by transaction) →
                     </a>
                 </div>
             @else
                 <p class="text-sm text-slate-500 text-center py-8">No transactions yet.</p>
-            @endif
-        </div>
-
-        <div id="content-cc-invoices" class="tab-cc-content p-6 hidden">
-            <div class="mb-4">
-                <h3 class="text-lg font-medium text-slate-900">Invoices</h3>
-                <p class="text-sm text-slate-500">Invoices linked to this insurer at this provider (from Kashtre).</p>
-            </div>
-            @php $invRows = $ledger['invoices'] ?? []; @endphp
-            @if(count($invRows) > 0)
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200 text-sm">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invoice #</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Business</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Total</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Paid</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Due</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            @foreach($invRows as $inv)
-                                @php $ps = $inv['payment_status'] ?? 'pending_payment'; @endphp
-                                <tr>
-                                    <td class="px-4 py-3 font-medium text-slate-900">{{ $inv['invoice_number'] ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-slate-800">
-                                        {{ $inv['client_name'] ?? '—' }}
-                                        @if(!empty($inv['client_id']))
-                                            <div class="text-xs text-slate-500">ID: {{ $inv['client_id'] }}</div>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-slate-800">
-                                        {{ $inv['business_name'] ?? 'N/A' }}
-                                        @if(!empty($inv['branch_name']))
-                                            <div class="text-xs text-slate-500">{{ $inv['branch_name'] }}</div>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-right">UGX {{ number_format($inv['total_amount'] ?? 0, 2) }}</td>
-                                    <td class="px-4 py-3 text-right text-emerald-700">UGX {{ number_format($inv['amount_paid'] ?? 0, 2) }}</td>
-                                    <td class="px-4 py-3 text-right {{ ($inv['balance_due'] ?? 0) > 0 ? 'text-red-600' : 'text-emerald-600' }}">UGX {{ number_format($inv['balance_due'] ?? 0, 2) }}</td>
-                                    <td class="px-4 py-3">
-                                        @php
-                                            $colors = ['paid' => 'bg-green-100 text-green-800', 'pending_payment' => 'bg-amber-100 text-amber-800', 'partial' => 'bg-blue-100 text-blue-800'];
-                                            $c = $colors[$ps] ?? 'bg-slate-100 text-slate-700';
-                                        @endphp
-                                        <span class="px-2 py-1 text-xs rounded-full {{ $c }}">{{ ucfirst(str_replace('_', ' ', $ps)) }}</span>
-                                    </td>
-                                    <td class="px-4 py-3 text-slate-500">
-                                        {{ !empty($inv['created_at']) ? \Carbon\Carbon::parse($inv['created_at'])->format('M d, Y') : '—' }}
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-                <p class="text-sm text-slate-500 text-center py-8">No invoices found for this vendor pairing.</p>
-            @endif
-        </div>
-
-        <div id="content-cc-exclusions" class="tab-cc-content p-6 hidden">
-            <div class="mb-4">
-                <h3 class="text-lg font-medium text-slate-900">Service Exclusions</h3>
-                <p class="text-sm text-slate-500">
-                    Items excluded for <span class="font-semibold">{{ $insuranceCompany->name }}</span> at this provider (managed in Kashtre).
-                </p>
-            </div>
-            @php $ex = $ledger['excluded_items'] ?? []; @endphp
-            @if(count($ex) > 0)
-                <ul class="divide-y divide-slate-100 border border-slate-200 rounded-lg">
-                    @foreach($ex as $item)
-                        <li class="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-sm">
-                            <span class="font-medium text-slate-900">{{ $item['name'] ?? '—' }}</span>
-                            <span class="text-slate-500"><code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ $item['code'] ?? '' }}</code> @if(!empty($item['type']))<span class="text-xs">({{ $item['type'] }})</span>@endif</span>
-                        </li>
-                    @endforeach
-                </ul>
-            @else
-                <p class="text-sm text-slate-500">No item-level exclusions for this payer.</p>
             @endif
         </div>
     </div>
