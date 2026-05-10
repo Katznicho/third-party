@@ -3,17 +3,17 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use App\Notifications\ResetPasswordNotification;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -22,6 +22,14 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'surname',
+        'first_name',
+        'middle_name',
+        'national_id',
+        'department',
+        'gender',
+        'birth_date',
+        'marital_status',
         'username',
         'email',
         'password',
@@ -51,7 +59,17 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'permissions' => 'array',
+            'birth_date' => 'date',
         ];
+    }
+
+    public function hrAge(): ?int
+    {
+        if ($this->birth_date === null) {
+            return null;
+        }
+
+        return $this->birth_date->age;
     }
 
     public function insuranceCompany(): BelongsTo

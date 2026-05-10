@@ -22,23 +22,109 @@
             @csrf
             @method('PUT')
 
-            <!-- Name -->
-            <div>
-                <label for="name" class="block text-sm font-medium text-slate-700 mb-2">
-                    Full Name <span class="text-red-500">*</span>
-                </label>
-                <input 
-                    type="text" 
-                    name="name" 
-                    id="name" 
-                    value="{{ old('name', $user->name) }}"
-                    placeholder="Enter full name"
-                    required
-                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('name') border-red-500 @enderror"
-                >
-                @error('name')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
+            <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-4">
+                <p class="text-sm font-medium text-slate-800">Staff / HR details</p>
+                <p class="text-xs text-slate-600">Optional fields. Display name resolution: preferred name below, or surname/first/middle, or email prefix.</p>
+
+                <div>
+                    <label for="name" class="block text-sm font-medium text-slate-700 mb-2">
+                        Preferred display name <span class="text-slate-400 font-normal">(optional)</span>
+                    </label>
+                    <input
+                        type="text"
+                        name="name"
+                        id="name"
+                        value="{{ old('name', $user->name) }}"
+                        placeholder="Leave blank to rebuild from structured name or email"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('name') border-red-500 @enderror"
+                    >
+                    @error('name')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="surname" class="block text-sm font-medium text-slate-700 mb-2">Surname</label>
+                        <input type="text" name="surname" id="surname" value="{{ old('surname', $user->surname) }}"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('surname') border-red-500 @enderror">
+                        @error('surname')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="first_name" class="block text-sm font-medium text-slate-700 mb-2">First name</label>
+                        <input type="text" name="first_name" id="first_name" value="{{ old('first_name', $user->first_name) }}"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('first_name') border-red-500 @enderror">
+                        @error('first_name')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="middle_name" class="block text-sm font-medium text-slate-700 mb-2">Middle name</label>
+                        <input type="text" name="middle_name" id="middle_name" value="{{ old('middle_name', $user->middle_name) }}"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('middle_name') border-red-500 @enderror">
+                        @error('middle_name')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="national_id" class="block text-sm font-medium text-slate-700 mb-2">National ID (NIN)</label>
+                        <input type="text" name="national_id" id="national_id" value="{{ old('national_id', $user->national_id) }}"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('national_id') border-red-500 @enderror">
+                        @error('national_id')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="department" class="block text-sm font-medium text-slate-700 mb-2">Department</label>
+                        <input type="text" name="department" id="department" value="{{ old('department', $user->department) }}"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('department') border-red-500 @enderror">
+                        @error('department')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="gender" class="block text-sm font-medium text-slate-700 mb-2">Gender</label>
+                        <select name="gender" id="gender"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('gender') border-red-500 @enderror">
+                            <option value="">—</option>
+                            @foreach (['male', 'female', 'other'] as $g)
+                                <option value="{{ $g }}" {{ old('gender', $user->gender) === $g ? 'selected' : '' }}>{{ ucfirst($g) }}</option>
+                            @endforeach
+                        </select>
+                        @error('gender')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="birth_date" class="block text-sm font-medium text-slate-700 mb-2">Date of birth</label>
+                        <input type="date" name="birth_date" id="birth_date" value="{{ old('birth_date', optional($user->birth_date)->format('Y-m-d')) }}"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('birth_date') border-red-500 @enderror">
+                        @error('birth_date')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="marital_status" class="block text-sm font-medium text-slate-700 mb-2">Marital status</label>
+                        <select name="marital_status" id="marital_status"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('marital_status') border-red-500 @enderror">
+                            <option value="">—</option>
+                            @foreach (['single' => 'Single', 'married' => 'Married', 'divorced' => 'Divorced', 'widowed' => 'Widowed', 'separated' => 'Separated', 'other' => 'Other'] as $value => $label)
+                                <option value="{{ $value }}" {{ old('marital_status', $user->marital_status) === $value ? 'selected' : '' }}>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('marital_status')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
             </div>
 
             <!-- Username -->

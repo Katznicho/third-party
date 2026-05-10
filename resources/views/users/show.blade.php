@@ -24,10 +24,48 @@
     <!-- User Details -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Name -->
+            <!-- Display name -->
             <div>
-                <label class="block text-sm font-medium text-slate-500 mb-1">Full Name</label>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Display name</label>
                 <p class="text-lg font-semibold text-slate-900">{{ $user->name }}</p>
+            </div>
+
+            <!-- Structured name -->
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Surname / First / Middle</label>
+                <p class="text-lg font-semibold text-slate-900">
+                    {{ trim(implode(' ', array_filter([$user->surname, $user->first_name, $user->middle_name]))) ?: '—' }}
+                </p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">National ID (NIN)</label>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->national_id ?? '—' }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Department</label>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->department ?? '—' }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Gender</label>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->gender ? ucfirst($user->gender) : '—' }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Date of birth</label>
+                <p class="text-lg font-semibold text-slate-900">{{ optional($user->birth_date)->format('F j, Y') ?? '—' }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Age</label>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->hrAge() !== null ? $user->hrAge() : '—' }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Marital status</label>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->marital_status ? ucfirst(str_replace('_', ' ', $user->marital_status)) : '—' }}</p>
             </div>
 
             <!-- Username -->
