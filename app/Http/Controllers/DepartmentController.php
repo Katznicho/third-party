@@ -14,6 +14,7 @@ class DepartmentController extends Controller
             return redirect()->route('dashboard')
                 ->with('error', 'You must be associated with an insurance company to manage departments.');
         }
+        
 
         return null;
     }
