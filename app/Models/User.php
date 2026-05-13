@@ -27,6 +27,7 @@ class User extends Authenticatable
         'middle_name',
         'national_id',
         'department',
+        'department_id',
         'gender',
         'birth_date',
         'marital_status',
@@ -80,6 +81,19 @@ class User extends Authenticatable
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function structuredDepartment(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    /**
+     * Department label: configured department record, else legacy free-text field.
+     */
+    public function departmentDisplay(): ?string
+    {
+        return $this->structuredDepartment?->name ?? $this->department;
     }
 
     /**

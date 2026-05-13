@@ -86,6 +86,108 @@
                     </div>
                 </div>
 
+                @php
+                    $metaItems = collect($metadata['items'] ?? [])->filter(fn ($row) => is_array($row))->values();
+                    $excludedBreakdownRows = collect($breakdown['excluded_items'] ?? [])->filter(fn ($row) => is_array($row))->values();
+                    $lineRows = $metaItems->map(function (array $row) use ($excludedBreakdownRows) {
+                        $name = trim((string) ($row['name'] ?? $row['displayName'] ?? ''));
+                        if ($name === '') {
+                            $name = '—';
+                        }
+                        $code = isset($row['code']) ? trim((string) $row['code']) : null;
+                        $qty = (float) ($row['quantity'] ?? 1);
+                        $price = (float) ($row['price'] ?? 0);
+                        $total = (float) ($row['total_amount'] ?? ($price * $qty));
+                        $kashtreExcluded = ! empty($row['kashtre_excluded']);
+                        $inBreakdownExcluded = $excludedBreakdownRows->contains(function ($ex) use ($code, $total, $row) {
+                            $exCode = isset($ex['code']) ? trim((string) $ex['code']) : '';
+                            $exAmt = (float) ($ex['amount'] ?? 0);
+                            if ($code !== '' && $exCode !== '' && strcasecmp($code, $exCode) === 0) {
+                                return abs($exAmt - $total) < 0.05;
+                            }
+                            $exName = trim((string) ($ex['name'] ?? ''));
+                            if ($exName !== '' && strcasecmp(trim((string) ($row['name'] ?? $row['displayName'] ?? '')), $exName) === 0) {
+                                return abs($exAmt - $total) < 0.05;
+                            }
+
+                            return false;
+                        });
+                        $isExcluded = $kashtreExcluded || $inBreakdownExcluded;
+
+                        return [
+                            'name' => $name,
+                            'code' => $code ?: '—',
+                            'qty' => $qty,
+                            'price' => $price,
+                            'total' => $total,
+                            'excluded' => $isExcluded,
+                        ];
+                    });
+                    $sumLineTotals = (float) $lineRows->sum('total');
+                    $sumCoveredOnly = (float) $lineRows->where('excluded', false)->sum('total');
+                @endphp
+
+                @if($lineRows->isNotEmpty())
+                    <div class="border-t border-slate-100 pt-4">
+                        <h2 class="text-sm font-semibold text-slate-900">Itemized breakdown</h2>
+                        <p class="text-xs text-slate-500 mt-0.5 mb-3">
+                            Line items received with this request to <strong>{{ $authorization->insuranceCompany?->name ?? 'this insurer' }}</strong> for follow-up. Excluded lines are client responsibility on this visit.
+                        </p>
+                        <div class="overflow-x-auto rounded-md border border-slate-200">
+                            <table class="min-w-full text-xs divide-y divide-slate-200">
+                                <thead class="bg-slate-100">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left font-semibold text-slate-700">Item</th>
+                                        <th class="px-3 py-2 text-left font-semibold text-slate-700">Code</th>
+                                        <th class="px-3 py-2 text-right font-semibold text-slate-700">Qty</th>
+                                        <th class="px-3 py-2 text-right font-semibold text-slate-700">Unit (UGX)</th>
+                                        <th class="px-3 py-2 text-right font-semibold text-slate-700">Line (UGX)</th>
+                                        <th class="px-3 py-2 text-left font-semibold text-slate-700">Coverage</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    @foreach($lineRows as $line)
+                                        <tr class="{{ $line['excluded'] ? 'bg-amber-50/50' : '' }}">
+                                            <td class="px-3 py-2 text-slate-800">{{ $line['name'] }}</td>
+                                            <td class="px-3 py-2 text-slate-600 font-mono">{{ $line['code'] }}</td>
+                                            <td class="px-3 py-2 text-right text-slate-700">{{ rtrim(rtrim(number_format($line['qty'], 4, '.', ''), '0'), '.') }}</td>
+                                            <td class="px-3 py-2 text-right text-slate-700">{{ number_format($line['price'], 2) }}</td>
+                                            <td class="px-3 py-2 text-right font-medium text-slate-900">{{ number_format($line['total'], 2) }}</td>
+                                            <td class="px-3 py-2">
+                                                @if($line['excluded'])
+                                                    <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-900 border border-amber-200">Excluded</span>
+                                                @else
+                                                    <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">In pool</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="bg-slate-50 border-t border-slate-200">
+                                    <tr>
+                                        <td colspan="4" class="px-3 py-2 text-right font-semibold text-slate-700">Sum (all lines)</td>
+                                        <td class="px-3 py-2 text-right font-semibold text-slate-900">UGX {{ number_format($sumLineTotals, 2) }}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="px-3 py-2 text-right text-slate-600">Sum (in coverage pool)</td>
+                                        <td class="px-3 py-2 text-right text-slate-800 font-medium">UGX {{ number_format($sumCoveredOnly, 2) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-2">
+                            Approved amount on this record (UGX {{ number_format((float) ($authorization->total_amount ?? 0), 2) }}) reflects the visit total after exclusions. Use the rejected-items section below for insurer-managed rejections.
+                        </p>
+                    </div>
+                @else
+                    <div class="border-t border-slate-100 pt-4">
+                        <h2 class="text-sm font-semibold text-slate-900">Itemized breakdown</h2>
+                        <p class="text-xs text-slate-500 mt-1">No line-item payload was stored for this authorization (older requests may predate item capture).</p>
+                    </div>
+                @endif
+
                 <div class="border-t border-slate-100 pt-3 space-y-3">
                     @php
                         $approved = $authorization->total_amount ?? 0;

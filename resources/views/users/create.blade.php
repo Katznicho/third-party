@@ -23,24 +23,6 @@
 
             <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-4">
                 <p class="text-sm font-medium text-slate-800">Staff / HR details</p>
-                <p class="text-xs text-slate-600">All fields below are optional. If no name is given, the display name is taken from the email address before <span class="font-mono">@</span>.</p>
-
-                <div>
-                    <label for="name" class="block text-sm font-medium text-slate-700 mb-2">
-                        Preferred display name <span class="text-slate-400 font-normal">(optional)</span>
-                    </label>
-                    <input
-                        type="text"
-                        name="name"
-                        id="name"
-                        value="{{ old('name') }}"
-                        placeholder="Overrides structured name below when filled"
-                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('name') border-red-500 @enderror"
-                    >
-                    @error('name')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -79,12 +61,22 @@
                         @enderror
                     </div>
                     <div>
-                        <label for="department" class="block text-sm font-medium text-slate-700 mb-2">Department</label>
-                        <input type="text" name="department" id="department" value="{{ old('department') }}" placeholder="Department"
-                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('department') border-red-500 @enderror">
-                        @error('department')
+                        <label for="department_id" class="block text-sm font-medium text-slate-700 mb-2">Department</label>
+                        <select name="department_id" id="department_id"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('department_id') border-red-500 @enderror">
+                            <option value="">— None —</option>
+                            @foreach($departments as $dept)
+                                <option value="{{ $dept->id }}" {{ (string) old('department_id') === (string) $dept->id ? 'selected' : '' }}>
+                                    {{ $dept->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('department_id')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
+                        @if($departments->isEmpty())
+                            <p class="mt-1 text-xs text-slate-500">No departments yet. Add them under <span class="font-medium">Organization → Departments</span>.</p>
+                        @endif
                     </div>
                 </div>
 

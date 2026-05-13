@@ -5,12 +5,82 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\BusinessConnection;
 use App\Models\ConnectedCompanyServiceExclusion;
+use App\Models\InsuranceCompany;
 use App\Services\InsurerPortalLedgerPresenter;
 use App\Services\KashtreApiService;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
 
 class ConnectedCompaniesController extends Controller
 {
+    /**
+     * Kashtre items plus merged exclusions (Kashtre + local by code) for a connection.
+     *
+     * @return array{
+     *   allItems: \Illuminate\Support\Collection,
+     *   localExclusions: \Illuminate\Support\Collection,
+     *   excludedItems: \Illuminate\Support\Collection,
+     *   availableItems: \Illuminate\Support\Collection,
+     * }
+     */
+    protected function buildProviderItemCollections(
+        BusinessConnection $connection,
+        InsuranceCompany $insuranceCompany,
+        KashtreApiService $kashtreApi
+    ): array {
+        $kashtreBusinessId = (int) $connection->connected_business_id;
+        $allItems = collect();
+        $localExclusions = collect();
+        $excludedItems = collect();
+        $availableItems = collect();
+
+        if ($kashtreBusinessId <= 0) {
+            return compact('allItems', 'localExclusions', 'excludedItems', 'availableItems');
+        }
+
+        $allItems = collect($kashtreApi->getItemsForBusiness($kashtreBusinessId));
+        $excludedFromKashtre = collect($kashtreApi->getExcludedItemsForProvider($kashtreBusinessId, $insuranceCompany->id));
+
+        Log::info('ConnectedCompaniesController: Kashtre items fetched', [
+            'business_connection_id' => $connection->id,
+            'kashtre_business_id' => $kashtreBusinessId,
+            'all_items_count' => $allItems->count(),
+            'excluded_items_count' => $excludedFromKashtre->count(),
+        ]);
+
+        $localExclusions = ConnectedCompanyServiceExclusion::where('insurance_company_id', $insuranceCompany->id)
+            ->where('business_connection_id', $connection->id)
+            ->where('is_active', true)
+            ->orderBy('service_category')
+            ->orderBy('service_code')
+            ->get();
+
+        $excludedIds = $excludedFromKashtre->pluck('id')->filter()->unique()->all();
+
+        $codesMap = $allItems->pluck('id', 'code');
+        $localExcludedCodes = $localExclusions->pluck('service_code')->filter()->unique()->all();
+        foreach ($localExcludedCodes as $code) {
+            if (isset($codesMap[$code])) {
+                $excludedIds[] = $codesMap[$code];
+            }
+        }
+
+        $namesMap = $allItems->pluck('name', 'code');
+        $localExclusions->transform(function (ConnectedCompanyServiceExclusion $ex) use ($namesMap) {
+            $code = $ex->service_code;
+            $ex->item_name = $code && isset($namesMap[$code]) ? $namesMap[$code] : null;
+
+            return $ex;
+        });
+
+        $excludedIds = array_values(array_unique($excludedIds));
+
+        $excludedItems = $allItems->whereIn('id', $excludedIds)->values();
+        $availableItems = $allItems->whereNotIn('id', $excludedIds)->values();
+
+        return compact('allItems', 'localExclusions', 'excludedItems', 'availableItems');
+    }
+
     /**
      * Display a listing of service providers.
      */
@@ -49,57 +119,22 @@ class ConnectedCompaniesController extends Controller
             ->with('connectedBusiness')
             ->findOrFail($connectionId);
 
-        // Fetch items and excluded items for this provider from Kashtre
-        $kashtreBusinessId = (int) $connection->connected_business_id;
-        $excludedItems = collect();
-        $availableItems = collect();
-        $localExclusions = collect();
+        $itemContext = $this->buildProviderItemCollections($connection, $insuranceCompany, $kashtreApi);
+        $localExclusions = $itemContext['localExclusions'];
+        $excludedItems = $itemContext['excludedItems'];
+        $availableItems = $itemContext['availableItems'];
 
-        if ($kashtreBusinessId > 0) {
-            // All items for this business from Kashtre
-            $allItems = collect($kashtreApi->getItemsForBusiness($kashtreBusinessId));
-            // Items specifically excluded for this insurer+business from Kashtre
-            $excludedFromKashtre = collect($kashtreApi->getExcludedItemsForProvider($kashtreBusinessId, $insuranceCompany->id));
+        $excludeAllEligibleCount = $availableItems->filter(function ($item) {
+            $code = $item['code'] ?? null;
 
-            \Log::info('ConnectedCompaniesController@show: Kashtre items fetched', [
-                'business_connection_id' => $connection->id,
-                'kashtre_business_id' => $kashtreBusinessId,
-                'all_items_count' => $allItems->count(),
-                'excluded_items_count' => $excludedFromKashtre->count(),
-            ]);
+            return $code !== null && $code !== '';
+        })->count();
 
-            // Local (insurer-portal-only) exclusions for this provider
-            $localExclusions = ConnectedCompanyServiceExclusion::where('insurance_company_id', $insuranceCompany->id)
-                ->where('business_connection_id', $connection->id)
-                ->where('is_active', true)
-                ->orderBy('service_category')
-                ->orderBy('service_code')
-                ->get();
+        $localItemExclusionCount = $localExclusions->filter(function ($ex) {
+            $c = $ex->service_code;
 
-            $excludedIds = $excludedFromKashtre->pluck('id')->filter()->unique()->all();
-
-            // Also exclude locally excluded items by matching service_code to item code
-            $codesMap = $allItems->pluck('id', 'code'); // code => id
-            $localExcludedCodes = $localExclusions->pluck('service_code')->filter()->unique()->all();
-            foreach ($localExcludedCodes as $code) {
-                if (isset($codesMap[$code])) {
-                    $excludedIds[] = $codesMap[$code];
-                }
-            }
-
-            // Attach item_name for local exclusions so the view can show names instead of raw codes
-            $namesMap = $allItems->pluck('name', 'code'); // code => name
-            $localExclusions->transform(function (ConnectedCompanyServiceExclusion $ex) use ($namesMap) {
-                $code = $ex->service_code;
-                $ex->item_name = $code && isset($namesMap[$code]) ? $namesMap[$code] : null;
-                return $ex;
-            });
-
-            $excludedIds = array_values(array_unique($excludedIds));
-
-            $excludedItems = $allItems->whereIn('id', $excludedIds)->values();
-            $availableItems = $allItems->whereNotIn('id', $excludedIds)->values();
-        }
+            return $c !== null && $c !== '';
+        })->count();
 
         // Search filter (by name or code)
         $search = trim((string) $request->input('q', ''));
@@ -108,6 +143,7 @@ class ConnectedCompaniesController extends Controller
             $availableItems = $availableItems->filter(function ($item) use ($searchLower) {
                 $name = mb_strtolower((string) ($item['name'] ?? ''));
                 $code = mb_strtolower((string) ($item['code'] ?? ''));
+
                 return str_contains($name, $searchLower) || str_contains($code, $searchLower);
             })->values();
         }
@@ -162,6 +198,8 @@ class ConnectedCompaniesController extends Controller
             'serviceCategories' => $serviceCategories,
             'excludedCategories' => $excludedCategories,
             'availableCategories' => $availableCategories,
+            'excludeAllEligibleCount' => $excludeAllEligibleCount,
+            'localItemExclusionCount' => $localItemExclusionCount,
         ]);
     }
 
@@ -306,6 +344,93 @@ class ConnectedCompaniesController extends Controller
         return redirect()
             ->route('connected-companies.show', $connectionId)
             ->with('success', 'Local exclusion added for this provider.');
+    }
+
+    /**
+     * Add local exclusions for every item currently available for this provider (not already excluded).
+     */
+    public function excludeAllLocalItems(Request $request, int $connectionId, KashtreApiService $kashtreApi)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+
+        if (! $insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:1000',
+        ]);
+
+        $itemContext = $this->buildProviderItemCollections($connection, $insuranceCompany, $kashtreApi);
+        $availableItems = $itemContext['availableItems'];
+
+        $codes = $availableItems
+            ->pluck('code')
+            ->filter(fn ($c) => $c !== null && $c !== '')
+            ->unique()
+            ->values();
+
+        if ($codes->isEmpty()) {
+            return redirect()
+                ->route('connected-companies.show', $connectionId)
+                ->with('warning', 'There are no available items with a service code to exclude.');
+        }
+
+        $reason = $validated['reason'] ?? null;
+        $count = 0;
+
+        foreach ($codes as $code) {
+            ConnectedCompanyServiceExclusion::updateOrCreate(
+                [
+                    'insurance_company_id' => $insuranceCompany->id,
+                    'business_connection_id' => $connection->id,
+                    'service_code' => $code,
+                ],
+                [
+                    'service_category' => null,
+                    'reason' => $reason,
+                    'is_active' => true,
+                ]
+            );
+            $count++;
+        }
+
+        return redirect()
+            ->route('connected-companies.show', $connectionId)
+            ->with('success', "Local exclusions added for {$count} item(s).");
+    }
+
+    /**
+     * Remove all item-level local exclusions for this provider (category exclusions unchanged).
+     */
+    public function unexcludeAllLocalItems(int $connectionId)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+
+        if (! $insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+
+        $deleted = ConnectedCompanyServiceExclusion::query()
+            ->where('insurance_company_id', $insuranceCompany->id)
+            ->where('business_connection_id', $connection->id)
+            ->whereNotNull('service_code')
+            ->where('service_code', '!=', '')
+            ->delete();
+
+        if ($deleted === 0) {
+            return redirect()
+                ->route('connected-companies.show', $connectionId)
+                ->with('warning', 'There were no local item exclusions to remove.');
+        }
+
+        return redirect()
+            ->route('connected-companies.show', $connectionId)
+            ->with('success', "Removed {$deleted} local item exclusion(s).");
     }
 
     /**

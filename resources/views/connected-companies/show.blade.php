@@ -5,6 +5,22 @@
 
 @section('content')
 <div class="space-y-6">
+    @if(session('success'))
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if(session('warning'))
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {{ session('warning') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <!-- Back link -->
     <div>
         <a href="{{ route('connected-companies.index') }}" class="inline-flex items-center text-sm text-slate-600 hover:text-slate-800">
@@ -301,13 +317,13 @@
                             </p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-700 mb-1" for="reason">
+                            <label class="block text-xs font-medium text-slate-700 mb-1" for="category_exclusion_reason">
                                 Reason (optional)
                             </label>
                             <input
                                 type="text"
                                 name="reason"
-                                id="reason"
+                                id="category_exclusion_reason"
                                 class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-red-500 focus:border-red-500"
                                 placeholder="e.g. Not covered in our contract with this provider"
                             >
@@ -363,6 +379,42 @@
                         </p>
                     @endif
 
+                    <div class="mb-6 flex flex-col gap-4">
+                        <div class="flex flex-col lg:flex-row lg:items-end lg:flex-wrap gap-3">
+                            <form method="POST" action="{{ route('connected-companies.local-exclusions.exclude-all', $connection->id) }}" class="flex flex-1 min-w-0 flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3" onsubmit="return confirm('Exclude ALL currently available items for this provider? This adds a local exclusion for each item with a service code.');">
+                                @csrf
+                                <div class="flex-1 min-w-[200px] max-w-md">
+                                    <label class="block text-xs font-medium text-slate-700 mb-1" for="exclude_all_reason">Reason (optional, applies to all)</label>
+                                    <input
+                                        type="text"
+                                        name="reason"
+                                        id="exclude_all_reason"
+                                        class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-red-500 focus:border-red-500"
+                                        placeholder="e.g. Contract excludes all procedures at this site"
+                                    >
+                                    <p class="mt-1 text-[11px] text-slate-500">Uses the full provider item list (not the search filter on the other tab).</p>
+                                </div>
+                                <button
+                                    type="submit"
+                                    class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-red-300 bg-red-50 text-red-800 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    @if(($excludeAllEligibleCount ?? 0) === 0) disabled title="No available items with codes" @endif
+                                >
+                                    Exclude all ({{ $excludeAllEligibleCount ?? 0 }})
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ route('connected-companies.local-exclusions.unexclude-all', $connection->id) }}" class="shrink-0 flex items-end" onsubmit="return confirm('Remove all item-level local exclusions for this provider? Category exclusions are not changed.');">
+                                @csrf
+                                <button
+                                    type="submit"
+                                    class="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    @if(($localItemExclusionCount ?? 0) === 0) disabled title="No local item exclusions" @endif
+                                >
+                                    Unexclude all ({{ $localItemExclusionCount ?? 0 }})
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
                     <form method="POST" action="{{ route('connected-companies.local-exclusions.store', $connection->id) }}" class="space-y-3 max-w-md">
                         @csrf
                         <div>
@@ -375,7 +427,7 @@
                                 multiple
                                 size="8"
                                 class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-blue-500 focus:border-blue-500"
-                                required
+                                @if($items->count() > 0) required @endif
                             >
                                 @foreach($items as $item)
                                     @if(!empty($item['code']))
@@ -390,13 +442,13 @@
                             </p>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-slate-700 mb-1" for="reason">
+                            <label class="block text-xs font-medium text-slate-700 mb-1" for="local_exclusion_reason">
                                 Reason (optional)
                             </label>
                             <input
                                 type="text"
                                 name="reason"
-                                id="reason"
+                                id="local_exclusion_reason"
                                 class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-blue-500 focus:border-blue-500"
                                 placeholder="e.g. Not covered in our contract with this provider"
                             >

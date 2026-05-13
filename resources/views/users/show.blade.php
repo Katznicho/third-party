@@ -45,7 +45,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-slate-500 mb-1">Department</label>
-                <p class="text-lg font-semibold text-slate-900">{{ $user->department ?? '—' }}</p>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->departmentDisplay() ?: '—' }}</p>
             </div>
 
             <div>

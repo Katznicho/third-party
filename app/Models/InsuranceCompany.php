@@ -161,6 +161,11 @@ class InsuranceCompany extends Model
         return $this->hasMany(User::class);
     }
 
+    public function departments(): HasMany
+    {
+        return $this->hasMany(Department::class);
+    }
+
     public function policies(): HasMany
     {
         return $this->hasMany(Policy::class);

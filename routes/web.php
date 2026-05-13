@@ -95,12 +95,17 @@ Route::middleware('auth')->group(function () {
     // Roles & permissions
     Route::resource('roles', \App\Http\Controllers\RoleController::class);
 
+    // Departments (per insurance company)
+    Route::resource('departments', \App\Http\Controllers\DepartmentController::class)->except(['show']);
+
     // Service Providers
     Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
     Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');
     Route::get('/connected-companies/{connectionId}/financial/statement', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financialStatement'])->name('connected-companies.financial-statement');
     Route::get('/connected-companies/{connectionId}/financial', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financial'])->name('connected-companies.financial');
     Route::post('/connected-companies/{connectionId}/local-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeLocalExclusion'])->name('connected-companies.local-exclusions.store');
+    Route::post('/connected-companies/{connectionId}/local-exclusions/exclude-all', [\App\Http\Controllers\ConnectedCompaniesController::class, 'excludeAllLocalItems'])->name('connected-companies.local-exclusions.exclude-all');
+    Route::post('/connected-companies/{connectionId}/local-exclusions/unexclude-all', [\App\Http\Controllers\ConnectedCompaniesController::class, 'unexcludeAllLocalItems'])->name('connected-companies.local-exclusions.unexclude-all');
     Route::post('/connected-companies/{connectionId}/category-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeCategoryExclusion'])->name('connected-companies.category-exclusions.store');
     Route::post('/connected-companies/{connectionId}/block', [\App\Http\Controllers\ConnectedCompaniesController::class, 'block'])->name('connected-companies.block');
     Route::post('/connected-companies/{connectionId}/reactivate', [\App\Http\Controllers\ConnectedCompaniesController::class, 'reactivate'])->name('connected-companies.reactivate');
