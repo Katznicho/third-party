@@ -56,6 +56,12 @@ Route::prefix('v1')->group(function () {
     
     // Get connected vendors for a business (public, for kashtre entities)
     Route::get('/businesses/{businessId}/connected-vendors', [BusinessController::class, 'getConnectedVendors'])->name('api.businesses.connected-vendors');
+
+    // Per-item coverage % for insurer + Kashtre provider (default 100% when omitted)
+    Route::get(
+        '/businesses/{connectedBusinessId}/insurance-companies/{insuranceCompanyId}/item-coverages',
+        [\App\Http\Controllers\Api\ConnectedCompanyItemCoverageController::class, 'index']
+    )->name('api.businesses.item-coverages');
     
     // Verify policy number exists (public, for client registration)
     // Supports both GET (policy number only) and POST (with alternative verification data)

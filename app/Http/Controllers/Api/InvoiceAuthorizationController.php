@@ -11,9 +11,11 @@ use App\Models\ServiceCategory;
 use App\Models\PreAuthorization;
 use App\Models\AuthorizationAuditLog;
 use App\Models\BusinessConnection;
+use App\Models\ConnectedCompanyItemCoverage;
 use App\Models\ConnectedCompanyServiceExclusion;
 use App\Models\MedicalQuestionResponse;
 use App\Models\RejectedItem;
+use App\Services\ConnectedCompanyItemCoverageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -497,6 +499,18 @@ class InvoiceAuthorizationController extends Controller
             }
         }
 
+        // 4) Partial coverage (insurer × provider item %; default 100% when not configured)
+        if ($connection) {
+            [$partialExcluded, $excludedItemDetails] = app(ConnectedCompanyItemCoverageService::class)
+                ->applyPartialCoverageToAuthorization(
+                    $itemsPayload,
+                    $excludedItemDetails,
+                    $insuranceCompanyId,
+                    (int) $connection->id
+                );
+            $excludedAmount += $partialExcluded;
+        }
+
         // Cap excludedAmount at totalAmount to avoid negatives
         $excludedAmount = min($excludedAmount, $totalAmount);
 
@@ -703,7 +717,9 @@ class InvoiceAuthorizationController extends Controller
 
         // Store excluded/rejected line items in a dedicated table for reliable list/detail display.
         if (!empty($excludedItemDetails)) {
-            $rows = collect($excludedItemDetails)->map(function ($item) use ($auth) {
+            $rows = collect($excludedItemDetails)
+                ->filter(fn ($item) => ($item['reason_scope'] ?? '') !== ConnectedCompanyItemCoverage::REASON_SCOPE_PARTIAL)
+                ->map(function ($item) use ($auth) {
                 return [
                     'insurance_authorization_id' => $auth->id,
                     'item_name' => $item['name'] ?? '—',

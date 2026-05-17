@@ -227,28 +227,69 @@
         <!-- Available items tab -->
         <div id="cc-items-available" class="px-6 py-4">
             @if($items->count() > 0)
-                <div class="overflow-x-auto">
+                <p class="text-xs text-slate-500 mb-3">
+                    Set what share of each item line <strong>this insurer</strong> pays at this provider. Default is <strong>100%</strong> (full line).
+                    If you set e.g. <strong>50%</strong>, this insurer pays half and the remainder is sent to the <strong>next insurer in cascade priority</strong> on Kashtre (not an extra client charge when that insurer accepts it).
+                    Use exclusions for items not covered at all.
+                </p>
+                <form method="POST" action="{{ route('connected-companies.item-coverages.update', $connection->id) }}">
+                    @csrf
+                    <input type="hidden" name="return_q" value="{{ request('q') }}">
+                    <input type="hidden" name="return_page" value="{{ request('page') }}">
+                    <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-slate-200 text-sm">
                         <thead class="bg-slate-50">
                             <tr>
                                 <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Item</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide w-40">Coverage %</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            @foreach($items as $item)
+                            @foreach($items as $index => $item)
+                                @php
+                                    $code = $item['code'] ?? '';
+                                    $pct = (float) ($item['coverage_percent'] ?? 100);
+                                @endphp
                                 <tr>
                                     <td class="px-4 py-2 text-slate-900">
                                         {{ $item['name'] ?? 'N/A' }}
+                                        @if($code)
+                                            <span class="text-xs text-slate-400 font-mono ml-1">({{ $code }})</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-2">
+                                        @if($code)
+                                            <input type="hidden" name="coverages[{{ $index }}][service_code]" value="{{ $code }}">
+                                            <div class="flex items-center gap-1">
+                                                <input
+                                                    type="number"
+                                                    name="coverages[{{ $index }}][coverage_percent]"
+                                                    value="{{ $pct == (int) $pct ? (int) $pct : number_format($pct, 2, '.', '') }}"
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.01"
+                                                    class="w-24 border border-slate-300 rounded-md px-2 py-1 text-sm focus:ring-blue-500 focus:border-blue-500"
+                                                >
+                                                <span class="text-slate-500 text-xs">%</span>
+                                            </div>
+                                        @else
+                                            <span class="text-xs text-slate-400">No code</span>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
-                </div>
-
-                <div class="px-2 pt-4">
-                    {{ $items->appends(['q' => request('q')])->links() }}
-                </div>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-3 mt-4 px-2">
+                        <div>
+                            {{ $items->appends(['q' => request('q')])->links() }}
+                        </div>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700">
+                            Save coverage %
+                        </button>
+                    </div>
+                </form>
             @else
                 <div class="px-6 py-10 text-center text-sm text-slate-500">
                     <p>No items match your current filters.</p>

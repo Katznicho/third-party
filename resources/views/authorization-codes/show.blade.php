@@ -99,7 +99,24 @@
                         $price = (float) ($row['price'] ?? 0);
                         $total = (float) ($row['total_amount'] ?? ($price * $qty));
                         $kashtreExcluded = ! empty($row['kashtre_excluded']);
-                        $inBreakdownExcluded = $excludedBreakdownRows->contains(function ($ex) use ($code, $total, $row) {
+                        $partialRow = $excludedBreakdownRows->first(function ($ex) use ($code, $row) {
+                            if (($ex['reason_scope'] ?? '') !== 'partial_coverage') {
+                                return false;
+                            }
+                            $exCode = isset($ex['code']) ? trim((string) $ex['code']) : '';
+                            if ($code !== '' && $exCode !== '' && strcasecmp($code, $exCode) === 0) {
+                                return true;
+                            }
+                            $exName = trim((string) ($ex['name'] ?? ''));
+                            $rowName = trim((string) ($row['name'] ?? $row['displayName'] ?? ''));
+
+                            return $exName !== '' && $rowName !== '' && strcasecmp($rowName, $exName) === 0;
+                        });
+
+                        $inBreakdownExcluded = $partialRow === null && $excludedBreakdownRows->contains(function ($ex) use ($code, $total, $row) {
+                            if (($ex['reason_scope'] ?? '') === 'partial_coverage') {
+                                return false;
+                            }
                             $exCode = isset($ex['code']) ? trim((string) $ex['code']) : '';
                             $exAmt = (float) ($ex['amount'] ?? 0);
                             if ($code !== '' && $exCode !== '' && strcasecmp($code, $exCode) === 0) {
@@ -121,6 +138,9 @@
                             'price' => $price,
                             'total' => $total,
                             'excluded' => $isExcluded,
+                            'partial' => $partialRow !== null,
+                            'coverage_percent' => $partialRow ? (float) ($partialRow['coverage_percent'] ?? 100) : null,
+                            'client_portion' => $partialRow ? (float) ($partialRow['amount'] ?? 0) : null,
                         ];
                     });
                     $sumLineTotals = (float) $lineRows->sum('total');
@@ -156,6 +176,13 @@
                                             <td class="px-3 py-2">
                                                 @if($line['excluded'])
                                                     <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-900 border border-amber-200">Excluded</span>
+                                                @elseif(!empty($line['partial']))
+                                                    <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-900 border border-blue-200">
+                                                        {{ rtrim(rtrim(number_format((float) ($line['coverage_percent'] ?? 0), 2, '.', ''), '0'), '.') }}% covered
+                                                        @if(!empty($line['client_portion']))
+                                                            · client UGX {{ number_format((float) $line['client_portion'], 2) }}
+                                                        @endif
+                                                    </span>
                                                 @else
                                                     <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">In pool</span>
                                                 @endif

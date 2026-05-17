@@ -103,6 +103,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');
     Route::get('/connected-companies/{connectionId}/financial/statement', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financialStatement'])->name('connected-companies.financial-statement');
     Route::get('/connected-companies/{connectionId}/financial', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financial'])->name('connected-companies.financial');
+    Route::post('/connected-companies/{connectionId}/item-coverages', [\App\Http\Controllers\ConnectedCompaniesController::class, 'updateItemCoverages'])->name('connected-companies.item-coverages.update');
     Route::post('/connected-companies/{connectionId}/local-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeLocalExclusion'])->name('connected-companies.local-exclusions.store');
     Route::post('/connected-companies/{connectionId}/local-exclusions/exclude-all', [\App\Http\Controllers\ConnectedCompaniesController::class, 'excludeAllLocalItems'])->name('connected-companies.local-exclusions.exclude-all');
     Route::post('/connected-companies/{connectionId}/local-exclusions/unexclude-all', [\App\Http\Controllers\ConnectedCompaniesController::class, 'unexcludeAllLocalItems'])->name('connected-companies.local-exclusions.unexclude-all');

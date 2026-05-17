@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\BusinessConnection;
+use App\Models\ConnectedCompanyItemCoverage;
 use App\Models\ConnectedCompanyServiceExclusion;
 use App\Models\InsuranceCompany;
 use App\Services\InsurerPortalLedgerPresenter;
@@ -77,6 +78,24 @@ class ConnectedCompaniesController extends Controller
 
         $excludedItems = $allItems->whereIn('id', $excludedIds)->values();
         $availableItems = $allItems->whereNotIn('id', $excludedIds)->values();
+
+        $coverageMap = ConnectedCompanyItemCoverage::activeMapForConnection(
+            (int) $insuranceCompany->id,
+            (int) $connection->id
+        );
+
+        $availableItems = $availableItems->map(function (array $item) use ($coverageMap) {
+            $code = trim((string) ($item['code'] ?? ''));
+            $percent = 100.0;
+            if ($code !== '' && $coverageMap->has(mb_strtolower($code))) {
+                $percent = ConnectedCompanyItemCoverage::normalizePercent(
+                    (float) $coverageMap->get(mb_strtolower($code))->coverage_percent
+                );
+            }
+            $item['coverage_percent'] = $percent;
+
+            return $item;
+        });
 
         return compact('allItems', 'localExclusions', 'excludedItems', 'availableItems');
     }
@@ -305,6 +324,82 @@ class ConnectedCompaniesController extends Controller
             'statementView' => $statementView,
             'itemStatementRows' => $itemStatementRows,
         ]);
+    }
+
+    /**
+     * Save per-item coverage percentages for this provider (default 100% when omitted).
+     */
+    public function updateItemCoverages(Request $request, int $connectionId)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+
+        if (! $insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+
+        $validated = $request->validate([
+            'coverages' => 'nullable|array',
+            'coverages.*.service_code' => 'required|string|max:255',
+            'coverages.*.coverage_percent' => 'required|numeric|min:0|max:100',
+        ]);
+
+        $rows = $validated['coverages'] ?? [];
+        $saved = 0;
+        $removed = 0;
+
+        foreach ($rows as $row) {
+            $code = trim((string) ($row['service_code'] ?? ''));
+            if ($code === '') {
+                continue;
+            }
+
+            $percent = ConnectedCompanyItemCoverage::normalizePercent((float) ($row['coverage_percent'] ?? 100));
+
+            if ($percent >= 100.0) {
+                $deleted = ConnectedCompanyItemCoverage::query()
+                    ->where('insurance_company_id', $insuranceCompany->id)
+                    ->where('business_connection_id', $connection->id)
+                    ->where('service_code', $code)
+                    ->delete();
+                if ($deleted) {
+                    $removed++;
+                }
+
+                continue;
+            }
+
+            ConnectedCompanyItemCoverage::updateOrCreate(
+                [
+                    'insurance_company_id' => $insuranceCompany->id,
+                    'business_connection_id' => $connection->id,
+                    'service_code' => $code,
+                ],
+                [
+                    'coverage_percent' => $percent,
+                    'is_active' => true,
+                ]
+            );
+            $saved++;
+        }
+
+        $message = $saved > 0
+            ? "Coverage updated for {$saved} item(s)."
+            : 'Coverage settings saved.';
+        if ($removed > 0) {
+            $message .= " {$removed} item(s) reset to full coverage (100%).";
+        }
+
+        $redirect = redirect()->route('connected-companies.show', $connectionId);
+        if ($request->filled('return_q')) {
+            $redirect = $redirect->withQuery(['q' => $request->input('return_q')]);
+        }
+        if ($request->filled('return_page')) {
+            $redirect = $redirect->withQuery(['page' => $request->input('return_page')]);
+        }
+
+        return $redirect->with('success', $message);
     }
 
     /**
