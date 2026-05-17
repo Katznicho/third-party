@@ -212,7 +212,7 @@
     <!-- Pie & Donut Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Visit Status Pie Chart -->
-        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 overflow-hidden">
             <h3 class="text-lg font-semibold text-slate-900 mb-4">Visit Status Distribution</h3>
             <div style="position: relative; height: 300px;">
                 <canvas id="visitStatusPieChart"></canvas>
@@ -220,7 +220,7 @@
         </div>
 
         <!-- Client Type Donut Chart -->
-        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 overflow-hidden">
             <h3 class="text-lg font-semibold text-slate-900 mb-4">Client Enrollment Distribution</h3>
             <div style="position: relative; height: 300px;">
                 <canvas id="clientTypeDonutChart"></canvas>
@@ -231,15 +231,15 @@
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Visits Trend Chart -->
-        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 overflow-hidden">
             <h3 class="text-lg font-semibold text-slate-900 mb-4">Visits Trend (Last 7 Days)</h3>
-            <canvas id="visitsChart" class="max-h-64"></canvas>
+            <div class="relative h-64 w-full min-w-0"><canvas id="visitsChart"></canvas></div>
         </div>
 
         <!-- Clients Distribution Chart -->
-        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 overflow-hidden">
             <h3 class="text-lg font-semibold text-slate-900 mb-4">Client Distribution</h3>
-            <canvas id="clientsChart" class="max-h-64"></canvas>
+            <div class="relative h-64 w-full min-w-0"><canvas id="clientsChart"></canvas></div>
         </div>
     </div>
 
@@ -377,7 +377,7 @@
     @endif
 
     <!-- Main Content Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <!-- Active Visits - 2 columns -->
         @php
             $activeVisits = \App\Models\AuthorizedVisit::where('status', 'active')
@@ -389,7 +389,7 @@
                 ->get();
         @endphp
 
-        <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        <div class="lg:col-span-2 min-w-0 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-slate-900">Active Authorized Visits</h2>
                 <span class="text-sm text-slate-600 font-semibold">{{ $activeVisits->count() }} visits</span>
@@ -421,16 +421,16 @@
         </div>
 
         <!-- Quick Stats Sidebar -->
-        <div class="space-y-4">
+        <div class="space-y-4 min-w-0 w-full">
             <!-- Authorized Visits Tracking Card -->
-            <a href="{{ route('authorized-visits.index') }}" class="bg-white rounded-lg shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-indigo-300 transition cursor-pointer group">
-                <div class="flex items-start justify-between">
-                    <div>
+            <a href="{{ route('authorized-visits.index') }}" class="block w-full bg-white rounded-lg shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-indigo-300 transition group no-underline text-inherit">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1">
                         <p class="text-sm font-medium text-slate-600 group-hover:text-indigo-600 transition">Authorized Visits</p>
                         <p class="text-3xl font-bold text-slate-900 mt-2">{{ $trackingDataCount }}</p>
-                        <p class="text-xs text-slate-500 mt-2">→ View all tracking</p>
+                        <p class="text-xs text-indigo-600 font-medium mt-2">View all tracking →</p>
                     </div>
-                    <div class="p-2.5 bg-indigo-50 group-hover:bg-indigo-100 rounded-lg transition">
+                    <div class="shrink-0 p-2.5 bg-indigo-50 group-hover:bg-indigo-100 rounded-lg transition">
                         <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
@@ -492,73 +492,22 @@
             <!-- Recent Client-Visit Tracking -->
             <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-5">
                 <h3 class="text-sm font-semibold text-slate-900 mb-4">Recent Tracking</h3>
+                @php $recentTracking = $trackingData->take(5); @endphp
+                @if($recentTracking->isNotEmpty())
                 <div class="space-y-2">
-                    <!-- Sample 1 -->
-                    <a href="#tracking-table" class="block p-2.5 bg-slate-50 hover:bg-blue-50 rounded border border-slate-200 hover:border-blue-300 transition group">
-                        <div class="flex items-start gap-2">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600">KASHTRE-00145</p>
-                                <p class="text-xs text-slate-600 truncate">VIS-2026-04-001</p>
-                                <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded">
-                                    Active
-                                </span>
-                            </div>
-                        </div>
+                    @foreach($recentTracking as $visit)
+                    <a href="#tracking-table" class="block w-full p-2.5 bg-slate-50 hover:bg-blue-50 rounded-lg border border-slate-200 hover:border-blue-300 transition group no-underline text-inherit">
+                        <p class="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600">{{ $visit->kashtre_client_id ?? '—' }}</p>
+                        <p class="text-xs text-slate-600 truncate">{{ $visit->visit_id }}</p>
+                        <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded {{ $visit->status === 'active' ? 'bg-blue-100 text-blue-700' : ($visit->status === 'completed' ? 'bg-green-100 text-green-700' : ($visit->status === 'expired' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700')) }}">{{ ucfirst($visit->status) }}</span>
                     </a>
-
-                    <!-- Sample 2 -->
-                    <a href="#tracking-table" class="block p-2.5 bg-slate-50 hover:bg-blue-50 rounded border border-slate-200 hover:border-blue-300 transition group">
-                        <div class="flex items-start gap-2">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600">KASHTRE-00144</p>
-                                <p class="text-xs text-slate-600 truncate">VIS-2026-04-002</p>
-                                <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded">
-                                    Active
-                                </span>
-                            </div>
-                        </div>
-                    </a>
-
-                    <!-- Sample 3 -->
-                    <a href="#tracking-table" class="block p-2.5 bg-slate-50 hover:bg-blue-50 rounded border border-slate-200 hover:border-blue-300 transition group">
-                        <div class="flex items-start gap-2">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600">KASHTRE-00143</p>
-                                <p class="text-xs text-slate-600 truncate">VIS-2026-04-003</p>
-                                <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded">
-                                    Completed
-                                </span>
-                            </div>
-                        </div>
-                    </a>
-
-                    <!-- Sample 4 -->
-                    <a href="#tracking-table" class="block p-2.5 bg-slate-50 hover:bg-blue-50 rounded border border-slate-200 hover:border-blue-300 transition group">
-                        <div class="flex items-start gap-2">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600">KASHTRE-00142</p>
-                                <p class="text-xs text-slate-600 truncate">VIS-2026-04-004</p>
-                                <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded">
-                                    Active
-                                </span>
-                            </div>
-                        </div>
-                    </a>
-
-                    <!-- Sample 5 -->
-                    <a href="#tracking-table" class="block p-2.5 bg-slate-50 hover:bg-blue-50 rounded border border-slate-200 hover:border-blue-300 transition group">
-                        <div class="flex items-start gap-2">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600">KASHTRE-00141</p>
-                                <p class="text-xs text-slate-600 truncate">VIS-2026-03-098</p>
-                                <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded">
-                                    Expired
-                                </span>
-                            </div>
-                        </div>
-                    </a>
+                    @endforeach
                 </div>
-                <a href="#tracking-table" class="mt-3 inline-block text-xs font-semibold text-blue-600 hover:text-blue-700">View all tracking →</a>
+                <a href="{{ route('authorized-visits.index') }}" class="mt-3 inline-block text-xs font-semibold text-blue-600 hover:text-blue-700">View all tracking →</a>
+                @else
+                <p class="text-sm text-slate-500 py-2">No visit records in this period yet.</p>
+                <a href="{{ route('authorized-visits.index') }}" class="mt-2 inline-block text-xs font-semibold text-blue-600 hover:text-blue-700">Open tracking →</a>
+                @endif
             </div>
         </div>
     </div>
@@ -645,7 +594,7 @@
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'top',
@@ -676,7 +625,7 @@
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'bottom',
