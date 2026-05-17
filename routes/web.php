@@ -108,6 +108,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/connected-companies/{connectionId}/financial/pay/preview', [\App\Http\Controllers\ConnectedCompaniesController::class, 'previewFinancialPayment'])->name('connected-companies.financial.pay.preview');
     Route::post('/connected-companies/{connectionId}/financial/pay', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storePay'])->name('connected-companies.financial.pay.store');
     Route::get('/connected-companies/{connectionId}/financial/pay/complete', [\App\Http\Controllers\ConnectedCompaniesController::class, 'payComplete'])->name('connected-companies.financial.pay.complete');
+    Route::get('/connected-companies/{connectionId}/financial/pay/pending/{payment}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'showPayPending'])->name('connected-companies.financial.pay.pending');
+    Route::post('/connected-companies/{connectionId}/financial/pay/pending/{payment}/check', [\App\Http\Controllers\ConnectedCompaniesController::class, 'checkPayPending'])->name('connected-companies.financial.pay.pending.check');
     Route::post('/connected-companies/{connectionId}/item-coverages', [\App\Http\Controllers\ConnectedCompaniesController::class, 'updateItemCoverages'])->name('connected-companies.item-coverages.update');
     Route::post('/connected-companies/{connectionId}/local-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeLocalExclusion'])->name('connected-companies.local-exclusions.store');
     Route::post('/connected-companies/{connectionId}/local-exclusions/exclude-all', [\App\Http\Controllers\ConnectedCompaniesController::class, 'excludeAllLocalItems'])->name('connected-companies.local-exclusions.exclude-all');

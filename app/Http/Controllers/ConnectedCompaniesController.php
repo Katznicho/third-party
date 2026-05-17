@@ -9,8 +9,13 @@ use App\Models\ConnectedCompanyServiceExclusion;
 use App\Models\InsuranceCompany;
 use App\Services\InsurerPortalLedgerPresenter;
 use App\Services\KashtreApiService;
+use App\Models\Payment;
+use App\Payments\YoAPI;
+use App\Services\ProviderPaymentCompletionService;
 use App\Services\ProviderPaymentServiceChargeService;
+use App\Support\PaymentReference;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ConnectedCompaniesController extends Controller
@@ -348,7 +353,8 @@ class ConnectedCompaniesController extends Controller
         Request $request,
         int $connectionId,
         KashtreApiService $kashtreApi,
-        ProviderPaymentServiceChargeService $chargeService
+        ProviderPaymentServiceChargeService $chargeService,
+        ProviderPaymentCompletionService $completionService
     ) {
         [$insuranceCompany, $connection, $kashtreBusinessId] = $this->resolveFinancialConnection($connectionId);
 
@@ -356,12 +362,14 @@ class ConnectedCompaniesController extends Controller
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|string|in:'.implode(',', $allowedMethods),
+            'payment_phone' => 'required_if:payment_method,mobile_money|nullable|string|max:20',
             'reference' => 'nullable|string|max:100',
             'notes' => 'nullable|string|max:500',
             'service_charge' => 'nullable|numeric|min:0',
             'confirm' => 'accepted',
         ], [
             'confirm.accepted' => 'Please confirm the payment details before submitting.',
+            'payment_phone.required_if' => 'Enter the mobile money phone number to collect payment from.',
         ]);
 
         $chargePreview = $chargeService->preview(
@@ -380,12 +388,32 @@ class ConnectedCompaniesController extends Controller
         $chargeData = $chargePreview['data'];
         $serviceCharge = (float) $chargeData['service_charge'];
         $totalPaid = (float) $chargeData['total'];
+        $providerAmount = (float) $validated['amount'];
 
         if (isset($validated['service_charge']) && abs((float) $validated['service_charge'] - $serviceCharge) > 0.02) {
             return redirect()
                 ->route('connected-companies.financial.pay', $connectionId)
                 ->withInput()
                 ->with('error', 'Service charge changed. Review the breakdown and submit again.');
+        }
+
+        $paymentMethodOptions = InsuranceCompany::getPaymentMethodOptions();
+        $providerName = $connection->connected_business_name ?? 'Service provider';
+
+        if ($validated['payment_method'] === 'mobile_money') {
+            return $this->storePayMobileMoney(
+                $request,
+                $connectionId,
+                $insuranceCompany,
+                $connection,
+                $kashtreBusinessId,
+                $validated,
+                $providerAmount,
+                $serviceCharge,
+                $totalPaid,
+                $providerName,
+                $completionService
+            );
         }
 
         $result = $kashtreApi->recordInsurerPortalPayment(
@@ -402,22 +430,338 @@ class ConnectedCompaniesController extends Controller
         }
 
         $data = $result['data'] ?? [];
-        $paymentMethodOptions = InsuranceCompany::getPaymentMethodOptions();
 
         session()->flash('provider_payment_receipt', [
             'reference' => $data['payment']['reference'] ?? '',
-            'amount' => (float) ($data['payment']['amount'] ?? $validated['amount']),
+            'amount' => (float) ($data['payment']['amount'] ?? $providerAmount),
             'service_charge' => (float) ($data['service_charge'] ?? $serviceCharge),
             'total_paid' => (float) ($data['total_paid'] ?? $totalPaid),
             'payment_method' => $validated['payment_method'],
             'payment_method_label' => $paymentMethodOptions[$validated['payment_method']] ?? $validated['payment_method'],
-            'provider_name' => $connection->connected_business_name ?? 'Service provider',
+            'provider_name' => $providerName,
             'insurer_name' => $insuranceCompany->name,
             'paid_at' => now()->toIso8601String(),
             'new_balance' => (float) ($data['financial']['current_balance'] ?? 0),
         ]);
 
         return redirect()->route('connected-companies.financial.pay.complete', $connectionId);
+    }
+
+    /**
+     * Mobile money: collect via Yo first; Kashtre ledger updates after confirmation (cron or manual check).
+     */
+    protected function storePayMobileMoney(
+        Request $request,
+        int $connectionId,
+        InsuranceCompany $insuranceCompany,
+        BusinessConnection $connection,
+        int $kashtreBusinessId,
+        array $validated,
+        float $providerAmount,
+        float $serviceCharge,
+        float $totalPaid,
+        string $providerName,
+        ProviderPaymentCompletionService $completionService
+    ) {
+        $phone = $this->normalizeMobileMoneyPhone((string) ($validated['payment_phone'] ?? ''));
+        if ($phone === null) {
+            return redirect()
+                ->route('connected-companies.financial.pay', $connectionId)
+                ->withInput()
+                ->with('error', 'Please enter a valid mobile money phone number.');
+        }
+
+        $paymentReference = PaymentReference::forProviderPayment($connectionId);
+        $user = auth()->user();
+
+        $metadata = [
+            'connection_id' => $connectionId,
+            'kashtre_business_id' => $kashtreBusinessId,
+            'insurance_company_id' => (int) $insuranceCompany->id,
+            'provider_amount' => $providerAmount,
+            'service_charge' => $serviceCharge,
+            'total_collected' => $totalPaid,
+            'provider_name' => $providerName,
+            'insurer_name' => $insuranceCompany->name,
+            'user_reference' => $validated['reference'] ?? null,
+            'kashtre_recorded' => false,
+        ];
+
+        try {
+            DB::beginTransaction();
+
+            if (app()->environment('local')) {
+                $payment = Payment::create([
+                    'payment_reference' => $paymentReference,
+                    'payment_type' => 'provider_payment',
+                    'amount' => $totalPaid,
+                    'paid_amount' => $totalPaid,
+                    'balance_amount' => 0,
+                    'payment_method' => 'mobile_money',
+                    'mobile_money_number' => $phone,
+                    'transaction_id' => 'LOCAL-PROV-'.uniqid(),
+                    'status' => 'completed',
+                    'payment_date' => now(),
+                    'processed_at' => now(),
+                    'payment_notes' => ($validated['notes'] ?? 'Provider payment (mobile money)') . ' [LOCAL AUTO-COMPLETE]',
+                    'payment_metadata' => $metadata,
+                    'processed_by' => $user?->id,
+                ]);
+
+                $ledger = $completionService->recordOnKashtreLedger($payment);
+                if (! ($ledger['success'] ?? false)) {
+                    DB::rollBack();
+
+                    return redirect()
+                        ->route('connected-companies.financial.pay', $connectionId)
+                        ->withInput()
+                        ->with('error', $ledger['message'] ?? 'Payment collected but ledger update failed.');
+                }
+
+                DB::commit();
+
+                session()->flash('provider_payment_receipt', $completionService->buildReceipt(
+                    $payment->fresh(),
+                    $ledger['data'] ?? []
+                ));
+
+                return redirect()->route('connected-companies.financial.pay.complete', $connectionId);
+            }
+
+            $yoApi = new YoAPI(
+                config('payments.yo_username'),
+                config('payments.yo_password')
+            );
+            $yoApi->set_instant_notification_url(config('payments.webhook_url'));
+            $yoApi->set_external_reference($paymentReference);
+
+            $narrative = 'Provider payment - '.$providerName.' - '.$insuranceCompany->name;
+            if (strlen($narrative) > 160) {
+                $narrative = substr($narrative, 0, 157).'...';
+            }
+
+            Log::info('Initiating Yo provider payment', [
+                'connection_id' => $connectionId,
+                'phone' => $phone,
+                'total_paid' => $totalPaid,
+                'provider_amount' => $providerAmount,
+                'reference' => $paymentReference,
+            ]);
+
+            $yoResult = $yoApi->ac_deposit_funds($phone, $totalPaid, $narrative);
+
+            Log::info('YoAPI provider payment response', ['result' => $yoResult]);
+
+            if (! isset($yoResult['Status']) || $yoResult['Status'] !== 'OK' || empty($yoResult['TransactionReference'])) {
+                DB::rollBack();
+                $errorMessage = $yoResult['StatusMessage'] ?? $yoResult['ErrorMessage'] ?? 'Unknown error';
+
+                return redirect()
+                    ->route('connected-companies.financial.pay', $connectionId)
+                    ->withInput()
+                    ->with('error', 'Mobile money request failed: '.$errorMessage);
+            }
+
+            $transactionRef = $yoResult['TransactionReference'];
+
+            $payment = Payment::create([
+                'payment_reference' => $paymentReference,
+                'payment_type' => 'provider_payment',
+                'amount' => $totalPaid,
+                'paid_amount' => $totalPaid,
+                'balance_amount' => 0,
+                'payment_method' => 'mobile_money',
+                'mobile_money_number' => $phone,
+                'transaction_id' => $transactionRef,
+                'status' => 'pending',
+                'payment_date' => now(),
+                'processed_at' => null,
+                'payment_notes' => $validated['notes'] ?? 'Provider payment (mobile money)',
+                'payment_metadata' => array_merge($metadata, [
+                    'yo_transaction_reference' => $transactionRef,
+                    'yo_status' => $yoResult['Status'] ?? null,
+                ]),
+                'processed_by' => $user?->id,
+            ]);
+
+            DB::commit();
+
+            return redirect()
+                ->route('connected-companies.financial.pay.pending', [$connectionId, $payment->id])
+                ->with('success', 'Payment request sent to '.$phone.'. Complete it on the phone. The provider ledger will update once payment is confirmed.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Provider mobile money payment error', [
+                'connection_id' => $connectionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()
+                ->route('connected-companies.financial.pay', $connectionId)
+                ->withInput()
+                ->with('error', 'An error occurred while initiating payment: '.$e->getMessage());
+        }
+    }
+
+    protected function normalizeMobileMoneyPhone(string $phone): ?string
+    {
+        $phone = preg_replace('/\s+/', '', $phone) ?? '';
+        if ($phone === '') {
+            return null;
+        }
+        if (str_starts_with($phone, '+')) {
+            $phone = substr($phone, 1);
+        } elseif (str_starts_with($phone, '0')) {
+            $phone = '256'.substr($phone, 1);
+        }
+        if (strlen($phone) < 9) {
+            return null;
+        }
+
+        return $phone;
+    }
+
+    public function showPayPending(int $connectionId, Payment $payment, ProviderPaymentCompletionService $completionService)
+    {
+        [$insuranceCompany, $connection] = $this->resolveProviderPaymentAccess($connectionId, $payment);
+
+        if ($payment->status === 'completed') {
+            return $this->redirectAfterProviderPaymentComplete($payment, $connectionId, $completionService);
+        }
+
+        return view('connected-companies.pay-pending', [
+            'insuranceCompany' => $insuranceCompany,
+            'connection' => $connection,
+            'payment' => $payment,
+        ]);
+    }
+
+    public function checkPayPending(
+        int $connectionId,
+        Payment $payment,
+        ProviderPaymentCompletionService $completionService
+    ) {
+        [$insuranceCompany, $connection] = $this->resolveProviderPaymentAccess($connectionId, $payment);
+
+        if ($payment->status === 'completed') {
+            return $this->redirectAfterProviderPaymentComplete($payment, $connectionId, $completionService);
+        }
+
+        if ($payment->status === 'failed') {
+            return redirect()
+                ->route('connected-companies.financial.pay.pending', [$connectionId, $payment->id])
+                ->with('error', $payment->failure_reason ?? 'This payment failed.');
+        }
+
+        if ($payment->payment_method !== 'mobile_money' || empty($payment->transaction_id)) {
+            return redirect()
+                ->route('connected-companies.financial.pay.pending', [$connectionId, $payment->id])
+                ->with('error', 'This payment cannot be checked automatically.');
+        }
+
+        $yoApi = new YoAPI(
+            config('payments.yo_username'),
+            config('payments.yo_password')
+        );
+
+        $statusCheck = $yoApi->ac_transaction_check_status($payment->transaction_id);
+        $transactionStatus = $statusCheck['TransactionStatus'] ?? '';
+
+        if ($transactionStatus === 'SUCCEEDED') {
+            DB::beginTransaction();
+            try {
+                $payment->update([
+                    'status' => 'completed',
+                    'paid_amount' => $payment->amount,
+                    'balance_amount' => 0,
+                    'cleared_date' => now(),
+                    'processed_at' => now(),
+                    'payment_metadata' => array_merge($payment->payment_metadata ?? [], [
+                        'yo_status' => $transactionStatus,
+                        'confirmed_at' => now()->toDateTimeString(),
+                    ]),
+                ]);
+
+                $ledger = $completionService->recordOnKashtreLedger($payment->fresh());
+                if (! ($ledger['success'] ?? false)) {
+                    DB::rollBack();
+
+                    return redirect()
+                        ->route('connected-companies.financial.pay.pending', [$connectionId, $payment->id])
+                        ->with('error', $ledger['message'] ?? 'Payment received but provider ledger could not be updated.');
+                }
+
+                DB::commit();
+
+                return $this->redirectAfterProviderPaymentComplete($payment->fresh(), $connectionId, $completionService);
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                Log::error('checkPayPending error', ['payment_id' => $payment->id, 'error' => $e->getMessage()]);
+
+                return redirect()
+                    ->route('connected-companies.financial.pay.pending', [$connectionId, $payment->id])
+                    ->with('error', 'Could not complete payment: '.$e->getMessage());
+            }
+        }
+
+        if ($transactionStatus === 'FAILED') {
+            $payment->update([
+                'status' => 'failed',
+                'failure_reason' => $statusCheck['StatusMessage'] ?? $statusCheck['ErrorMessage'] ?? 'Payment failed via Yo Payments',
+                'payment_metadata' => array_merge($payment->payment_metadata ?? [], [
+                    'yo_status' => $transactionStatus,
+                    'failed_at' => now()->toDateTimeString(),
+                ]),
+            ]);
+
+            return redirect()
+                ->route('connected-companies.financial.pay.pending', [$connectionId, $payment->id])
+                ->with('error', 'Payment failed on mobile money.');
+        }
+
+        return redirect()
+            ->route('connected-companies.financial.pay.pending', [$connectionId, $payment->id])
+            ->with('info', 'Payment is still pending on mobile money. Complete the prompt on the phone and check again.');
+    }
+
+    protected function redirectAfterProviderPaymentComplete(
+        Payment $payment,
+        int $connectionId,
+        ProviderPaymentCompletionService $completionService
+    ) {
+        $meta = $payment->payment_metadata ?? [];
+        $kashtreData = is_array($meta['kashtre_result'] ?? null) ? $meta['kashtre_result'] : [];
+
+        session()->flash('provider_payment_receipt', $completionService->buildReceipt($payment, $kashtreData));
+
+        return redirect()->route('connected-companies.financial.pay.complete', $connectionId);
+    }
+
+    /**
+     * @return array{0: InsuranceCompany, 1: BusinessConnection}
+     */
+    protected function resolveProviderPaymentAccess(int $connectionId, Payment $payment): array
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+        if (! $insuranceCompany) {
+            abort(403);
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+
+        if ($payment->payment_type !== 'provider_payment') {
+            abort(404);
+        }
+
+        $meta = is_array($payment->payment_metadata) ? $payment->payment_metadata : [];
+        if ((int) ($meta['insurance_company_id'] ?? 0) !== (int) $insuranceCompany->id) {
+            abort(403);
+        }
+        if ((int) ($meta['connection_id'] ?? 0) !== (int) $connectionId) {
+            abort(404);
+        }
+
+        return [$insuranceCompany, $connection];
     }
 
     public function payComplete(int $connectionId)

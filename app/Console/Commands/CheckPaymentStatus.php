@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Policy;
 use App\Payments\YoAPI;
 use App\Services\PaymentCompletionService;
+use App\Services\ProviderPaymentCompletionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -121,8 +122,19 @@ class CheckPaymentStatus extends Command
                                 ]),
                             ]);
 
-                            // Create transaction and update client account so payment appears on client account
-                            PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment->fresh());
+                            if ($payment->payment_type === 'provider_payment') {
+                                $ledger = app(ProviderPaymentCompletionService::class)
+                                    ->recordOnKashtreLedger($payment->fresh());
+                                if (! ($ledger['success'] ?? false)) {
+                                    Log::error('Provider payment Yo confirmed but Kashtre ledger failed', [
+                                        'payment_id' => $payment->id,
+                                        'message' => $ledger['message'] ?? null,
+                                    ]);
+                                }
+                            } else {
+                                // Create transaction and update client account so payment appears on client account
+                                PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment->fresh());
+                            }
 
                             // If this is a premium payment and linked to a policy, activate the policy
                             if ($payment->payment_type === 'premium_payment' && $payment->policy_id) {

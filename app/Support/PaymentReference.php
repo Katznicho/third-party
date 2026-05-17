@@ -62,4 +62,10 @@ class PaymentReference
     {
         return self::unique('CP-');
     }
+
+    /** Insurer payment to connected provider (Yo external ref + pending row). */
+    public static function forProviderPayment(int $connectionId): string
+    {
+        return self::unique('PROV-'.$connectionId.'-');
+    }
 }

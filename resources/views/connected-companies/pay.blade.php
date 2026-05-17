@@ -110,9 +110,9 @@
             <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-900">
                 <p class="font-semibold mb-1">How this works</p>
                 <ul class="list-disc list-inside space-y-1 text-blue-800">
-                    <li>Your payment is credited to the provider ledger in Kashtre.</li>
-                    <li>A vendor service charge may apply based on your payment amount.</li>
-                    <li>You will receive a reference number on the confirmation screen.</li>
+                    <li>Cash or bank: recorded on the provider ledger immediately.</li>
+                    <li>Mobile money: collected from the phone first; the ledger updates after Yo confirms payment.</li>
+                    <li>A Kashtre vendor service charge applies to the payment amount (shown in the breakdown).</li>
                 </ul>
             </div>
         </aside>
@@ -169,7 +169,27 @@
                                 <option value="{{ $value }}" @selected(old('payment_method') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
+                        <p class="text-xs text-slate-500 mt-1">
+                            <strong>Mobile money:</strong> A request is sent to the phone number below. The provider ledger updates only after payment is confirmed.
+                            <strong class="text-slate-700">Cash / bank:</strong> Recorded immediately.
+                        </p>
                         @error('payment_method')
+                            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div id="payment-phone-section" class="hidden">
+                        <label for="payment_phone" class="block text-sm font-medium text-slate-700 mb-1">
+                            Mobile money phone number <span class="text-red-500">*</span>
+                        </label>
+                        <input type="tel"
+                               name="payment_phone"
+                               id="payment_phone"
+                               value="{{ old('payment_phone') }}"
+                               placeholder="e.g. 256701234567 or 0701234567"
+                               class="w-full rounded-lg border-slate-300 text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <p class="text-xs text-slate-500 mt-1">The total amount (including service charge) will be collected from this number.</p>
+                        @error('payment_phone')
                             <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -387,6 +407,26 @@
         schedulePreview();
     } else {
         updateSubmitState();
+    }
+
+    const paymentMethodSelect = document.getElementById('payment_method');
+    const phoneSection = document.getElementById('payment-phone-section');
+    const phoneInput = document.getElementById('payment_phone');
+
+    function togglePhoneSection() {
+        const isMobile = paymentMethodSelect && paymentMethodSelect.value === 'mobile_money';
+        if (!phoneSection || !phoneInput) return;
+        phoneSection.classList.toggle('hidden', !isMobile);
+        if (isMobile) {
+            phoneInput.setAttribute('required', 'required');
+        } else {
+            phoneInput.removeAttribute('required');
+        }
+    }
+
+    if (paymentMethodSelect) {
+        paymentMethodSelect.addEventListener('change', togglePhoneSection);
+        togglePhoneSection();
     }
 })();
 </script>
