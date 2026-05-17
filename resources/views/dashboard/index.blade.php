@@ -23,6 +23,13 @@
                             <p class="text-xl font-semibold">{{ auth()->user()->insuranceCompany->name }}</p>
                         </div>
                         <div class="border border-white border-opacity-30 px-4 py-2 rounded-lg">
+                            <p class="text-sm text-blue-50">Account balance</p>
+                            <p class="text-xl font-semibold">
+                                {{ strtoupper(auth()->user()->insuranceCompany->currency_code ?? 'UGX') }}
+                                {{ number_format((float) (auth()->user()->insuranceCompany->account_balance ?? 0), 2) }}
+                            </p>
+                        </div>
+                        <div class="border border-white border-opacity-30 px-4 py-2 rounded-lg">
                             <p class="text-sm text-blue-50">Current Time</p>
                             <p class="text-xl font-semibold">{{ now()->format('l, F j, Y') }}</p>
                         </div>

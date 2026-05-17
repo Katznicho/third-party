@@ -24,6 +24,7 @@ class InsuranceCompany extends Model
         'description',
         'logo_path',
         'is_active',
+        'account_balance',
         'policy_number_format',
         'policy_number_random_length',
         'policy_number_random_type',
@@ -98,6 +99,7 @@ class InsuranceCompany extends Model
     {
         return [
             'is_active' => 'boolean',
+            'account_balance' => 'decimal:2',
             'policy_number_random_length' => 'integer',
             'policy_number_company_code_length' => 'integer',
             'account_number_random_length' => 'integer',
@@ -154,6 +156,39 @@ class InsuranceCompany extends Model
             'show_policy_details_at_registration' => 'boolean',
             'policy_details_to_display_at_registration' => 'array',
         ];
+    }
+
+    /**
+     * Standard business payload for Kashtre / API consumers.
+     *
+     * @return array<string, mixed>
+     */
+    public function toBusinessApiArray(bool $includeExtended = false): array
+    {
+        $base = [
+            'id' => $this->id,
+            'name' => $this->name,
+            'code' => $this->code,
+            'account_balance' => (float) ($this->account_balance ?? 0),
+            'currency_code' => $this->currency_code ?? 'UGX',
+        ];
+
+        if (! $includeExtended) {
+            return $base;
+        }
+
+        return array_merge($base, [
+            'slug' => $this->slug,
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'country_name' => $this->country_name,
+            'head_office_address' => $this->head_office_address,
+            'postal_address' => $this->postal_address,
+            'website' => $this->website,
+            'description' => $this->description,
+            'open_enrollment_enabled' => (bool) ($this->open_enrollment_enabled ?? false),
+            'is_active' => (bool) ($this->is_active ?? true),
+        ]);
     }
 
     public function users(): HasMany

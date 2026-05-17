@@ -561,6 +561,15 @@
                     <h2 class="text-xl font-bold text-slate-900 mb-4">Payment Settings</h2>
                     <p class="text-sm text-slate-600 mb-6">Configure allowed payment methods. Clients and vendors will only see these options.</p>
 
+                    <div class="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-sm font-medium text-slate-700">Account balance</p>
+                        <p class="mt-1 text-2xl font-semibold text-slate-900">
+                            {{ strtoupper($insuranceCompany->currency_code ?? 'UGX') }}
+                            {{ number_format((float) ($insuranceCompany->account_balance ?? 0), 2) }}
+                        </p>
+                        <p class="mt-1 text-xs text-slate-500">Company wallet balance. Updated when payments and settlements are recorded.</p>
+                    </div>
+
                     <form action="{{ route('settings.update-payment') }}" method="POST" class="space-y-6">
                         @csrf
                         @method('PUT')

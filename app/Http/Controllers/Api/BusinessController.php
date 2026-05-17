@@ -152,22 +152,7 @@ class BusinessController extends Controller
                 'success' => true,
                 'message' => 'Business and user registered successfully',
                 'data' => [
-                    'business' => [
-                        'id' => $insuranceCompany->id,
-                        'name' => $insuranceCompany->name,
-                        'code' => $insuranceCompany->code,
-                        'slug' => $insuranceCompany->slug,
-                        'email' => $insuranceCompany->email,
-                        'phone' => $insuranceCompany->phone,
-                        'country_name' => $insuranceCompany->country_name,
-                        'currency_code' => $insuranceCompany->currency_code ?? 'UGX',
-                        'head_office_address' => $insuranceCompany->head_office_address,
-                        'postal_address' => $insuranceCompany->postal_address,
-                        'website' => $insuranceCompany->website,
-                        'description' => $insuranceCompany->description,
-                        'open_enrollment_enabled' => (bool) $insuranceCompany->open_enrollment_enabled,
-                        'is_active' => $insuranceCompany->is_active,
-                    ],
+                    'business' => $insuranceCompany->toBusinessApiArray(true),
                     'user' => [
                         'id' => $user->id,
                         'name' => $user->name,
@@ -258,6 +243,7 @@ class BusinessController extends Controller
                     'id' => $insuranceCompany->id,
                     'name' => $insuranceCompany->name,
                     'code' => $insuranceCompany->code,
+                    'account_balance' => (float) ($insuranceCompany->account_balance ?? 0),
                     'payment_responsibility_collection' => $insuranceCompany->payment_responsibility_collection ?? 'immediate',
                     'country_name' => $insuranceCompany->country_name,
                     'currency_code' => $insuranceCompany->currency_code ?? 'UGX',
@@ -444,19 +430,9 @@ class BusinessController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'id' => $insuranceCompany->id,
-                'name' => $insuranceCompany->name,
-                'code' => $insuranceCompany->code,
-                'slug' => $insuranceCompany->slug,
-                'email' => $insuranceCompany->email,
-                'phone' => $insuranceCompany->phone,
-                'country_name' => $insuranceCompany->country_name,
-                'currency_code' => $insuranceCompany->currency_code ?? 'UGX',
+            'data' => array_merge($insuranceCompany->toBusinessApiArray(true), [
                 'address' => $insuranceCompany->head_office_address,
-                'description' => $insuranceCompany->description,
-                'is_active' => $insuranceCompany->is_active,
-            ],
+            ]),
         ]);
     }
 
