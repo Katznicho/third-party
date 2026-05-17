@@ -175,6 +175,12 @@
                         <span class="text-sm font-medium text-slate-700">Stamp Duty:</span>
                         <span class="text-sm font-bold text-slate-900">UGX {{ number_format($policy->stamp_duty, 2) }}</span>
                     </div>
+                    @if(($policy->kashtre_service_charge ?? 0) > 0)
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-slate-700">Service charge:</span>
+                        <span class="text-sm font-bold text-slate-900">UGX {{ number_format($policy->kashtre_service_charge, 2) }}</span>
+                    </div>
+                    @endif
                     <div class="border-t-2 border-blue-500 pt-3 flex justify-between items-center">
                         <span class="text-base font-bold text-slate-900">Total Premium Due:</span>
                         <span class="text-lg font-bold text-blue-600">UGX {{ number_format($policy->total_premium_due, 2) }}</span>

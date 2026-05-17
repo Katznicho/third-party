@@ -34,6 +34,7 @@ Route::middleware('auth')->group(function () {
     
     // Clients
     Route::get('/clients/check-duplicate', [\App\Http\Controllers\ClientController::class, 'checkDuplicate'])->name('clients.check-duplicate');
+    Route::get('/clients/kashtre-service-charge/calculate', [\App\Http\Controllers\ClientController::class, 'calculateKashtreServiceCharge'])->name('clients.kashtre-service-charge.calculate');
     Route::resource('clients', \App\Http\Controllers\ClientController::class);
     Route::get('/clients/{client}/account-statement', [\App\Http\Controllers\ClientController::class, 'accountStatement'])->name('clients.account-statement');
     Route::get('/clients/{client}/usage/guarantees', [\App\Http\Controllers\ClientController::class, 'guaranteeUsage'])->name('clients.usage.guarantees');
@@ -103,6 +104,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');
     Route::get('/connected-companies/{connectionId}/financial/statement', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financialStatement'])->name('connected-companies.financial-statement');
     Route::get('/connected-companies/{connectionId}/financial', [\App\Http\Controllers\ConnectedCompaniesController::class, 'financial'])->name('connected-companies.financial');
+    Route::get('/connected-companies/{connectionId}/financial/pay', [\App\Http\Controllers\ConnectedCompaniesController::class, 'showPay'])->name('connected-companies.financial.pay');
+    Route::post('/connected-companies/{connectionId}/financial/pay/preview', [\App\Http\Controllers\ConnectedCompaniesController::class, 'previewFinancialPayment'])->name('connected-companies.financial.pay.preview');
+    Route::post('/connected-companies/{connectionId}/financial/pay', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storePay'])->name('connected-companies.financial.pay.store');
+    Route::get('/connected-companies/{connectionId}/financial/pay/complete', [\App\Http\Controllers\ConnectedCompaniesController::class, 'payComplete'])->name('connected-companies.financial.pay.complete');
     Route::post('/connected-companies/{connectionId}/item-coverages', [\App\Http\Controllers\ConnectedCompaniesController::class, 'updateItemCoverages'])->name('connected-companies.item-coverages.update');
     Route::post('/connected-companies/{connectionId}/local-exclusions', [\App\Http\Controllers\ConnectedCompaniesController::class, 'storeLocalExclusion'])->name('connected-companies.local-exclusions.store');
     Route::post('/connected-companies/{connectionId}/local-exclusions/exclude-all', [\App\Http\Controllers\ConnectedCompaniesController::class, 'excludeAllLocalItems'])->name('connected-companies.local-exclusions.exclude-all');

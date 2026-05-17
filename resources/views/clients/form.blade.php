@@ -1431,6 +1431,17 @@
                     <span class="text-sm font-medium text-slate-700">Stamp Duty:</span>
                     <span class="text-sm font-bold text-slate-900" id="stamp-duty">UGX 35,000.00</span>
                 </div>
+                @if($method === 'POST')
+                <input type="hidden" name="kashtre_service_charge" id="kashtre_service_charge" value="0">
+                <input type="hidden" name="kashtre_connected_business_id" id="kashtre_connected_business_id" value="">
+                <div id="kashtre-service-charge-row" class="flex justify-between items-center">
+                    <span class="text-sm font-medium text-slate-700">
+                        Service charge
+                        <span class="block text-xs text-slate-500 font-normal" id="kashtre-service-charge-hint">On premium + levy + stamp duty</span>
+                    </span>
+                    <span class="text-sm font-bold text-slate-900" id="kashtre-service-charge">UGX 0.00</span>
+                </div>
+                @endif
                 <div id="deductible-adjustments-container" style="display: none;">
                     <div class="border-t border-slate-300 pt-3 mt-3">
                         <h4 class="text-sm font-semibold text-slate-700 mb-2">Deductible Adjustments:</h4>
@@ -2253,6 +2264,91 @@
     // Initialize checkboxes on page load
     updateBenefitCheckboxes();
     
+    let lastPremiumParts = { subtotal: 0, training: 0, stamp: 0 };
+
+    function updateTotalPremiumDueDisplay() {
+        const kashtre = typeof kashtreServiceCharge !== 'undefined' ? (parseFloat(kashtreServiceCharge) || 0) : 0;
+        const total = lastPremiumParts.subtotal + lastPremiumParts.training + lastPremiumParts.stamp + kashtre;
+        const totalEl = document.getElementById('total-premium-due');
+        if (totalEl) {
+            totalEl.textContent = formatCurrency(total);
+        }
+    }
+
+    @if($method === 'POST')
+    const kashtreChargeCalculateUrl = @json(route('clients.kashtre-service-charge.calculate'));
+    let kashtreServiceCharge = 0;
+    let kashtreChargeFetchTimer = null;
+
+    function refreshKashtreServiceCharge(chargeableBase) {
+        const row = document.getElementById('kashtre-service-charge-row');
+        const amountEl = document.getElementById('kashtre-service-charge');
+        const hintEl = document.getElementById('kashtre-service-charge-hint');
+        const hiddenCharge = document.getElementById('kashtre_service_charge');
+        const hiddenBusiness = document.getElementById('kashtre_connected_business_id');
+
+        if (!row || !kashtreChargeCalculateUrl) {
+            return;
+        }
+
+        chargeableBase = parseFloat(chargeableBase) || 0;
+        clearTimeout(kashtreChargeFetchTimer);
+        row.style.display = 'flex';
+
+        if (chargeableBase <= 0) {
+            kashtreServiceCharge = 0;
+            if (amountEl) amountEl.textContent = formatCurrency(0);
+            if (hintEl) hintEl.textContent = 'On premium + levy + stamp duty';
+            if (hiddenCharge) hiddenCharge.value = '0';
+            if (hiddenBusiness) hiddenBusiness.value = '';
+            updateTotalPremiumDueDisplay();
+            return;
+        }
+
+        kashtreChargeFetchTimer = setTimeout(async function () {
+            if (amountEl) amountEl.textContent = 'Calculating…';
+
+            try {
+                const url = new URL(kashtreChargeCalculateUrl, window.location.origin);
+                url.searchParams.set('chargeable_base', String(chargeableBase));
+                const response = await fetch(url.toString(), {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                const data = await response.json();
+                kashtreServiceCharge = parseFloat(data.amount) || 0;
+
+                if (amountEl) {
+                    amountEl.textContent = data.formatted_service_charge || formatCurrency(kashtreServiceCharge);
+                }
+                if (hintEl) {
+                    if (data.has_connection === false) {
+                        hintEl.textContent = 'No connected clinic — configure in Settings';
+                    } else if (data.tier && data.tier.type === 'percentage') {
+                        hintEl.textContent = data.tier.amount + '% on UGX ' + chargeableBase.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    } else {
+                        hintEl.textContent = 'On premium + levy + stamp duty';
+                    }
+                }
+                if (hiddenCharge) hiddenCharge.value = String(kashtreServiceCharge);
+                if (hiddenBusiness && data.connected_business_id) {
+                    hiddenBusiness.value = String(data.connected_business_id);
+                }
+            } catch (e) {
+                console.warn('Kashtre service charge lookup failed', e);
+                kashtreServiceCharge = 0;
+                if (amountEl) amountEl.textContent = 'Unavailable';
+                if (hintEl) hintEl.textContent = 'Could not reach Kashtre API';
+                if (hiddenCharge) hiddenCharge.value = '0';
+            }
+
+            updateTotalPremiumDueDisplay();
+        }, 350);
+    }
+    @endif
+
     // Premium calculation function
     function calculatePremium() {
         const selectedPlan = document.querySelector('input[name="plan_id"]:checked');
@@ -2260,6 +2356,10 @@
         
         if (!selectedPlan) {
             premiumCalcDiv.style.display = 'none';
+            const kashtreRow = document.getElementById('kashtre-service-charge-row');
+            if (kashtreRow) {
+                kashtreRow.style.display = 'none';
+            }
             var pmSelect = document.getElementById('premium_payment_method');
             if (pmSelect) { pmSelect.required = false; }
             var phoneWrap = document.getElementById('premium-payment-phone-wrap');
@@ -2462,10 +2562,12 @@
         let trainingLevy = parseFloat(subtotalPremium) * parseFloat(trainingLevyPercent);
         if (isNaN(trainingLevy)) trainingLevy = 0;
         
-        // Calculate total premium due (ensure all values are numbers)
-        let totalPremiumDue = parseFloat(subtotalPremium) + parseFloat(trainingLevy) + parseFloat(stampDuty);
-        if (isNaN(totalPremiumDue)) totalPremiumDue = 0;
-        
+        lastPremiumParts = {
+            subtotal: parseFloat(subtotalPremium) || 0,
+            training: parseFloat(trainingLevy) || 0,
+            stamp: parseFloat(stampDuty) || 0,
+        };
+
         // Update display
         document.getElementById('base-premium').textContent = formatCurrency(basePremium);
         document.getElementById('dependents-count').textContent = numberOfDependents;
@@ -2473,7 +2575,11 @@
         document.getElementById('subtotal-premium').textContent = formatCurrency(subtotalPremium);
         document.getElementById('training-levy').textContent = formatCurrency(trainingLevy);
         document.getElementById('stamp-duty').textContent = formatCurrency(stampDuty);
-        document.getElementById('total-premium-due').textContent = formatCurrency(totalPremiumDue);
+        updateTotalPremiumDueDisplay();
+        if (typeof refreshKashtreServiceCharge === 'function') {
+            const chargeableBase = lastPremiumParts.subtotal + lastPremiumParts.training + lastPremiumParts.stamp;
+            refreshKashtreServiceCharge(chargeableBase);
+        }
         
         // Hide tier info if no dependents
         if (numberOfDependents === 0) {

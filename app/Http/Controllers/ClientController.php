@@ -11,6 +11,7 @@ use App\Models\PolicyDeductibleLedger;
 use App\Models\InsuranceAuthorization;
 use App\Models\Payment;
 use App\Payments\YoAPI;
+use App\Services\ClientRegistrationServiceChargeService;
 use App\Support\PaymentReference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -229,6 +230,41 @@ class ClientController extends Controller
     }
 
     /**
+     * Calculate Kashtre vendor service charge for client registration premium (AJAX).
+     */
+    public function calculateKashtreServiceCharge(Request $request, ClientRegistrationServiceChargeService $chargeService)
+    {
+        $user = auth()->user();
+        if (! $user->insuranceCompany) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'chargeable_base' => 'nullable|numeric|min:0',
+            'subtotal' => 'nullable|numeric|min:0',
+        ]);
+
+        $chargeableBase = isset($validated['chargeable_base'])
+            ? (float) $validated['chargeable_base']
+            : (float) ($validated['subtotal'] ?? 0);
+
+        $result = $chargeService->calculateForInsurer(
+            $user->insuranceCompany,
+            $chargeableBase
+        );
+
+        return response()->json([
+            'amount' => $result['amount'],
+            'chargeable_base' => $result['chargeable_base'],
+            'connected_business_id' => $result['connected_business_id'],
+            'has_connection' => $result['has_connection'],
+            'formatted_service_charge' => $result['formatted_service_charge'],
+            'schedule_source' => $result['schedule_source'],
+            'tier' => $result['tier'],
+        ]);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
@@ -426,9 +462,14 @@ class ClientController extends Controller
             
             // Recalculate training levy after premium adjustment
             $insuranceTrainingLevy = $subtotalPremium * $trainingLevyPercentage;
-            
-            // Total premium due = subtotal premium + levy + stamp duty
-            $totalPremiumDue = $subtotalPremium + $insuranceTrainingLevy + $stampDuty;
+
+            $chargeableBase = $subtotalPremium + $insuranceTrainingLevy + $stampDuty;
+            $kashtreChargeResult = app(ClientRegistrationServiceChargeService::class)
+                ->calculateForInsurer($insuranceCompany, $chargeableBase);
+            $kashtreServiceCharge = $kashtreChargeResult['amount'];
+
+            // Total premium due = billable premium + Kashtre service charge (pushed to client)
+            $totalPremiumDue = $chargeableBase + $kashtreServiceCharge;
             
             // Apply deductible adjustment if applicable
             $finalDeductibleAmount = null;
@@ -464,6 +505,8 @@ class ClientController extends Controller
                 'total_premium' => $subtotalPremium, // Includes principal + dependents + medical question adjustments
                 'insurance_training_levy' => $insuranceTrainingLevy,
                 'stamp_duty' => $stampDuty,
+                'kashtre_service_charge' => $kashtreServiceCharge,
+                'kashtre_connected_business_id' => $kashtreChargeResult['connected_business_id'],
                 'total_premium_due' => $totalPremiumDue,
                 'status' => 'inactive',
                 'is_paid' => false,
@@ -565,13 +608,16 @@ class ClientController extends Controller
                 $numberOfDependents = $validated['number_of_dependents'] ?? 0;
                 $dependentsText = $numberOfDependents > 0 ? " (including {$numberOfDependents} " . ($numberOfDependents == 1 ? 'dependent' : 'dependents') . ")" : '';
                 $successMessage .= sprintf(
-                    '. Policy %s has been created%s. Total Premium Due: UGX %s (Premium: UGX %s, Training Levy: UGX %s, Stamp Duty: UGX %s)',
+                    '. Policy %s has been created%s. Total Premium Due: UGX %s (Premium: UGX %s, Training Levy: UGX %s, Stamp Duty: UGX %s%s)',
                     $policyNumber,
                     $dependentsText,
                     number_format($policy->total_premium_due, 2),
                     number_format($policy->total_premium, 2),
                     number_format($policy->insurance_training_levy, 2),
-                    number_format($policy->stamp_duty, 2)
+                    number_format($policy->stamp_duty, 2),
+                    ($policy->kashtre_service_charge ?? 0) > 0
+                        ? ', Kashtre service charge: UGX ' . number_format($policy->kashtre_service_charge, 2)
+                        : ''
                 );
                 
                 // Add monetary adjustment information

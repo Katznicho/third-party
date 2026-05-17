@@ -9,6 +9,7 @@ use App\Models\ConnectedCompanyServiceExclusion;
 use App\Models\InsuranceCompany;
 use App\Services\InsurerPortalLedgerPresenter;
 use App\Services\KashtreApiService;
+use App\Services\ProviderPaymentServiceChargeService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 
@@ -240,22 +241,14 @@ class ConnectedCompaniesController extends Controller
 
         $kashtreBusinessId = (int) $connection->connected_business_id;
 
-        $ledger = [];
-        $ledgerError = null;
-
-        if ($kashtreBusinessId > 0) {
-            $result = $kashtreApi->getInsurerPortalVendorSummary($kashtreBusinessId, (int) $insuranceCompany->id);
-            if ($result['success']) {
-                $ledger = $result['data'] ?? [];
-            } else {
-                $ledgerError = $result['error'] ?? 'We could not load the financial summary from the service provider system.';
-            }
-        } else {
-            $ledgerError = 'This connection is not linked to a provider business id yet.';
-        }
+        $fetched = $this->fetchLedgerSummary($kashtreApi, $kashtreBusinessId, (int) $insuranceCompany->id);
+        $ledger = $fetched['data'];
+        $ledgerError = $fetched['error'];
 
         $recent = collect($ledger['recent_transactions'] ?? []);
         $itemStatementRows = InsurerPortalLedgerPresenter::rowsFromHistoryArrays($recent);
+
+        $payContext = $this->buildPayContext($insuranceCompany, $ledger);
 
         return view('connected-companies.financial', [
             'insuranceCompany' => $insuranceCompany,
@@ -264,7 +257,276 @@ class ConnectedCompaniesController extends Controller
             'ledgerError' => $ledgerError,
             'kashtreBusinessId' => $kashtreBusinessId,
             'itemStatementRows' => $itemStatementRows,
+            'canPay' => $payContext['can_pay'],
         ]);
+    }
+
+    /**
+     * Dedicated payment page for settling provider ledger balance.
+     */
+    public function showPay(int $connectionId, KashtreApiService $kashtreApi)
+    {
+        [$insuranceCompany, $connection, $kashtreBusinessId] = $this->resolveFinancialConnection($connectionId);
+
+        $ledger = $this->fetchLedgerSummary($kashtreApi, $kashtreBusinessId, (int) $insuranceCompany->id);
+        $ledgerError = $ledger['error'] ?? null;
+        $ledgerData = $ledger['data'] ?? [];
+
+        if ($ledgerError) {
+            return redirect()
+                ->route('connected-companies.financial', $connectionId)
+                ->with('error', $ledgerError);
+        }
+
+        $payContext = $this->buildPayContext($insuranceCompany, $ledgerData);
+
+        if (! $payContext['can_pay']) {
+            return redirect()
+                ->route('connected-companies.financial', $connectionId)
+                ->with('error', $payContext['block_reason'] ?? 'Payments are not available for this provider yet.');
+        }
+
+        if ($payContext['payment_methods'] === []) {
+            return redirect()
+                ->route('connected-companies.financial', $connectionId)
+                ->with('error', 'Configure at least one payment method in your insurance company settings before making payments.');
+        }
+
+        $initialChargePreview = null;
+        if ($payContext['amount_owed'] > 0) {
+            $chargePreview = app(ProviderPaymentServiceChargeService::class)->preview(
+                $insuranceCompany,
+                $kashtreBusinessId,
+                (float) $payContext['amount_owed']
+            );
+            if ($chargePreview['success'] ?? false) {
+                $initialChargePreview = $chargePreview['data'];
+            }
+        }
+
+        return view('connected-companies.pay', array_merge($payContext, [
+            'insuranceCompany' => $insuranceCompany,
+            'connection' => $connection,
+            'ledger' => $ledgerData,
+            'kashtreBusinessId' => $kashtreBusinessId,
+            'insurerAccountBalance' => (float) ($insuranceCompany->account_balance ?? 0),
+            'initialChargePreview' => $initialChargePreview,
+        ]));
+    }
+
+    public function previewFinancialPayment(
+        Request $request,
+        int $connectionId,
+        ProviderPaymentServiceChargeService $chargeService
+    ) {
+        [$insuranceCompany, $connection, $kashtreBusinessId] = $this->resolveFinancialConnection($connectionId);
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+        ]);
+
+        $result = $chargeService->preview(
+            $insuranceCompany,
+            $kashtreBusinessId,
+            (float) $validated['amount']
+        );
+
+        if (! ($result['success'] ?? false)) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Could not calculate service charge.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $result['data'],
+        ]);
+    }
+
+    public function storePay(
+        Request $request,
+        int $connectionId,
+        KashtreApiService $kashtreApi,
+        ProviderPaymentServiceChargeService $chargeService
+    ) {
+        [$insuranceCompany, $connection, $kashtreBusinessId] = $this->resolveFinancialConnection($connectionId);
+
+        $allowedMethods = $insuranceCompany->payment_methods ?: array_keys(InsuranceCompany::getPaymentMethodOptions());
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string|in:'.implode(',', $allowedMethods),
+            'reference' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:500',
+            'service_charge' => 'nullable|numeric|min:0',
+            'confirm' => 'accepted',
+        ], [
+            'confirm.accepted' => 'Please confirm the payment details before submitting.',
+        ]);
+
+        $chargePreview = $chargeService->preview(
+            $insuranceCompany,
+            $kashtreBusinessId,
+            (float) $validated['amount']
+        );
+
+        if (! ($chargePreview['success'] ?? false)) {
+            return redirect()
+                ->route('connected-companies.financial.pay', $connectionId)
+                ->withInput()
+                ->with('error', $chargePreview['message'] ?? 'Could not calculate service charge.');
+        }
+
+        $chargeData = $chargePreview['data'];
+        $serviceCharge = (float) $chargeData['service_charge'];
+        $totalPaid = (float) $chargeData['total'];
+
+        if (isset($validated['service_charge']) && abs((float) $validated['service_charge'] - $serviceCharge) > 0.02) {
+            return redirect()
+                ->route('connected-companies.financial.pay', $connectionId)
+                ->withInput()
+                ->with('error', 'Service charge changed. Review the breakdown and submit again.');
+        }
+
+        $result = $kashtreApi->recordInsurerPortalPayment(
+            $kashtreBusinessId,
+            (int) $insuranceCompany->id,
+            $validated
+        );
+
+        if (! ($result['success'] ?? false)) {
+            return redirect()
+                ->route('connected-companies.financial.pay', $connectionId)
+                ->withInput()
+                ->with('error', $result['error'] ?? 'Payment could not be recorded.');
+        }
+
+        $data = $result['data'] ?? [];
+        $paymentMethodOptions = InsuranceCompany::getPaymentMethodOptions();
+
+        session()->flash('provider_payment_receipt', [
+            'reference' => $data['payment']['reference'] ?? '',
+            'amount' => (float) ($data['payment']['amount'] ?? $validated['amount']),
+            'service_charge' => (float) ($data['service_charge'] ?? $serviceCharge),
+            'total_paid' => (float) ($data['total_paid'] ?? $totalPaid),
+            'payment_method' => $validated['payment_method'],
+            'payment_method_label' => $paymentMethodOptions[$validated['payment_method']] ?? $validated['payment_method'],
+            'provider_name' => $connection->connected_business_name ?? 'Service provider',
+            'insurer_name' => $insuranceCompany->name,
+            'paid_at' => now()->toIso8601String(),
+            'new_balance' => (float) ($data['financial']['current_balance'] ?? 0),
+        ]);
+
+        return redirect()->route('connected-companies.financial.pay.complete', $connectionId);
+    }
+
+    public function payComplete(int $connectionId)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+        if (! $insuranceCompany) {
+            abort(403);
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+        $receipt = session('provider_payment_receipt');
+
+        if (! is_array($receipt) || empty($receipt['reference'])) {
+            return redirect()->route('connected-companies.financial', $connectionId);
+        }
+
+        return view('connected-companies.pay-complete', [
+            'insuranceCompany' => $insuranceCompany,
+            'connection' => $connection,
+            'receipt' => $receipt,
+        ]);
+    }
+
+    /**
+     * @return array{0: InsuranceCompany, 1: BusinessConnection, 2: int}
+     */
+    protected function resolveFinancialConnection(int $connectionId): array
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+        if (! $insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+        $kashtreBusinessId = (int) $connection->connected_business_id;
+        if ($kashtreBusinessId < 1) {
+            abort(422, 'This connection is not linked to a provider business id yet.');
+        }
+
+        return [$insuranceCompany, $connection, $kashtreBusinessId];
+    }
+
+    /**
+     * @return array{data: array, error: ?string}
+     */
+    protected function fetchLedgerSummary(KashtreApiService $kashtreApi, int $kashtreBusinessId, int $insuranceCompanyId): array
+    {
+        if ($kashtreBusinessId < 1) {
+            return [
+                'data' => [],
+                'error' => 'This connection is not linked to a provider business id yet.',
+            ];
+        }
+
+        $result = $kashtreApi->getInsurerPortalVendorSummary($kashtreBusinessId, $insuranceCompanyId);
+
+        return [
+            'data' => $result['success'] ? ($result['data'] ?? []) : [],
+            'error' => $result['success'] ? null : ($result['error'] ?? 'We could not load account details from the service provider.'),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     payer: ?array,
+     *     financial: ?array,
+     *     amount_owed: float,
+     *     current_balance: float,
+     *     effective_credit: float,
+     *     payment_methods: array<string, string>,
+     *     can_pay: bool,
+     *     block_reason: ?string
+     * }
+     */
+    protected function buildPayContext(InsuranceCompany $insuranceCompany, array $ledger): array
+    {
+        $paymentMethodOptions = InsuranceCompany::getPaymentMethodOptions();
+        $allowedMethods = $insuranceCompany->payment_methods ?: array_keys($paymentMethodOptions);
+        $paymentMethods = array_intersect_key($paymentMethodOptions, array_flip($allowedMethods));
+
+        $payer = $ledger['payer'] ?? null;
+        $financial = $ledger['financial'] ?? null;
+        $bizCredit = $ledger['business']['max_third_party_credit_limit'] ?? null;
+
+        $currentBalance = (float) ($financial['current_balance'] ?? 0);
+        $amountOwed = $currentBalance < 0 ? abs($currentBalance) : 0.0;
+
+        $effectiveCredit = 0.0;
+        if ($payer && $bizCredit !== null) {
+            $cl = $payer['credit_limit'] ?? null;
+            $effectiveCredit = ($cl !== null && (float) $cl > 0) ? (float) $cl : (float) $bizCredit;
+        }
+
+        $canPay = $payer !== null;
+        $blockReason = null;
+        if (! $canPay) {
+            $blockReason = $ledger['message'] ?? 'No payer account exists for this provider yet.';
+        }
+
+        return [
+            'payer' => $payer,
+            'financial' => $financial,
+            'amount_owed' => $amountOwed,
+            'current_balance' => $currentBalance,
+            'effective_credit' => $effectiveCredit,
+            'payment_methods' => $paymentMethods,
+            'can_pay' => $canPay,
+            'block_reason' => $blockReason,
+        ];
     }
 
     /**

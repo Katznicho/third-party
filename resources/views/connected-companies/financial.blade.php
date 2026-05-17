@@ -30,11 +30,33 @@
         </div>
     </div>
 
+    @if(session('success'))
+        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
+    @endif
+
     @if($ledgerError)
         <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {{ $ledgerError }}
         </div>
     @endif
+
+    @if($canPay ?? false)
+    <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-md p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="text-white">
+            <p class="text-sm text-blue-100">Settle your account with this provider</p>
+            <p class="text-lg font-semibold mt-1">Make a payment</p>
+        </div>
+        <a href="{{ route('connected-companies.financial.pay', $connection->id) }}"
+           class="inline-flex items-center justify-center px-6 py-3 bg-white text-blue-700 font-semibold rounded-lg hover:bg-blue-50 shadow-sm shrink-0">
+            Continue to payment
+            <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+    </div>
+    @endif
+
 
     <!-- Vendor Information & Financial Summary -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -120,10 +142,18 @@
                                 <p class="text-xs text-slate-500 mt-1">Credit limit changes are requested by the service provider in Kashtre.</p>
                             </div>
                         </dl>
-                        <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'items']) }}"
+                        <div class="flex flex-wrap gap-2">
+                        @if($canPay ?? false)
+                        <a href="{{ route('connected-companies.financial.pay', $connection->id) }}"
                            class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700">
-                            Open financial summary
+                            Make payment
                         </a>
+                        @endif
+                        <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'items']) }}"
+                           class="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md font-semibold text-xs text-slate-700 uppercase tracking-widest hover:bg-slate-50">
+                            View statement
+                        </a>
+                        </div>
                     @else
                         <p class="text-sm text-slate-600">{{ ($ledger['message'] ?? null) ?: 'No third-party payer account exists yet for this insurer at this provider. Balances will appear once invoices are posted in Kashtre.' }}</p>
                     @endif

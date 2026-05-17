@@ -102,6 +102,69 @@ class KashtreApiService
     }
 
     /**
+     * Preview service charge on an insurer payment to a connected provider.
+     *
+     * @return array{success: bool, data: ?array, error?: string, http_status?: ?int}
+     */
+    public function previewInsurerPortalPayment(int $businessId, int $thirdPartyVendorId, float $amount): array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendors/{$thirdPartyVendorId}/insurer-portal-payment/preview";
+
+        try {
+            $response = Http::timeout(20)
+                ->acceptJson()
+                ->post($url, ['amount' => $amount]);
+
+            return $this->interpretInsurerPortalJsonResponse($response, $url);
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: insurer-portal-payment preview exception', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'data' => null,
+                'error' => $this->connectionErrorMessage($url, $e->getMessage()),
+                'http_status' => null,
+            ];
+        }
+    }
+
+    /**
+     * Record insurer payment on Kashtre third-party payer ledger (includes service charge debit).
+     *
+     * @param  array{amount: float, payment_method: string, reference?: ?string, notes?: ?string}  $payload
+     * @return array{success: bool, data: ?array, error?: string, http_status?: ?int}
+     */
+    public function recordInsurerPortalPayment(int $businessId, int $thirdPartyVendorId, array $payload): array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendors/{$thirdPartyVendorId}/insurer-portal-payment";
+
+        try {
+            $response = Http::timeout(30)
+                ->acceptJson()
+                ->post($url, $payload);
+
+            return $this->interpretInsurerPortalJsonResponse($response, $url);
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: insurer-portal-payment exception', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'data' => null,
+                'error' => $this->connectionErrorMessage($url, $e->getMessage()),
+                'http_status' => null,
+            ];
+        }
+    }
+
+    /**
      * @return array{success: bool, data: ?array, error?: string, http_status?: ?int}
      */
     protected function interpretInsurerPortalJsonResponse(Response $response, string $url): array
@@ -164,6 +227,120 @@ class KashtreApiService
         }
 
         return $msg;
+    }
+
+    /**
+     * Vendor service charge tiers for a connected clinic (saved + recommended defaults + effective schedule).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getVendorServiceCharges(int $businessId, ?int $thirdPartyVendorId = null): ?array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendor-service-charges";
+        if ($thirdPartyVendorId !== null) {
+            $url .= '?third_party_vendor_id='.$thirdPartyVendorId;
+        }
+
+        return $this->getJsonDataOrNull($url, 'vendor service charges');
+    }
+
+    /**
+     * Recommended default vendor service charge tiers (Kashtre config template).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getVendorServiceChargeRecommendedDefaults(int $businessId): array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendor-service-charges/recommended-defaults";
+
+        $payload = $this->getJsonDataOrNull($url, 'vendor service charge defaults');
+
+        return is_array($payload['recommended_defaults'] ?? null)
+            ? $payload['recommended_defaults']
+            : [];
+    }
+
+    /**
+     * Effective vendor service charge schedule for one insurer (third-party vendor id).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getVendorServiceChargesForVendor(int $businessId, int $thirdPartyVendorId): ?array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendors/{$thirdPartyVendorId}/service-charges";
+
+        return $this->getJsonDataOrNull($url, 'vendor service charges for vendor');
+    }
+
+    /**
+     * Calculate Kashtre third-party vendor service charge for a subtotal.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function calculateVendorServiceCharge(int $businessId, float $subtotal, ?int $thirdPartyVendorId = null): ?array
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+        $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendor-service-charges/calculate";
+
+        $body = ['subtotal' => $subtotal];
+        if ($thirdPartyVendorId !== null) {
+            $body['third_party_vendor_id'] = $thirdPartyVendorId;
+        }
+
+        try {
+            $response = Http::timeout(20)
+                ->acceptJson()
+                ->post($url, $body);
+
+            if ($response->successful() && ($response->json('success') ?? false)) {
+                return $response->json('data');
+            }
+
+            Log::warning('KashtreApiService: calculate vendor service charge failed', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('KashtreApiService: calculate vendor service charge exception', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function getJsonDataOrNull(string $url, string $label): ?array
+    {
+        try {
+            $response = Http::timeout(20)->acceptJson()->get($url);
+
+            if ($response->successful() && ($response->json('success') ?? false)) {
+                $data = $response->json('data');
+
+                return is_array($data) ? $data : null;
+            }
+
+            Log::warning("KashtreApiService: Failed to fetch {$label}", [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error("KashtreApiService: Exception while fetching {$label}", [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
     }
 
     /**
