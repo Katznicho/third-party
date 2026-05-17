@@ -601,12 +601,12 @@ class InvoiceAuthorizationController extends Controller
         // Otherwise we would charge copay + coinsurance + a full OD slice (double-count vs the deductible bucket).
         $copayCoinsuranceTowardDeductible = $policy->calculateDeductibleContribution($copayPortion, $coinsurancePortion);
 
-        // Step 3: deductible decision rule (second method)
+        // Step 3–4: KN remainder split (V = OI − OD), documented on authorization-codes/{id}
         // OI = outstanding invoice after co-pay & co-insurance
-        // OD = outstanding deductible **still to be allocated from OI** (after copay/coinsurance that already count toward OD)
-        // V  = OI - OD
-        // If V > 0  => client pays OD, insurer pays V
-        // If V <= 0 => client pays OI, insurer pays 0
+        // OD = deductible still to allocate from OI (after copay/coinsurance that count toward OD)
+        // V  = OI − OD
+        // V > 0  (positive): client pays OD from this pool; insurer/vendor pays V (insurance_total)
+        // V <= 0 (zero/negative): client pays full OI from this pool; insurer/vendor pays 0 from this pool
         $oi = max(0.0, (float) $remainingForClient);
         $od = max(0.0, (float) $effectiveDeductibleBefore - $copayCoinsuranceTowardDeductible);
         $v = round($oi - $od, 2);

@@ -250,24 +250,58 @@
                                 take <strong>UGX {{ number_format($dedPart, 2) }}</strong>,
                                 remaining for insurer <strong>UGX {{ number_format($remainingAfterDed, 2) }}</strong>.
                             </li>
-                            <li>Step 4 (continuation) – deductible remainder split:
-                                outstanding invoice after co‑pay and co‑insurance
-                                <strong>OI = UGX {{ number_format($outstandingInvoice, 2) }}</strong>;
-                                deductible taken from that pool this visit
-                                <strong>OD = UGX {{ number_format($odThisVisit, 2) }}</strong>
-                                (same as Step 3). Compute <strong>V = OI − OD</strong> =
-                                <strong>UGX {{ number_format($v, 2) }}</strong>
-                                (the insurer’s share of the approved pool after co‑pay and co‑insurance).
-                                @if($v > 0)
-                                    Because <strong>V &gt; 0</strong>, <strong>OD</strong> stays with the client and <strong>V</strong> is <strong>Insurance total (this visit)</strong>.
-                                @else
-                                    Because <strong>V ≤ 0</strong>, the full <strong>OI</strong> stays client-side for this slice (insurer <strong>0</strong> from that pool), in addition to co‑pay and co‑insurance.
-                                @endif
+                            <li>Step 4 – KN remainder split (<strong>V = OI − OD</strong>):
+                                <ul class="list-disc ml-4 mt-1 space-y-1">
+                                    <li>
+                                        <strong>OI</strong> (outstanding invoice) = approved pool after Steps 1–2 =
+                                        <strong>UGX {{ number_format($outstandingInvoice, 2) }}</strong>.
+                                    </li>
+                                    <li>
+                                        <strong>OD</strong> (deductible from that pool this visit, same as Step 3) =
+                                        <strong>UGX {{ number_format($odThisVisit, 2) }}</strong>.
+                                    </li>
+                                    <li>
+                                        <strong>V = OI − OD</strong> =
+                                        <strong>UGX {{ number_format($v, 2) }}</strong>
+                                        (what is left for the insurer vs the client after the deductible slice).
+                                    </li>
+                                </ul>
                             </li>
                             @if($excludedPart > 0)
                                 <li>Excluded lines (not part of the approved pool above) add <strong>UGX {{ number_format($excludedPart, 2) }}</strong> to the client’s bill.</li>
                             @endif
                         </ul>
+                        <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                            <div class="rounded-md border p-2 {{ $v > 0 ? 'border-emerald-200 bg-emerald-50/80 ring-1 ring-emerald-200' : 'border-slate-200 bg-white' }}">
+                                <p class="font-semibold text-slate-800">When <strong>V &gt; 0</strong> (positive remainder)</p>
+                                <ul class="list-disc ml-4 mt-1 text-slate-600 space-y-0.5">
+                                    <li><strong>Client</strong> pays <strong>OD</strong> from this pool (plus co‑pay and co‑insurance from Steps 1–2).</li>
+                                    <li><strong>Insurer / vendor</strong> (this authorization) pays <strong>V</strong> — stored as <strong>Insurance total (this visit)</strong> on this record.</li>
+                                </ul>
+                            </div>
+                            <div class="rounded-md border p-2 {{ $v <= 0 ? 'border-amber-200 bg-amber-50/80 ring-1 ring-amber-200' : 'border-slate-200 bg-white' }}">
+                                <p class="font-semibold text-slate-800">When <strong>V ≤ 0</strong> (zero or negative remainder)</p>
+                                <ul class="list-disc ml-4 mt-1 text-slate-600 space-y-0.5">
+                                    <li><strong>Client</strong> pays the full <strong>OI</strong> from this pool (deductible consumes the insurer’s share).</li>
+                                    <li><strong>Insurer / vendor</strong> pays <strong>UGX 0.00</strong> from this pool on this authorization (nothing left after <strong>OD</strong>).</li>
+                                </ul>
+                            </div>
+                        </div>
+                        @if($v > 0)
+                            <p class="text-xs text-emerald-800 mt-2 font-medium">
+                                <strong>This authorization:</strong> <strong>V &gt; 0</strong> — insurer / vendor share
+                                <strong>UGX {{ number_format($v, 2) }}</strong>;
+                                client slice from this step
+                                <strong>UGX {{ number_format($odThisVisit, 2) }}</strong> (OD).
+                            </p>
+                        @else
+                            <p class="text-xs text-amber-900 mt-2 font-medium">
+                                <strong>This authorization:</strong> <strong>V ≤ 0</strong> — insurer / vendor share from this pool is
+                                <strong>UGX 0.00</strong>;
+                                client takes
+                                <strong>UGX {{ number_format($outstandingInvoice, 2) }}</strong> (full OI) from this step.
+                            </p>
+                        @endif
                         <p class="text-xs text-slate-600 mt-1">
                             <strong>Final split stored on this authorization:</strong> client
                             <strong>UGX {{ number_format($authorization->client_total ?? 0, 2) }}</strong>,
