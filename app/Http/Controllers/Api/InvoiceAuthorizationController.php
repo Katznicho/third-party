@@ -16,6 +16,7 @@ use App\Models\ConnectedCompanyServiceExclusion;
 use App\Models\MedicalQuestionResponse;
 use App\Models\RejectedItem;
 use App\Services\ConnectedCompanyItemCoverageService;
+use App\Services\PlanServiceCategoryCoverageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -82,7 +83,7 @@ class InvoiceAuthorizationController extends Controller
 
         $policy = Policy::where('insurance_company_id', $insuranceCompanyId)
             ->where('policy_number', $policyNumber)
-            ->with('insuranceCompany')
+            ->with(['insuranceCompany', 'principalMember.plan.serviceCategories'])
             ->first();
 
         if (!$policy) {
@@ -499,15 +500,44 @@ class InvoiceAuthorizationController extends Controller
             }
         }
 
-        // 4) Partial coverage (insurer × provider item %; default 100% when not configured)
-        if ($connection) {
-            [$partialExcluded, $excludedItemDetails] = app(ConnectedCompanyItemCoverageService::class)
-                ->applyPartialCoverageToAuthorization(
-                    $itemsPayload,
-                    $excludedItemDetails,
-                    $insuranceCompanyId,
-                    (int) $connection->id
-                );
+        // 4) Partial coverage — plan service category % (always) then provider per-item % if plan is 100%
+        $planCategoryCoveragePercent = PlanServiceCategoryCoverageService::coveragePercentForVisit(
+            $policy,
+            $serviceCategory
+        );
+        $planOverridesItems = PlanServiceCategoryCoverageService::overridesProviderItemCoverage(
+            $planCategoryCoveragePercent
+        );
+
+        if ($planOverridesItems) {
+            Log::info('[InsuranceAuth] Plan service category coverage overrides item coverage', [
+                'policy_id' => $policy->id,
+                'plan_id' => $policy->principalMember?->plan_id,
+                'service_category' => $serviceCategory?->name,
+                'coverage_percent' => $planCategoryCoveragePercent,
+            ]);
+        }
+
+        $partialCoverageService = app(ConnectedCompanyItemCoverageService::class);
+        $connectionId = $connection ? (int) $connection->id : 0;
+
+        if ($planOverridesItems) {
+            [$partialExcluded, $excludedItemDetails] = $partialCoverageService->applyPartialCoverageToAuthorization(
+                $itemsPayload,
+                $excludedItemDetails,
+                $insuranceCompanyId,
+                $connectionId,
+                $planCategoryCoveragePercent,
+                $serviceCategory?->name
+            );
+            $excludedAmount += $partialExcluded;
+        } elseif ($connection) {
+            [$partialExcluded, $excludedItemDetails] = $partialCoverageService->applyPartialCoverageToAuthorization(
+                $itemsPayload,
+                $excludedItemDetails,
+                $insuranceCompanyId,
+                $connectionId
+            );
             $excludedAmount += $partialExcluded;
         }
 
@@ -812,6 +842,8 @@ class InvoiceAuthorizationController extends Controller
             'client_total' => $clientTotal,
             'insurance_total' => $insuranceTotal,
             'breakdown' => $breakdown,
+            'plan_service_category_coverage_percent' => $planCategoryCoveragePercent ?? 100.0,
+            'plan_coverage_overrides_item_rules' => $planOverridesItems ?? false,
             'policy_options' => $policyOptions,
             'amount_that_reduces_deductible' => round($amountThatReducesDeductible, 2),
             'copay_contributes_to_deductible' => $policy->copayContributesToDeductible(),

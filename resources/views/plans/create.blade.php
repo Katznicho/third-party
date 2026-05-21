@@ -285,7 +285,11 @@
         <!-- Products (Service Categories) Section -->
         <div class="border-b border-slate-200 pb-4">
             <h2 class="text-lg font-semibold text-slate-900 mb-4">Associated Products</h2>
-            <p class="text-sm text-slate-600 mb-4">Select products (service categories) and configure benefit amounts for this plan</p>
+            <p class="text-sm text-slate-600 mb-4">Select products (service categories) and configure benefit amounts for this plan.</p>
+            <p class="text-xs text-slate-500 mb-2">
+                <strong>Coverage %</strong> is the share of each invoice line in that service category this plan pays (default <strong>100%</strong>).
+                Below 100%, <strong>all items on a visit in that category</strong> use this % at authorization and <strong>override</strong> per-item coverage on connected providers.
+            </p>
             <p class="text-xs text-blue-600 mb-4 font-medium">💡 Standard Categories: Inpatient, Outpatient, Maternity, Optical, Dental, Funeral Expenses</p>
             
             <div class="space-y-4" id="products-container">
@@ -323,6 +327,23 @@
                                 <label class="block text-sm font-medium text-slate-700 mb-2">Base Amount (UGX) <span class="text-red-500">*</span></label>
                                 <input type="number" name="service_categories[{{ $category->id }}][base_amount]" step="0.01" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter base amount in UGX">
                                 <p class="mt-1 text-xs text-slate-500">Amount the client pays</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Coverage %</label>
+                                <div class="flex items-center gap-1">
+                                    <input
+                                        type="number"
+                                        name="service_categories[{{ $category->id }}][coverage_percent]"
+                                        value="{{ old('service_categories.' . $category->id . '.coverage_percent', 100) }}"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        class="w-24 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                    <span class="text-slate-500 text-sm">%</span>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-500">Insurer pays this share of eligible lines (100% = full)</p>
                             </div>
                             
                             <div>

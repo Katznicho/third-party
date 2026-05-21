@@ -230,6 +230,7 @@
                 <p class="text-xs text-slate-500 mb-3">
                     Set what share of each item line <strong>this insurer</strong> pays at this provider. Default is <strong>100%</strong> (full line).
                     If you set e.g. <strong>50%</strong>, this insurer pays half and the remainder is sent to the <strong>next insurer in cascade priority</strong> on Kashtre (not an extra client charge when that insurer accepts it).
+                    <strong>Plan service-category coverage</strong> (on Plans) overrides these per-item % when the visit category is set below 100%.
                     Use exclusions for items not covered at all.
                 </p>
                 <form method="POST" action="{{ route('connected-companies.item-coverages.update', $connection->id) }}">
@@ -395,111 +396,158 @@
                     @endif
                 </div>
 
-                <div class="border-t border-slate-200 pt-4">
+                <div class="border-t border-slate-200 pt-4" id="cc-local-exclusions-section">
                     <h3 class="text-xs font-semibold text-slate-700 mb-2">Additional exclusions by {{ $insuranceCompany->name }}</h3>
                     <p class="text-[11px] text-slate-500 mb-3">
                         These exclusions are specific to your insurer portal and do not change Kashtre's settings. They will still be enforced when you process coverage for this provider.
                     </p>
 
-                    @if($localExclusions->isNotEmpty())
-                        <ul class="text-xs text-slate-800 space-y-1 mb-3">
-                            @foreach($localExclusions as $ex)
-                                <li>
-                                    <span class="text-slate-900">
-                                        {{ $ex->item_name ?? 'Unknown item' }}
-                                    </span>
-                                    @if($ex->reason)
-                                        <span class="text-slate-500 ml-1">— {{ $ex->reason }}</span>
-                                    @endif
-                                </li>
-                            @endforeach
-                        </ul>
-                    @else
-                        <p class="text-xs text-slate-500 mb-3">
-                            No additional local exclusions defined yet.
-                        </p>
-                    @endif
+                    <div class="mb-4 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            id="cc-btn-show-exclusion-picker"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            @if(($excludeAllEligibleCount ?? 0) === 0) disabled @endif
+                        >
+                            Select items to exclude
+                        </button>
+                        <button
+                            type="button"
+                            id="cc-btn-exclude-all-picker"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md border border-red-300 bg-red-50 text-red-800 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                            @if(($excludeAllEligibleCount ?? 0) === 0) disabled @endif
+                        >
+                            Exclude all ({{ $excludeAllEligibleCount ?? 0 }}) — review &amp; confirm
+                        </button>
+                        <form method="POST" action="{{ route('connected-companies.local-exclusions.unexclude-all', $connection->id) }}" class="inline" onsubmit="return confirm('Remove all item-level local exclusions for this provider? Category exclusions are not changed.');">
+                            @csrf
+                            <button
+                                type="submit"
+                                class="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                @if(($localItemExclusionCount ?? 0) === 0) disabled @endif
+                            >
+                                Unexclude all ({{ $localItemExclusionCount ?? 0 }})
+                            </button>
+                        </form>
+                    </div>
 
-                    <div class="mb-6 flex flex-col gap-4">
-                        <div class="flex flex-col lg:flex-row lg:items-end lg:flex-wrap gap-3">
-                            <form method="POST" action="{{ route('connected-companies.local-exclusions.exclude-all', $connection->id) }}" class="flex flex-1 min-w-0 flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3" onsubmit="return confirm('Exclude ALL currently available items for this provider? This adds a local exclusion for each item with a service code.');">
-                                @csrf
-                                <div class="flex-1 min-w-[200px] max-w-md">
-                                    <label class="block text-xs font-medium text-slate-700 mb-1" for="exclude_all_reason">Reason (optional, applies to all)</label>
-                                    <input
-                                        type="text"
-                                        name="reason"
-                                        id="exclude_all_reason"
-                                        class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-red-500 focus:border-red-500"
-                                        placeholder="e.g. Contract excludes all procedures at this site"
+                    {{-- Add exclusions: checkbox picker --}}
+                    <div id="cc-exclusion-picker" class="hidden mb-6 border border-red-200 rounded-lg bg-red-50/40 p-4">
+                        <form method="POST" action="{{ route('connected-companies.local-exclusions.store', $connection->id) }}" id="cc-exclusion-picker-form">
+                            @csrf
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                                <div>
+                                    <h4 class="text-sm font-semibold text-slate-900">Choose items to exclude</h4>
+                                    <p class="text-[11px] text-slate-600 mt-0.5">
+                                        <span id="cc-exclusion-selected-count">0</span> of {{ $exclusionPickerItems->count() }} selected
+                                    </p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" id="cc-exclusion-select-all" class="px-2 py-1 text-xs font-medium rounded border border-slate-300 bg-white hover:bg-slate-50">Select all</button>
+                                    <button type="button" id="cc-exclusion-deselect-all" class="px-2 py-1 text-xs font-medium rounded border border-slate-300 bg-white hover:bg-slate-50">Deselect all</button>
+                                    <button type="button" id="cc-exclusion-picker-hide" class="px-2 py-1 text-xs font-medium rounded border border-slate-300 bg-white hover:bg-slate-50">Cancel</button>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <input
+                                    type="search"
+                                    id="cc-exclusion-search"
+                                    placeholder="Search by name or code…"
+                                    class="w-full max-w-md border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-red-500 focus:border-red-500"
+                                    autocomplete="off"
+                                >
+                            </div>
+                            <div class="max-h-72 overflow-y-auto border border-slate-200 rounded-md bg-white p-2 space-y-0.5" id="cc-exclusion-checkbox-list">
+                                @forelse($exclusionPickerItems as $item)
+                                    @php $code = $item['code'] ?? ''; @endphp
+                                    <label
+                                        class="cc-exclusion-row flex items-start gap-2 px-2 py-1.5 rounded hover:bg-slate-50 cursor-pointer"
+                                        data-search="{{ mb_strtolower(($item['name'] ?? '') . ' ' . $code) }}"
                                     >
-                                    <p class="mt-1 text-[11px] text-slate-500">Uses the full provider item list (not the search filter on the other tab).</p>
+                                        <input
+                                            type="checkbox"
+                                            name="service_codes[]"
+                                            value="{{ $code }}"
+                                            class="cc-exclusion-cb mt-0.5 h-4 w-4 text-red-600 border-slate-300 rounded focus:ring-red-500"
+                                        >
+                                        <span class="text-sm text-slate-800">
+                                            {{ $item['name'] ?? 'N/A' }}
+                                            <span class="text-xs text-slate-400 font-mono ml-1">({{ $code }})</span>
+                                        </span>
+                                    </label>
+                                @empty
+                                    <p class="text-sm text-slate-500 px-2 py-4 text-center">No items available to exclude (all may already be excluded).</p>
+                                @endforelse
+                            </div>
+                            <div class="mt-3 max-w-md">
+                                <label class="block text-xs font-medium text-slate-700 mb-1" for="local_exclusion_reason">Reason (optional, applies to selected)</label>
+                                <input
+                                    type="text"
+                                    name="reason"
+                                    id="local_exclusion_reason"
+                                    class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-red-500 focus:border-red-500"
+                                    placeholder="e.g. Not covered in our contract with this provider"
+                                >
+                            </div>
+                            <div class="mt-3 flex justify-end">
+                                <button
+                                    type="submit"
+                                    class="px-4 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                                    id="cc-exclusion-submit"
+                                >
+                                    Exclude selected items
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {{-- Current local exclusions: checkbox manager --}}
+                    @php
+                        $localItemExclusions = $localExclusions->filter(fn ($ex) => ! empty($ex->service_code));
+                    @endphp
+                    @if($localItemExclusions->isNotEmpty())
+                        <div class="border border-slate-200 rounded-lg p-4 bg-white mb-4">
+                            <h4 class="text-sm font-semibold text-slate-900 mb-2">Currently excluded locally ({{ $localItemExclusions->count() }})</h4>
+                            <p class="text-[11px] text-slate-500 mb-3">Check items you want to <strong>remove</strong> from exclusions (unexclude), then confirm.</p>
+                            <form method="POST" action="{{ route('connected-companies.local-exclusions.destroy', $connection->id) }}" id="cc-unexclusion-form">
+                                @csrf
+                                <div class="mb-2 flex flex-wrap gap-2">
+                                    <button type="button" id="cc-unexclusion-select-all" class="px-2 py-1 text-xs font-medium rounded border border-slate-300 bg-white hover:bg-slate-50">Select all</button>
+                                    <button type="button" id="cc-unexclusion-deselect-all" class="px-2 py-1 text-xs font-medium rounded border border-slate-300 bg-white hover:bg-slate-50">Deselect all</button>
+                                </div>
+                                <div class="max-h-48 overflow-y-auto border border-slate-100 rounded-md p-2 space-y-0.5 mb-3">
+                                    @foreach($localItemExclusions as $ex)
+                                        <label class="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-slate-50 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="service_codes[]"
+                                                value="{{ $ex->service_code }}"
+                                                class="cc-unexclusion-cb mt-0.5 h-4 w-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
+                                            >
+                                            <span class="text-sm text-slate-800">
+                                                {{ $ex->item_name ?? $ex->service_code }}
+                                                <span class="text-xs text-slate-400 font-mono ml-1">({{ $ex->service_code }})</span>
+                                                @if($ex->reason)
+                                                    <span class="text-xs text-slate-500 block">{{ $ex->reason }}</span>
+                                                @endif
+                                            </span>
+                                        </label>
+                                    @endforeach
                                 </div>
                                 <button
                                     type="submit"
-                                    class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-red-300 bg-red-50 text-red-800 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    @if(($excludeAllEligibleCount ?? 0) === 0) disabled title="No available items with codes" @endif
+                                    class="px-3 py-1.5 text-xs font-medium rounded-md border border-green-300 bg-green-50 text-green-800 hover:bg-green-100"
+                                    onclick="return confirm('Remove local exclusions for the selected items?');"
                                 >
-                                    Exclude all ({{ $excludeAllEligibleCount ?? 0 }})
-                                </button>
-                            </form>
-                            <form method="POST" action="{{ route('connected-companies.local-exclusions.unexclude-all', $connection->id) }}" class="shrink-0 flex items-end" onsubmit="return confirm('Remove all item-level local exclusions for this provider? Category exclusions are not changed.');">
-                                @csrf
-                                <button
-                                    type="submit"
-                                    class="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    @if(($localItemExclusionCount ?? 0) === 0) disabled title="No local item exclusions" @endif
-                                >
-                                    Unexclude all ({{ $localItemExclusionCount ?? 0 }})
+                                    Unexclude selected items
                                 </button>
                             </form>
                         </div>
-                    </div>
-
-                    <form method="POST" action="{{ route('connected-companies.local-exclusions.store', $connection->id) }}" class="space-y-3 max-w-md">
-                        @csrf
-                        <div>
-                            <label class="block text-xs font-medium text-slate-700 mb-1" for="service_codes">
-                                Services to exclude (from available list)
-                            </label>
-                            <select
-                                name="service_codes[]"
-                                id="service_codes"
-                                multiple
-                                size="8"
-                                class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-blue-500 focus:border-blue-500"
-                                @if($items->count() > 0) required @endif
-                            >
-                                @foreach($items as $item)
-                                    @if(!empty($item['code']))
-                                        <option value="{{ $item['code'] }}">
-                                            {{ $item['name'] ?? 'N/A' }}
-                                        </option>
-                                    @endif
-                                @endforeach
-                            </select>
-                            <p class="mt-1 text-[11px] text-slate-500">
-                                Hold Ctrl (Windows) or Command (Mac) to select multiple services. This list is based on items currently available for this provider.
-                            </p>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-700 mb-1" for="local_exclusion_reason">
-                                Reason (optional)
-                            </label>
-                            <input
-                                type="text"
-                                name="reason"
-                                id="local_exclusion_reason"
-                                class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="e.g. Not covered in our contract with this provider"
-                            >
-                        </div>
-                        <div class="flex justify-end">
-                            <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-md bg-red-600 text-white hover:bg-red-700">
-                                Add local exclusion
-                            </button>
-                        </div>
-                    </form>
+                    @else
+                        <p class="text-xs text-slate-500 mb-4">
+                            No additional local item exclusions defined yet.
+                        </p>
+                    @endif
                 </div>
             </div>
         </div>
@@ -577,31 +625,177 @@
         var available = document.getElementById('cc-items-available');
         var excluded = document.getElementById('cc-items-excluded');
 
-        if (!tabs.length || !available || !excluded) {
-            return;
+        function activateTab(target) {
+            if (!tabs.length || !available || !excluded) {
+                return;
+            }
+            tabs.forEach(function (b) {
+                var isActive = b.getAttribute('data-target') === target;
+                b.classList.toggle('border-blue-500', isActive);
+                b.classList.toggle('text-blue-600', isActive);
+                b.classList.toggle('border-transparent', !isActive);
+                b.classList.toggle('text-slate-500', !isActive);
+            });
+            if (target === 'available') {
+                available.classList.remove('hidden');
+                excluded.classList.add('hidden');
+            } else {
+                available.classList.add('hidden');
+                excluded.classList.remove('hidden');
+            }
         }
 
         tabs.forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var target = this.getAttribute('data-target'); // 'available' or 'excluded'
-
-                tabs.forEach(function (b) {
-                    b.classList.remove('border-blue-500', 'text-blue-600');
-                    b.classList.add('border-transparent', 'text-slate-500');
-                });
-
-                this.classList.add('border-blue-500', 'text-blue-600');
-                this.classList.remove('border-transparent', 'text-slate-500');
-
-                if (target === 'available') {
-                    available.classList.remove('hidden');
-                    excluded.classList.add('hidden');
-                } else {
-                    available.classList.add('hidden');
-                    excluded.classList.remove('hidden');
-                }
+                activateTab(this.getAttribute('data-target'));
             });
         });
+
+        if (window.location.hash === '#cc-items-excluded') {
+            activateTab('excluded');
+        }
+
+        var picker = document.getElementById('cc-exclusion-picker');
+        var pickerForm = document.getElementById('cc-exclusion-picker-form');
+        if (!picker || !pickerForm) {
+            return;
+        }
+
+        var checkboxes = picker.querySelectorAll('.cc-exclusion-cb');
+        var countEl = document.getElementById('cc-exclusion-selected-count');
+        var searchInput = document.getElementById('cc-exclusion-search');
+        var submitBtn = document.getElementById('cc-exclusion-submit');
+
+        function updateExclusionCount() {
+            var visible = 0;
+            var selected = 0;
+            picker.querySelectorAll('.cc-exclusion-row').forEach(function (row) {
+                if (row.style.display === 'none') {
+                    return;
+                }
+                visible++;
+                var cb = row.querySelector('.cc-exclusion-cb');
+                if (cb && cb.checked) {
+                    selected++;
+                }
+            });
+            if (countEl) {
+                countEl.textContent = String(selected);
+            }
+            if (submitBtn) {
+                submitBtn.disabled = selected === 0;
+            }
+        }
+
+        function setAllExclusionChecked(checked) {
+            picker.querySelectorAll('.cc-exclusion-row').forEach(function (row) {
+                if (row.style.display === 'none') {
+                    return;
+                }
+                var cb = row.querySelector('.cc-exclusion-cb');
+                if (cb) {
+                    cb.checked = checked;
+                }
+            });
+            updateExclusionCount();
+        }
+
+        function showPicker(selectAll) {
+            picker.classList.remove('hidden');
+            if (selectAll) {
+                setAllExclusionChecked(true);
+            } else {
+                updateExclusionCount();
+            }
+            picker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function hidePicker() {
+            picker.classList.add('hidden');
+        }
+
+        checkboxes.forEach(function (cb) {
+            cb.addEventListener('change', updateExclusionCount);
+        });
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                var q = this.value.trim().toLowerCase();
+                picker.querySelectorAll('.cc-exclusion-row').forEach(function (row) {
+                    var hay = row.getAttribute('data-search') || '';
+                    row.style.display = !q || hay.indexOf(q) !== -1 ? '' : 'none';
+                });
+                updateExclusionCount();
+            });
+        }
+
+        var btnShow = document.getElementById('cc-btn-show-exclusion-picker');
+        var btnExcludeAll = document.getElementById('cc-btn-exclude-all-picker');
+        var btnSelectAll = document.getElementById('cc-exclusion-select-all');
+        var btnDeselectAll = document.getElementById('cc-exclusion-deselect-all');
+        var btnHide = document.getElementById('cc-exclusion-picker-hide');
+
+        if (btnShow) {
+            btnShow.addEventListener('click', function () {
+                activateTab('excluded');
+                showPicker(false);
+            });
+        }
+        if (btnExcludeAll) {
+            btnExcludeAll.addEventListener('click', function () {
+                activateTab('excluded');
+                showPicker(true);
+            });
+        }
+        if (btnSelectAll) {
+            btnSelectAll.addEventListener('click', function () { setAllExclusionChecked(true); });
+        }
+        if (btnDeselectAll) {
+            btnDeselectAll.addEventListener('click', function () { setAllExclusionChecked(false); });
+        }
+        if (btnHide) {
+            btnHide.addEventListener('click', hidePicker);
+        }
+
+        if (pickerForm) {
+            pickerForm.addEventListener('submit', function (e) {
+                var selected = picker.querySelectorAll('.cc-exclusion-cb:checked').length;
+                if (selected === 0) {
+                    e.preventDefault();
+                    alert('Select at least one item to exclude.');
+                    return;
+                }
+                if (!confirm('Exclude ' + selected + ' selected item(s) for this provider?')) {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        updateExclusionCount();
+
+        var unexSelectAll = document.getElementById('cc-unexclusion-select-all');
+        var unexDeselectAll = document.getElementById('cc-unexclusion-deselect-all');
+        if (unexSelectAll) {
+            unexSelectAll.addEventListener('click', function () {
+                document.querySelectorAll('.cc-unexclusion-cb').forEach(function (cb) { cb.checked = true; });
+            });
+        }
+        if (unexDeselectAll) {
+            unexDeselectAll.addEventListener('click', function () {
+                document.querySelectorAll('.cc-unexclusion-cb').forEach(function (cb) { cb.checked = false; });
+            });
+        }
+
+        var unexForm = document.getElementById('cc-unexclusion-form');
+        if (unexForm) {
+            unexForm.addEventListener('submit', function (e) {
+                var n = document.querySelectorAll('.cc-unexclusion-cb:checked').length;
+                if (n === 0) {
+                    e.preventDefault();
+                    alert('Select at least one item to unexclude.');
+                }
+            });
+        }
     });
 </script>
 

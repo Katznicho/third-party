@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ConnectedCompanyItemCoverage;
 use App\Models\Plan;
 use App\Models\ServiceCategory;
 use Illuminate\Http\Request;
@@ -114,12 +115,7 @@ class PlanController extends Controller
             foreach ($request->service_categories as $categoryId => $categoryData) {
                 if (isset($categoryData['id'])) {
                     $categoryIdValue = $categoryData['id'];
-                    $syncData[$categoryIdValue] = [
-                        'benefit_amount' => isset($categoryData['benefit_amount']) && $categoryData['benefit_amount'] !== '' ? (float)$categoryData['benefit_amount'] : null,
-                        'base_amount' => isset($categoryData['base_amount']) && $categoryData['base_amount'] !== '' ? (float)$categoryData['base_amount'] : null,
-                        'waiting_period_days' => isset($categoryData['waiting_period_days']) && $categoryData['waiting_period_days'] !== '' ? (int)$categoryData['waiting_period_days'] : 0,
-                        'is_enabled' => isset($categoryData['is_enabled']) ? (bool)$categoryData['is_enabled'] : true,
-                    ];
+                    $syncData[$categoryIdValue] = $this->pivotDataForServiceCategory($categoryData);
                 }
             }
             $plan->serviceCategories()->sync($syncData);
@@ -252,12 +248,7 @@ class PlanController extends Controller
             foreach ($request->service_categories as $categoryId => $categoryData) {
                 if (isset($categoryData['id'])) {
                     $categoryIdValue = $categoryData['id'];
-                    $syncData[$categoryIdValue] = [
-                        'benefit_amount' => isset($categoryData['benefit_amount']) && $categoryData['benefit_amount'] !== '' ? (float)$categoryData['benefit_amount'] : null,
-                        'base_amount' => isset($categoryData['base_amount']) && $categoryData['base_amount'] !== '' ? (float)$categoryData['base_amount'] : null,
-                        'waiting_period_days' => isset($categoryData['waiting_period_days']) && $categoryData['waiting_period_days'] !== '' ? (int)$categoryData['waiting_period_days'] : 0,
-                        'is_enabled' => isset($categoryData['is_enabled']) ? (bool)$categoryData['is_enabled'] : true,
-                    ];
+                    $syncData[$categoryIdValue] = $this->pivotDataForServiceCategory($categoryData);
                 }
             }
             $plan->serviceCategories()->sync($syncData);
@@ -306,6 +297,7 @@ class PlanController extends Controller
                     'name' => $category->name,
                     'code' => $category->code,
                     'amount' => $category->pivot->benefit_amount ?? 0,
+                    'coverage_percent' => (float) ($category->pivot->coverage_percent ?? 100),
                     'is_enabled' => $category->pivot->is_enabled ?? false,
                 ];
             })->filter(function ($benefit) {
@@ -322,6 +314,29 @@ class PlanController extends Controller
                 'message' => 'Plan not found',
             ], 404);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $categoryData
+     * @return array<string, mixed>
+     */
+    private function pivotDataForServiceCategory(array $categoryData): array
+    {
+        return [
+            'benefit_amount' => isset($categoryData['benefit_amount']) && $categoryData['benefit_amount'] !== ''
+                ? (float) $categoryData['benefit_amount']
+                : null,
+            'base_amount' => isset($categoryData['base_amount']) && $categoryData['base_amount'] !== ''
+                ? (float) $categoryData['base_amount']
+                : null,
+            'coverage_percent' => ConnectedCompanyItemCoverage::normalizePercent(
+                (float) ($categoryData['coverage_percent'] ?? 100)
+            ),
+            'waiting_period_days' => isset($categoryData['waiting_period_days']) && $categoryData['waiting_period_days'] !== ''
+                ? (int) $categoryData['waiting_period_days']
+                : 0,
+            'is_enabled' => isset($categoryData['is_enabled']) ? (bool) $categoryData['is_enabled'] : true,
+        ];
     }
 
     /**

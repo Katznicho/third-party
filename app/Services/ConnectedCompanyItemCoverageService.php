@@ -7,8 +7,15 @@ use Illuminate\Support\Collection;
 
 class ConnectedCompanyItemCoverageService
 {
+    public const REASON_SOURCE_PLAN = 'plan_service_category';
+
+    public const REASON_SOURCE_PROVIDER_ITEM = 'provider_item';
+
     /**
-     * Apply insurer-configured partial coverage (1–99%) for items not already fully excluded.
+     * Apply partial coverage (1–99%) for items not already fully excluded.
+     *
+     * When $planServiceCategoryCoveragePercent is set and &lt; 100, it applies to every line
+     * for the visit and overrides per-item connected-company coverage.
      *
      * @param  array<int, array<string, mixed>>  $itemsPayload
      * @param  array<int, array<string, mixed>>  $excludedItemDetails
@@ -18,18 +25,33 @@ class ConnectedCompanyItemCoverageService
         array $itemsPayload,
         array $excludedItemDetails,
         int $insuranceCompanyId,
-        int $businessConnectionId
+        int $businessConnectionId,
+        ?float $planServiceCategoryCoveragePercent = null,
+        ?string $planServiceCategoryName = null
     ): array {
-        $excludedAmount = 0.0;
-        $coverageMap = ConnectedCompanyItemCoverage::activeMapForConnection(
-            $insuranceCompanyId,
-            $businessConnectionId
-        );
-
-        if ($coverageMap->isEmpty() || $itemsPayload === []) {
+        if ($itemsPayload === []) {
             return [0.0, $excludedItemDetails];
         }
 
+        $planPercent = $planServiceCategoryCoveragePercent !== null
+            ? ConnectedCompanyItemCoverage::normalizePercent($planServiceCategoryCoveragePercent)
+            : null;
+
+        $usePlanOverride = $planPercent !== null
+            && PlanServiceCategoryCoverageService::overridesProviderItemCoverage($planPercent);
+
+        $coverageMap = $usePlanOverride
+            ? collect()
+            : ConnectedCompanyItemCoverage::activeMapForConnection(
+                $insuranceCompanyId,
+                $businessConnectionId
+            );
+
+        if (! $usePlanOverride && $coverageMap->isEmpty()) {
+            return [0.0, $excludedItemDetails];
+        }
+
+        $excludedAmount = 0.0;
         $fullyExcludedCodes = $this->fullyExcludedCodeSet($excludedItemDetails);
 
         foreach ($itemsPayload as $item) {
@@ -38,23 +60,35 @@ class ConnectedCompanyItemCoverageService
             }
 
             $code = trim((string) ($item['code'] ?? ''));
-            if ($code === '') {
+            $codeKey = $code !== '' ? mb_strtolower($code) : '';
+
+            if ($codeKey !== '' && $fullyExcludedCodes->contains($codeKey)) {
                 continue;
             }
 
-            $codeKey = mb_strtolower($code);
-            if ($fullyExcludedCodes->contains($codeKey)) {
-                continue;
-            }
+            if ($usePlanOverride) {
+                $percent = $planPercent;
+                $reason = $planServiceCategoryName
+                    ? "Plan service category ({$planServiceCategoryName}) at {$percent}%"
+                    : "Plan service category at {$percent}%";
+                $reasonSource = self::REASON_SOURCE_PLAN;
+            } else {
+                if ($codeKey === '') {
+                    continue;
+                }
 
-            /** @var ConnectedCompanyItemCoverage|null $row */
-            $row = $coverageMap->get($codeKey);
-            $percent = $row
-                ? ConnectedCompanyItemCoverage::normalizePercent((float) $row->coverage_percent)
-                : 100.0;
+                /** @var ConnectedCompanyItemCoverage|null $row */
+                $row = $coverageMap->get($codeKey);
+                $percent = $row
+                    ? ConnectedCompanyItemCoverage::normalizePercent((float) $row->coverage_percent)
+                    : 100.0;
 
-            if ($percent >= 100.0) {
-                continue;
+                if ($percent >= 100.0) {
+                    continue;
+                }
+
+                $reason = $row?->reason;
+                $reasonSource = self::REASON_SOURCE_PROVIDER_ITEM;
             }
 
             $quantity = (float) ($item['quantity'] ?? 1);
@@ -74,17 +108,20 @@ class ConnectedCompanyItemCoverageService
 
             $excludedAmount += $uncovered;
             $excludedItemDetails[] = [
-                'name' => $item['name'] ?? $code,
-                'code' => $code,
+                'name' => $item['name'] ?? ($code !== '' ? $code : 'Line item'),
+                'code' => $code !== '' ? $code : null,
                 'amount' => $uncovered,
                 'line_total' => $lineTotal,
                 'coverage_percent' => $percent,
                 'covered_amount' => $coveredAmount,
                 'reason_scope' => ConnectedCompanyItemCoverage::REASON_SCOPE_PARTIAL,
-                'reason' => $row?->reason,
+                'reason' => $reason,
+                'reason_source' => $reasonSource,
             ];
 
-            $fullyExcludedCodes->push($codeKey);
+            if ($codeKey !== '') {
+                $fullyExcludedCodes->push($codeKey);
+            }
         }
 
         return [$excludedAmount, $excludedItemDetails];

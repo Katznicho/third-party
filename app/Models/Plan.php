@@ -69,7 +69,7 @@ class Plan extends Model
     public function serviceCategories(): BelongsToMany
     {
         return $this->belongsToMany(ServiceCategory::class, 'plan_service_category')
-            ->withPivot(['benefit_amount', 'base_amount', 'waiting_period_days', 'is_enabled'])
+            ->withPivot(['benefit_amount', 'base_amount', 'coverage_percent', 'waiting_period_days', 'is_enabled'])
             ->withTimestamps();
     }
 

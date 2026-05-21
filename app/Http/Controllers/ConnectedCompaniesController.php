@@ -149,11 +149,16 @@ class ConnectedCompaniesController extends Controller
         $excludedItems = $itemContext['excludedItems'];
         $availableItems = $itemContext['availableItems'];
 
-        $excludeAllEligibleCount = $availableItems->filter(function ($item) {
-            $code = $item['code'] ?? null;
+        $exclusionPickerItems = $availableItems
+            ->filter(function ($item) {
+                $code = trim((string) ($item['code'] ?? ''));
 
-            return $code !== null && $code !== '';
-        })->count();
+                return $code !== '';
+            })
+            ->sortBy(fn ($item) => mb_strtolower((string) ($item['name'] ?? $item['code'] ?? '')))
+            ->values();
+
+        $excludeAllEligibleCount = $exclusionPickerItems->count();
 
         $localItemExclusionCount = $localExclusions->filter(function ($ex) {
             $c = $ex->service_code;
@@ -225,6 +230,7 @@ class ConnectedCompaniesController extends Controller
             'availableCategories' => $availableCategories,
             'excludeAllEligibleCount' => $excludeAllEligibleCount,
             'localItemExclusionCount' => $localItemExclusionCount,
+            'exclusionPickerItems' => $exclusionPickerItems,
         ]);
     }
 
@@ -1027,6 +1033,7 @@ class ConnectedCompaniesController extends Controller
             'reason' => 'nullable|string|max:1000',
         ]);
 
+        $count = 0;
         foreach ($validated['service_codes'] as $code) {
             ConnectedCompanyServiceExclusion::updateOrCreate(
                 [
@@ -1040,11 +1047,47 @@ class ConnectedCompaniesController extends Controller
                     'is_active' => true,
                 ]
             );
+            $count++;
         }
 
         return redirect()
-            ->route('connected-companies.show', $connectionId)
-            ->with('success', 'Local exclusion added for this provider.');
+            ->to(route('connected-companies.show', $connectionId) . '#cc-items-excluded')
+            ->with('success', "Local exclusions added for {$count} item(s).");
+    }
+
+    /**
+     * Remove selected item-level local exclusions (uncheck items in the manager UI).
+     */
+    public function destroyLocalExclusions(Request $request, int $connectionId)
+    {
+        $insuranceCompany = auth()->user()->insuranceCompany;
+
+        if (! $insuranceCompany) {
+            abort(403, 'No insurance company associated with your account.');
+        }
+
+        $connection = $insuranceCompany->connectedCompanies()->findOrFail($connectionId);
+
+        $validated = $request->validate([
+            'service_codes' => 'required|array|min:1',
+            'service_codes.*' => 'required|string|max:255',
+        ]);
+
+        $deleted = ConnectedCompanyServiceExclusion::query()
+            ->where('insurance_company_id', $insuranceCompany->id)
+            ->where('business_connection_id', $connection->id)
+            ->whereIn('service_code', $validated['service_codes'])
+            ->delete();
+
+        if ($deleted === 0) {
+            return redirect()
+                ->to(route('connected-companies.show', $connectionId) . '#cc-items-excluded')
+                ->with('warning', 'No matching local exclusions were removed.');
+        }
+
+        return redirect()
+            ->to(route('connected-companies.show', $connectionId) . '#cc-items-excluded')
+            ->with('success', "Removed {$deleted} local item exclusion(s).");
     }
 
     /**

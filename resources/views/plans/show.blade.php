@@ -212,6 +212,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Product Name</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Code</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Benefit Amount (UGX)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Coverage %</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Base Amount (UGX)</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Waiting Period</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
@@ -224,6 +225,10 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ $category->code }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                                     {{ $category->pivot->benefit_amount ? number_format($category->pivot->benefit_amount, 2) : 'N/A' }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                                    @php $pct = (float) ($category->pivot->coverage_percent ?? 100); @endphp
+                                    {{ $pct == (int) $pct ? (int) $pct : number_format($pct, 2) }}%
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                                     {{ $category->pivot->base_amount ? number_format($category->pivot->base_amount, 2) : 'N/A' }}

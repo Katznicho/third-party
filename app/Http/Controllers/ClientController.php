@@ -536,6 +536,9 @@ class ClientController extends Controller
                         'policy_id' => $policy->id,
                         'service_category_id' => $serviceCategory->id,
                         'benefit_amount' => $pivot->benefit_amount,
+                        'coverage_percent' => \App\Models\ConnectedCompanyItemCoverage::normalizePercent(
+                            (float) ($pivot->coverage_percent ?? 100)
+                        ),
                         'used_amount' => 0,
                         'remaining_amount' => $pivot->benefit_amount,
                         'copay_percentage' => $pivot->copay_percentage ?? 0,

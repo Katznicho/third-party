@@ -12,7 +12,7 @@ class PolicyBenefit extends Model
     use HasFactory;
 
     protected $fillable = [
-        'policy_id', 'service_category_id', 'benefit_amount', 'used_amount', 'remaining_amount',
+        'policy_id', 'service_category_id', 'benefit_amount', 'coverage_percent', 'used_amount', 'remaining_amount',
         'hospital_cash_per_day', 'hospital_cash_max_days', 'life_cover_amount', 'allowed_services',
         'copay_percentage', 'deductible_amount', 'deductible_type', 'shared_payment_percentage',
         'payment_notes', 'is_enabled', 'effective_date', 'expiry_date',
@@ -22,6 +22,7 @@ class PolicyBenefit extends Model
     {
         return [
             'benefit_amount' => 'decimal:2',
+            'coverage_percent' => 'decimal:2',
             'used_amount' => 'decimal:2',
             'remaining_amount' => 'decimal:2',
             'hospital_cash_per_day' => 'decimal:2',
