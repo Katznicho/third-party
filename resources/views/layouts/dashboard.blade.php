@@ -217,7 +217,7 @@
                     Questions
                 </a>
 
-                @include('layouts.partials.sidebar-organization')
+                @include('layouts.partials.sidebar-settings')
             </nav>
 
             <!-- User Section -->
@@ -340,7 +340,7 @@
                     </svg>
                     Questions
                 </a>
-                @include('layouts.partials.sidebar-organization')
+                @include('layouts.partials.sidebar-settings')
             </nav>
             <div class="p-4 border-t border-slate-700">
                 <div class="flex items-start mb-4">

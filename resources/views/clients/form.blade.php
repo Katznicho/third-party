@@ -76,11 +76,10 @@
                     @if(isset($requiredFields) && in_array('title', $requiredFields)) required @endif
                     class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('title') border-red-300 @enderror"
                 >
-                    <option value="">Select Title</option>
-                    <option value="Mr" {{ old('title', $client->title ?? '') === 'Mr' ? 'selected' : '' }}>Mr</option>
-                    <option value="Mrs" {{ old('title', $client->title ?? '') === 'Mrs' ? 'selected' : '' }}>Mrs</option>
-                    <option value="Miss" {{ old('title', $client->title ?? '') === 'Miss' ? 'selected' : '' }}>Miss</option>
-                    <option value="Dr" {{ old('title', $client->title ?? '') === 'Dr' ? 'selected' : '' }}>Dr</option>
+                    @include('partials.insurer-title-options', [
+                        'fieldName' => 'title',
+                        'selectedTitle' => $client->title ?? '',
+                    ])
                 </select>
                 @error('title')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -574,11 +573,10 @@
                     @if(isset($requiredFields) && in_array('next_of_kin_title', $requiredFields)) required @endif
                     class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 @error('next_of_kin_title') border-red-300 @enderror"
                 >
-                    <option value="">Select Title</option>
-                    <option value="Mr" {{ old('next_of_kin_title', $client->next_of_kin_title ?? '') === 'Mr' ? 'selected' : '' }}>Mr</option>
-                    <option value="Mrs" {{ old('next_of_kin_title', $client->next_of_kin_title ?? '') === 'Mrs' ? 'selected' : '' }}>Mrs</option>
-                    <option value="Miss" {{ old('next_of_kin_title', $client->next_of_kin_title ?? '') === 'Miss' ? 'selected' : '' }}>Miss</option>
-                    <option value="Dr" {{ old('next_of_kin_title', $client->next_of_kin_title ?? '') === 'Dr' ? 'selected' : '' }}>Dr</option>
+                    @include('partials.insurer-title-options', [
+                        'fieldName' => 'next_of_kin_title',
+                        'selectedTitle' => $client->next_of_kin_title ?? '',
+                    ])
                 </select>
                 @error('next_of_kin_title')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -800,11 +798,7 @@
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Title</label>
                         <select name="dependants[0][title]" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select Title</option>
-                            <option value="Mr">Mr</option>
-                            <option value="Mrs">Mrs</option>
-                            <option value="Miss">Miss</option>
-                            <option value="Dr">Dr</option>
+                            @include('partials.insurer-title-options', ['fieldName' => 'dependants.0.title'])
                         </select>
                     </div>
                     <div>

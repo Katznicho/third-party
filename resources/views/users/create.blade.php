@@ -21,9 +21,7 @@
         <form action="{{ route('users.store') }}" method="POST" class="space-y-6">
             @csrf
 
-            <div class="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-4">
-                <p class="text-sm font-medium text-slate-800">Staff / HR details</p>
-
+            <div class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label for="surname" class="block text-sm font-medium text-slate-700 mb-2">Surname</label>
@@ -51,7 +49,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                     <div>
                         <label for="national_id" class="block text-sm font-medium text-slate-700 mb-2">National ID (NIN)</label>
                         <input type="text" name="national_id" id="national_id" value="{{ old('national_id') }}" placeholder="National identification number"
@@ -75,7 +73,55 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                         @if($departments->isEmpty())
-                            <p class="mt-1 text-xs text-slate-500">No departments yet. Add them under <span class="font-medium">Organization → Departments</span>.</p>
+                            <p class="mt-1 text-xs text-slate-500">No departments yet. Add them under <span class="font-medium">Settings → Departments</span>.</p>
+                        @endif
+                    </div>
+                    <div>
+                        <label for="section_id" class="block text-sm font-medium text-slate-700 mb-2">Section</label>
+                        <select name="section_id" id="section_id"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('section_id') border-red-500 @enderror">
+                            <option value="">— None —</option>
+                            @foreach($sections as $sec)
+                                <option value="{{ $sec->id }}" {{ (string) old('section_id') === (string) $sec->id ? 'selected' : '' }}>{{ $sec->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('section_id')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @if($sections->isEmpty())
+                            <p class="mt-1 text-xs text-slate-500">Optional. Configure under <span class="font-medium">Settings → Sections</span>.</p>
+                        @endif
+                    </div>
+                    <div>
+                        <label for="title_id" class="block text-sm font-medium text-slate-700 mb-2">Title</label>
+                        <select name="title_id" id="title_id"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('title_id') border-red-500 @enderror">
+                            <option value="">— None —</option>
+                            @foreach($titles as $t)
+                                <option value="{{ $t->id }}" {{ (string) old('title_id') === (string) $t->id ? 'selected' : '' }}>{{ $t->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('title_id')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @if($titles->isEmpty())
+                            <p class="mt-1 text-xs text-slate-500">Optional. Configure under <span class="font-medium">Settings → Titles</span>.</p>
+                        @endif
+                    </div>
+                    <div>
+                        <label for="qualification_id" class="block text-sm font-medium text-slate-700 mb-2">Qualification</label>
+                        <select name="qualification_id" id="qualification_id"
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('qualification_id') border-red-500 @enderror">
+                            <option value="">— None —</option>
+                            @foreach($qualifications as $q)
+                                <option value="{{ $q->id }}" {{ (string) old('qualification_id') === (string) $q->id ? 'selected' : '' }}>{{ $q->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('qualification_id')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                        @if($qualifications->isEmpty())
+                            <p class="mt-1 text-xs text-slate-500">Optional. Configure under <span class="font-medium">Settings → Qualifications</span>.</p>
                         @endif
                     </div>
                 </div>

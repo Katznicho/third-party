@@ -99,6 +99,13 @@ Route::middleware('auth')->group(function () {
     // Departments (per insurance company)
     Route::resource('departments', \App\Http\Controllers\DepartmentController::class)->except(['show']);
 
+    // Vendor settings: salutations & staff qualifications (per insurance company)
+    Route::resource('titles', \App\Http\Controllers\InsurerTitleController::class)->except(['show']);
+    Route::resource('qualifications', \App\Http\Controllers\InsurerQualificationController::class)->except(['show']);
+    Route::resource('sections', \App\Http\Controllers\InsurerSectionController::class)->except(['show']);
+    Route::resource('stores', \App\Http\Controllers\InsurerStoreController::class)->except(['show']);
+    Route::resource('supplies', \App\Http\Controllers\InsurerSupplyController::class)->except(['show']);
+
     // Service Providers
     Route::get('/connected-companies', [\App\Http\Controllers\ConnectedCompaniesController::class, 'index'])->name('connected-companies.index');
     Route::get('/connected-companies/{connectionId}', [\App\Http\Controllers\ConnectedCompaniesController::class, 'show'])->name('connected-companies.show');

@@ -26,6 +26,9 @@ class User extends Authenticatable
         'first_name',
         'middle_name',
         'national_id',
+        'title_id',
+        'qualification_id',
+        'section_id',
         'department',
         'department_id',
         'gender',
@@ -86,6 +89,21 @@ class User extends Authenticatable
     public function structuredDepartment(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    public function insurerTitle(): BelongsTo
+    {
+        return $this->belongsTo(InsurerTitle::class, 'title_id');
+    }
+
+    public function insurerQualification(): BelongsTo
+    {
+        return $this->belongsTo(InsurerQualification::class, 'qualification_id');
+    }
+
+    public function insurerSection(): BelongsTo
+    {
+        return $this->belongsTo(InsurerSection::class, 'section_id');
     }
 
     /**

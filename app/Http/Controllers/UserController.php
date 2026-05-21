@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
+use App\Models\InsurerQualification;
+use App\Models\InsurerSection;
+use App\Models\InsurerTitle;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -33,6 +36,54 @@ class UserController extends Controller
         if ($request->input('department_id') === '') {
             $request->merge(['department_id' => null]);
         }
+        if ($request->input('title_id') === '') {
+            $request->merge(['title_id' => null]);
+        }
+        if ($request->input('qualification_id') === '') {
+            $request->merge(['qualification_id' => null]);
+        }
+        if ($request->input('section_id') === '') {
+            $request->merge(['section_id' => null]);
+        }
+    }
+
+    protected function resolveSectionId(?int $sectionId): ?int
+    {
+        $companyId = auth()->user()->insurance_company_id;
+        if (! $sectionId || ! $companyId) {
+            return null;
+        }
+
+        return InsurerSection::query()
+            ->where('insurance_company_id', $companyId)
+            ->where('id', $sectionId)
+            ->exists() ? $sectionId : null;
+    }
+
+    protected function resolveTitleId(?int $titleId): ?int
+    {
+        $companyId = auth()->user()->insurance_company_id;
+        if (! $titleId || ! $companyId) {
+            return null;
+        }
+
+        return InsurerTitle::query()
+            ->where('insurance_company_id', $companyId)
+            ->where('id', $titleId)
+            ->exists() ? $titleId : null;
+    }
+
+    protected function resolveQualificationId(?int $qualificationId): ?int
+    {
+        $companyId = auth()->user()->insurance_company_id;
+        if (! $qualificationId || ! $companyId) {
+            return null;
+        }
+
+        return InsurerQualification::query()
+            ->where('insurance_company_id', $companyId)
+            ->where('id', $qualificationId)
+            ->exists() ? $qualificationId : null;
     }
 
     /**
@@ -97,11 +148,14 @@ class UserController extends Controller
     public function create()
     {
         $roles = Role::orderBy('name')->get();
-        $departments = Department::where('insurance_company_id', auth()->user()->insurance_company_id)
-            ->orderBy('name')
-            ->get();
+        $companyId = auth()->user()->insurance_company_id;
 
-        return view('users.create', compact('roles', 'departments'));
+        $departments = Department::where('insurance_company_id', $companyId)->orderBy('name')->get();
+        $titles = InsurerTitle::where('insurance_company_id', $companyId)->orderBy('name')->get();
+        $qualifications = InsurerQualification::where('insurance_company_id', $companyId)->orderBy('name')->get();
+        $sections = InsurerSection::where('insurance_company_id', $companyId)->orderBy('name')->get();
+
+        return view('users.create', compact('roles', 'departments', 'titles', 'qualifications', 'sections'));
     }
 
     /**
@@ -111,8 +165,12 @@ class UserController extends Controller
     {
         $this->normalizeNullableEnrollment($request);
 
-        $deptRule = Rule::exists('departments', 'id')
-            ->where('insurance_company_id', auth()->user()->insurance_company_id);
+        $companyId = auth()->user()->insurance_company_id;
+
+        $deptRule = Rule::exists('departments', 'id')->where('insurance_company_id', $companyId);
+        $titleRule = Rule::exists('insurer_titles', 'id')->where('insurance_company_id', $companyId);
+        $qualRule = Rule::exists('insurer_qualifications', 'id')->where('insurance_company_id', $companyId);
+        $sectionRule = Rule::exists('insurer_sections', 'id')->where('insurance_company_id', $companyId);
 
         $validated = $request->validate([
             'surname' => 'nullable|string|max:255',
@@ -120,6 +178,9 @@ class UserController extends Controller
             'middle_name' => 'nullable|string|max:255',
             'national_id' => 'nullable|string|max:255',
             'department_id' => ['nullable', 'integer', $deptRule],
+            'title_id' => ['nullable', 'integer', $titleRule],
+            'qualification_id' => ['nullable', 'integer', $qualRule],
+            'section_id' => ['nullable', 'integer', $sectionRule],
             'gender' => 'nullable|in:male,female,other',
             'birth_date' => 'nullable|date',
             'marital_status' => 'nullable|in:single,married,divorced,widowed,separated,other',
@@ -130,6 +191,9 @@ class UserController extends Controller
 
         $displayName = $this->resolveDisplayName($request);
         $deptFields = $this->resolveDepartmentAssignment(isset($validated['department_id']) ? (int) $validated['department_id'] : null);
+        $titleId = $this->resolveTitleId(isset($validated['title_id']) ? (int) $validated['title_id'] : null);
+        $qualificationId = $this->resolveQualificationId(isset($validated['qualification_id']) ? (int) $validated['qualification_id'] : null);
+        $sectionId = $this->resolveSectionId(isset($validated['section_id']) ? (int) $validated['section_id'] : null);
 
         $user = User::create([
             'name' => $displayName,
@@ -137,6 +201,9 @@ class UserController extends Controller
             'first_name' => $validated['first_name'] ?? null,
             'middle_name' => $validated['middle_name'] ?? null,
             'national_id' => $validated['national_id'] ?? null,
+            'title_id' => $titleId,
+            'qualification_id' => $qualificationId,
+            'section_id' => $sectionId,
             'department_id' => $deptFields['department_id'],
             'department' => $deptFields['department'],
             'gender' => $validated['gender'] ?? null,
@@ -181,11 +248,14 @@ class UserController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $departments = Department::where('insurance_company_id', auth()->user()->insurance_company_id)
-            ->orderBy('name')
-            ->get();
+        $companyId = auth()->user()->insurance_company_id;
 
-        return view('users.edit', compact('user', 'departments'));
+        $departments = Department::where('insurance_company_id', $companyId)->orderBy('name')->get();
+        $titles = InsurerTitle::where('insurance_company_id', $companyId)->orderBy('name')->get();
+        $qualifications = InsurerQualification::where('insurance_company_id', $companyId)->orderBy('name')->get();
+        $sections = InsurerSection::where('insurance_company_id', $companyId)->orderBy('name')->get();
+
+        return view('users.edit', compact('user', 'departments', 'titles', 'qualifications', 'sections'));
     }
 
     /**
@@ -200,8 +270,12 @@ class UserController extends Controller
 
         $this->normalizeNullableEnrollment($request);
 
-        $deptRule = Rule::exists('departments', 'id')
-            ->where('insurance_company_id', auth()->user()->insurance_company_id);
+        $companyId = auth()->user()->insurance_company_id;
+
+        $deptRule = Rule::exists('departments', 'id')->where('insurance_company_id', $companyId);
+        $titleRule = Rule::exists('insurer_titles', 'id')->where('insurance_company_id', $companyId);
+        $qualRule = Rule::exists('insurer_qualifications', 'id')->where('insurance_company_id', $companyId);
+        $sectionRule = Rule::exists('insurer_sections', 'id')->where('insurance_company_id', $companyId);
 
         $validated = $request->validate([
             'surname' => 'nullable|string|max:255',
@@ -209,6 +283,9 @@ class UserController extends Controller
             'middle_name' => 'nullable|string|max:255',
             'national_id' => 'nullable|string|max:255',
             'department_id' => ['nullable', 'integer', $deptRule],
+            'title_id' => ['nullable', 'integer', $titleRule],
+            'qualification_id' => ['nullable', 'integer', $qualRule],
+            'section_id' => ['nullable', 'integer', $sectionRule],
             'gender' => 'nullable|in:male,female,other',
             'birth_date' => 'nullable|date',
             'marital_status' => 'nullable|in:single,married,divorced,widowed,separated,other',
@@ -219,6 +296,9 @@ class UserController extends Controller
 
         $displayName = $this->resolveDisplayName($request);
         $deptFields = $this->resolveDepartmentAssignment(isset($validated['department_id']) ? (int) $validated['department_id'] : null);
+        $titleId = $this->resolveTitleId(isset($validated['title_id']) ? (int) $validated['title_id'] : null);
+        $qualificationId = $this->resolveQualificationId(isset($validated['qualification_id']) ? (int) $validated['qualification_id'] : null);
+        $sectionId = $this->resolveSectionId(isset($validated['section_id']) ? (int) $validated['section_id'] : null);
 
         $user->update([
             'name' => $displayName,
@@ -226,6 +306,9 @@ class UserController extends Controller
             'first_name' => $validated['first_name'] ?? null,
             'middle_name' => $validated['middle_name'] ?? null,
             'national_id' => $validated['national_id'] ?? null,
+            'title_id' => $titleId,
+            'qualification_id' => $qualificationId,
+            'section_id' => $sectionId,
             'department_id' => $deptFields['department_id'],
             'department' => $deptFields['department'],
             'gender' => $validated['gender'] ?? null,

@@ -49,6 +49,21 @@
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Section</label>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->insurerSection?->name ?? '—' }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Title</label>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->insurerTitle?->name ?? '—' }}</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-500 mb-1">Qualification</label>
+                <p class="text-lg font-semibold text-slate-900">{{ $user->insurerQualification?->name ?? '—' }}</p>
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-slate-500 mb-1">Gender</label>
                 <p class="text-lg font-semibold text-slate-900">{{ $user->gender ? ucfirst($user->gender) : '—' }}</p>
             </div>
