@@ -24,6 +24,12 @@
             Company settings
         </a>
         <a
+            href="{{ route('sections.index') }}"
+            class="flex items-center px-3 py-2 text-sm rounded-md transition duration-150 {{ request()->routeIs('sections.*') ? 'bg-blue-900/30 text-blue-300 font-medium' : 'text-slate-300 hover:bg-slate-700' }}"
+        >
+            Sections
+        </a>
+        <a
             href="{{ route('roles.index') }}"
             class="flex items-center px-3 py-2 text-sm rounded-md transition duration-150 {{ request()->routeIs('roles.*') ? 'bg-blue-900/30 text-blue-300 font-medium' : 'text-slate-300 hover:bg-slate-700' }}"
         >
@@ -46,12 +52,6 @@
             class="flex items-center px-3 py-2 text-sm rounded-md transition duration-150 {{ request()->routeIs('qualifications.*') ? 'bg-blue-900/30 text-blue-300 font-medium' : 'text-slate-300 hover:bg-slate-700' }}"
         >
             Qualifications
-        </a>
-        <a
-            href="{{ route('sections.index') }}"
-            class="flex items-center px-3 py-2 text-sm rounded-md transition duration-150 {{ request()->routeIs('sections.*') ? 'bg-blue-900/30 text-blue-300 font-medium' : 'text-slate-300 hover:bg-slate-700' }}"
-        >
-            Sections
         </a>
         <a
             href="{{ route('stores.index') }}"

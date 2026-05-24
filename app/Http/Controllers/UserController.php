@@ -45,6 +45,9 @@ class UserController extends Controller
         if ($request->input('section_id') === '') {
             $request->merge(['section_id' => null]);
         }
+        if ($request->input('role_id') === '') {
+            $request->merge(['role_id' => null]);
+        }
     }
 
     protected function resolveSectionId(?int $sectionId): ?int
@@ -136,6 +139,7 @@ class UserController extends Controller
         $insuranceCompanyId = auth()->user()->insurance_company_id;
 
         $users = User::where('insurance_company_id', $insuranceCompanyId)
+            ->with(['role', 'structuredDepartment', 'insurerSection'])
             ->latest()
             ->paginate(15);
 
@@ -254,8 +258,9 @@ class UserController extends Controller
         $titles = InsurerTitle::where('insurance_company_id', $companyId)->orderBy('name')->get();
         $qualifications = InsurerQualification::where('insurance_company_id', $companyId)->orderBy('name')->get();
         $sections = InsurerSection::where('insurance_company_id', $companyId)->orderBy('name')->get();
+        $roles = Role::orderBy('name')->get();
 
-        return view('users.edit', compact('user', 'departments', 'titles', 'qualifications', 'sections'));
+        return view('users.edit', compact('user', 'departments', 'titles', 'qualifications', 'sections', 'roles'));
     }
 
     /**
@@ -291,6 +296,7 @@ class UserController extends Controller
             'marital_status' => 'nullable|in:single,married,divorced,widowed,separated,other',
             'username' => ['required', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+            'role_id' => 'nullable|exists:roles,id',
             'password' => 'nullable|string|min:8|confirmed',
         ]);
 
@@ -302,6 +308,7 @@ class UserController extends Controller
 
         $user->update([
             'name' => $displayName,
+            'role_id' => $validated['role_id'] ?? null,
             'surname' => $validated['surname'] ?? null,
             'first_name' => $validated['first_name'] ?? null,
             'middle_name' => $validated['middle_name'] ?? null,

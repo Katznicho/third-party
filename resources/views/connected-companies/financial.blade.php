@@ -117,22 +117,28 @@
                         <p class="text-sm text-amber-800">{{ $ledgerError }}</p>
                     @elseif($payer && $financial)
                         <dl class="space-y-3 text-sm mb-4">
+                            @php
+                                $availableBalance = (float) ($financial['available_balance'] ?? $financial['current_balance'] ?? 0);
+                                $totalBalance = (float) ($financial['total_balance'] ?? $availableBalance);
+                            @endphp
                             <div>
-                                <dt class="text-xs font-medium text-slate-500">Total Balance</dt>
-                                <dd class="mt-1 text-lg font-semibold text-slate-900">
-                                    UGX {{ number_format($financial['total_balance'] ?? 0, 2) }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs font-medium text-slate-500">Current Balance</dt>
-                                <dd class="mt-1 text-lg font-semibold {{ ($financial['current_balance'] ?? 0) < 0 ? 'text-red-600' : (($financial['current_balance'] ?? 0) > 0 ? 'text-emerald-700' : 'text-slate-900') }}">
-                                    UGX {{ number_format(abs($financial['current_balance'] ?? 0), 2) }}
-                                    @if(($financial['current_balance'] ?? 0) < 0)
-                                        <span class="text-xs text-red-500">(Amount Owed)</span>
-                                    @elseif(($financial['current_balance'] ?? 0) > 0)
-                                        <span class="text-xs text-emerald-600">(Credit Available)</span>
+                                <dt class="text-xs font-medium text-slate-500">Available balance</dt>
+                                <dd class="mt-1 text-lg font-semibold {{ $availableBalance < 0 ? 'text-red-600' : ($availableBalance > 0 ? 'text-emerald-700' : 'text-slate-900') }}">
+                                    UGX {{ number_format($availableBalance, 2) }}
+                                    @if($availableBalance < 0)
+                                        <span class="text-xs text-red-500">(Amount owed)</span>
+                                    @elseif($availableBalance > 0)
+                                        <span class="text-xs text-emerald-600">(Credit available)</span>
                                     @endif
                                 </dd>
+                                <p class="text-xs text-slate-500 mt-1">Total credits minus total debits</p>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium text-slate-500">Total balance</dt>
+                                <dd class="mt-1 text-lg font-semibold text-slate-900">
+                                    UGX {{ number_format($totalBalance, 2) }}
+                                </dd>
+                                <p class="text-xs text-slate-500 mt-1">Available balance plus suspense</p>
                             </div>
                             <div>
                                 <dt class="text-xs font-medium text-slate-500">Credit Limit</dt>

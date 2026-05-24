@@ -41,6 +41,8 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Username</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Role</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Section</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Created</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -56,6 +58,8 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{{ $user->username }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ $user->email }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{{ $user->role?->name ?? '—' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{{ $user->insurerSection?->name ?? '—' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ $user->created_at->format('M d, Y') }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <a href="{{ route('users.show', $user) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>

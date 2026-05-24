@@ -29,62 +29,33 @@
         </div>
     </div>
 
-    <!-- Account Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <!-- Wallet summary -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p class="text-sm text-slate-600">Available balance</p>
+            <p class="text-2xl font-bold mt-1 {{ ($availableBalance ?? 0) < 0 ? 'text-red-600' : 'text-green-700' }}">
+                UGX {{ number_format($availableBalance ?? ($totalCredits - $totalDebits), 2) }}
+            </p>
+            <p class="text-xs text-slate-500 mt-1">Wallet balance after credits and debits</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p class="text-sm text-slate-600">Total balance</p>
+            <p class="text-2xl font-bold mt-1 {{ ($totalBalance ?? 0) < 0 ? 'text-red-600' : 'text-slate-900' }}">
+                UGX {{ number_format($totalBalance ?? ($availableBalance ?? 0), 2) }}
+            </p>
+            <p class="text-xs text-slate-500 mt-1">Same as available balance for this account</p>
+        </div>
+    </div>
+
+    <!-- Policy / invoice summary -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <a href="{{ route('clients.usage.guarantees', $client) }}" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 block hover:bg-slate-50 transition">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-slate-600">Authorized transactions (guaranteed amounts)</p>
-                    <p class="text-2xl font-bold text-slate-900 mt-1">UGX {{ number_format($totalGuaranteed ?? $totalInvoices, 2) }}</p>
-                </div>
-                <div class="p-3 bg-blue-100 rounded-lg">
-                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                </div>
-            </div>
+            <p class="text-sm text-slate-600">Authorized transactions (guaranteed amounts)</p>
+            <p class="text-xl font-bold text-slate-900 mt-1">UGX {{ number_format($totalGuaranteed ?? $totalInvoices, 2) }}</p>
         </a>
-
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-slate-600">Total Paid</p>
-                    <p class="text-2xl font-bold text-green-600 mt-1">UGX {{ number_format($totalPaid, 2) }}</p>
-                </div>
-                <div class="p-3 bg-green-100 rounded-lg">
-                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-slate-600">Outstanding Balance</p>
-                    <p class="text-2xl font-bold text-red-600 mt-1">UGX {{ number_format($totalBalance, 2) }}</p>
-                </div>
-                <div class="p-3 bg-red-100 rounded-lg">
-                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-slate-600">Net Balance</p>
-                    <p class="text-2xl font-bold text-slate-900 mt-1">UGX {{ number_format($totalCredits - $totalDebits, 2) }}</p>
-                </div>
-                <div class="p-3 bg-slate-100 rounded-lg">
-                    <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                    </svg>
-                </div>
-            </div>
+            <p class="text-sm text-slate-600">Invoice payments recorded</p>
+            <p class="text-xl font-bold text-green-600 mt-1">UGX {{ number_format($totalPaid, 2) }}</p>
         </div>
     </div>
 
@@ -180,7 +151,8 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Reference</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Debit</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Credit</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Balance</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Available balance</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Total balance</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                                 </tr>
                             </thead>
@@ -225,7 +197,10 @@
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900 font-medium">
-                                            UGX {{ number_format($transaction->balance_after ?? 0, 2) }}
+                                            UGX {{ number_format($transaction->available_balance_after ?? $transaction->balance_after ?? 0, 2) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900 font-medium">
+                                            UGX {{ number_format($transaction->total_balance_after ?? $transaction->available_balance_after ?? $transaction->balance_after ?? 0, 2) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <span class="px-2 py-1 text-xs font-medium rounded-full {{ $transaction->transaction_status === 'cleared' ? 'bg-green-100 text-green-800' : ($transaction->transaction_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-100 text-slate-800') }}">

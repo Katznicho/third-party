@@ -7,6 +7,7 @@ use App\Models\Policy;
 use App\Payments\YoAPI;
 use App\Services\PaymentCompletionService;
 use App\Services\ProviderPaymentCompletionService;
+use App\Support\YoPaymentsErrorFormatter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +54,13 @@ class CheckPaymentStatus extends Command
             return;
         }
 
+        if ($credentialsError = YoPaymentsErrorFormatter::credentialsError()) {
+            Log::error('CheckPaymentStatus: Yo Payments not configured', ['message' => $credentialsError]);
+            $this->error($credentialsError);
+
+            return self::FAILURE;
+        }
+
         $yoPayments = new YoAPI(
             config('payments.yo_username'),
             config('payments.yo_password')
@@ -84,8 +92,16 @@ class CheckPaymentStatus extends Command
                     'age_minutes' => now()->diffInMinutes($payment->created_at),
                 ]);
 
-                // Check payment status with YoAPI using transaction reference
-                $statusCheck = $yoPayments->ac_transaction_check_status($transactionReference);
+                try {
+                    $statusCheck = $yoPayments->ac_transaction_check_status($transactionReference);
+                } catch (\Throwable $e) {
+                    Log::error("YoAPI status check exception for payment {$payment->id}", [
+                        'payment_id' => $payment->id,
+                        'transaction_id' => $transactionReference,
+                        'error' => $e->getMessage(),
+                    ]);
+                    continue;
+                }
 
                 Log::info("YoAPI status check response for payment {$payment->id}", [
                     'payment_id' => $payment->id,
@@ -95,10 +111,35 @@ class CheckPaymentStatus extends Command
                 ]);
 
                 if (isset($statusCheck['TransactionStatus'])) {
-                    DB::beginTransaction();
-                    
-                    try {
-                        if ($statusCheck['TransactionStatus'] === 'SUCCEEDED') {
+                    if ($statusCheck['TransactionStatus'] === 'SUCCEEDED') {
+                        if ($payment->payment_type === 'provider_payment') {
+                            Log::info('Provider payment Yo SUCCEEDED — completing and posting to Kashtre', [
+                                'payment_id' => $payment->id,
+                                'payment_reference' => $payment->payment_reference,
+                            ]);
+
+                            $result = app(ProviderPaymentCompletionService::class)
+                                ->completeProviderMobileMoneyPayment($payment, $statusCheck);
+
+                            if ($result['success'] ?? false) {
+                                $completedCount++;
+                                Log::info('Provider payment completed and posted to Kashtre', [
+                                    'payment_id' => $payment->id,
+                                ]);
+                            } else {
+                                Log::error('Provider payment Yo succeeded but completion failed', [
+                                    'payment_id' => $payment->id,
+                                    'message' => $result['message'] ?? null,
+                                ]);
+                            }
+
+                            $processedCount++;
+                            continue;
+                        }
+
+                        DB::beginTransaction();
+
+                        try {
                             Log::info("🎉 PAYMENT SUCCEEDED - Updating payment status to completed", [
                                 'payment_id' => $payment->id,
                                 'payment_reference' => $payment->payment_reference,
@@ -106,7 +147,6 @@ class CheckPaymentStatus extends Command
                                 'amount' => $payment->amount,
                             ]);
 
-                            // Update payment status to completed
                             $payment->update([
                                 'status' => 'completed',
                                 'paid_amount' => $payment->amount,
@@ -122,21 +162,8 @@ class CheckPaymentStatus extends Command
                                 ]),
                             ]);
 
-                            if ($payment->payment_type === 'provider_payment') {
-                                $ledger = app(ProviderPaymentCompletionService::class)
-                                    ->recordOnKashtreLedger($payment->fresh());
-                                if (! ($ledger['success'] ?? false)) {
-                                    Log::error('Provider payment Yo confirmed but Kashtre ledger failed', [
-                                        'payment_id' => $payment->id,
-                                        'message' => $ledger['message'] ?? null,
-                                    ]);
-                                }
-                            } else {
-                                // Create transaction and update client account so payment appears on client account
-                                PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment->fresh());
-                            }
+                            PaymentCompletionService::ensureTransactionAndAccountForCompletedPayment($payment->fresh());
 
-                            // If this is a premium payment and linked to a policy, activate the policy
                             if ($payment->payment_type === 'premium_payment' && $payment->policy_id) {
                                 $policy = Policy::find($payment->policy_id);
                                 if ($policy) {
@@ -148,13 +175,30 @@ class CheckPaymentStatus extends Command
                                 }
                             }
 
+                            DB::commit();
                             $completedCount++;
                             Log::info("Payment status updated to completed", [
                                 'payment_id' => $payment->id,
                                 'payment_reference' => $payment->payment_reference,
                             ]);
+                            $processedCount++;
+                        } catch (\Exception $e) {
+                            DB::rollBack();
+                            Log::error("Failed to update payment {$payment->id} status", [
+                                'payment_id' => $payment->id,
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString(),
+                                'status_response' => $statusCheck,
+                            ]);
+                        }
 
-                        } elseif ($statusCheck['TransactionStatus'] === 'PENDING') {
+                        continue;
+                    }
+
+                    DB::beginTransaction();
+
+                    try {
+                        if ($statusCheck['TransactionStatus'] === 'PENDING') {
                             Log::info("Payment still pending - no action taken", [
                                 'payment_id' => $payment->id,
                                 'payment_reference' => $payment->payment_reference,
@@ -214,7 +258,8 @@ class CheckPaymentStatus extends Command
                     Log::warning("No valid status returned for payment ID: {$payment->id}", [
                         'payment_id' => $payment->id,
                         'payment_reference' => $payment->payment_reference,
-                        'response' => $statusCheck
+                        'response' => $statusCheck,
+                        'detail' => YoPaymentsErrorFormatter::formatStatusCheckFailure(is_array($statusCheck) ? $statusCheck : []),
                     ]);
                 }
 

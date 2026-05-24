@@ -1425,6 +1425,8 @@ class ClientController extends Controller
             ]);
         }
 
+        $statementService = app(\App\Services\ClientAccountStatementService::class);
+
         // Transactions for this member + principal/dependents (same household activity)
         $transactions = \App\Models\Transaction::whereIn('client_id', $activityClientIds)
             ->orderBy('transaction_date', 'desc')
@@ -1432,12 +1434,13 @@ class ClientController extends Controller
             ->with(['policy', 'invoice', 'payment', 'serviceCategory'])
             ->paginate(50);
 
-        // Sum ALL rows using debit_amount / credit_amount (includes type=copayment from Kashtre client portion)
-        $transactionTotals = \App\Models\Transaction::whereIn('client_id', $activityClientIds)
-            ->selectRaw('COALESCE(SUM(debit_amount), 0) as sum_debits, COALESCE(SUM(credit_amount), 0) as sum_credits')
-            ->first();
-        $totalDebits = (float) ($transactionTotals->sum_debits ?? 0);
-        $totalCredits = (float) ($transactionTotals->sum_credits ?? 0);
+        $transactions = $statementService->enrichTransactions($transactions, $activityClientIds);
+
+        $balanceSummary = $statementService->summaryBalances($activityClientIds, $account);
+        $totalDebits = $balanceSummary['total_debits'];
+        $totalCredits = $balanceSummary['total_credits'];
+        $availableBalance = $balanceSummary['available_balance'];
+        $totalBalance = $balanceSummary['total_balance'];
 
         $invoices = \App\Models\Invoice::whereIn('client_id', $activityClientIds)
             ->orderBy('invoice_date', 'desc')
@@ -1452,7 +1455,7 @@ class ClientController extends Controller
         // Calculate account summary
         $totalInvoices = $invoices->sum('total_amount');
         $totalPaid = $payments->sum('paid_amount');
-        $totalBalance = $invoices->sum('balance_amount');
+        $totalInvoiceOutstanding = $invoices->sum('balance_amount');
 
         // Authorizations attach to policy (owned by principal)
         $policyOwner = $client->principalMember ?? $client;
@@ -1486,10 +1489,10 @@ class ClientController extends Controller
             ->first();
 
         $account->update([
-            'current_balance' => $totalCredits - $totalDebits,
+            'current_balance' => $availableBalance,
             'total_debits' => $totalDebits,
             'total_credits' => $totalCredits,
-            'available_balance' => $totalCredits - $totalDebits,
+            'available_balance' => $availableBalance,
             'last_transaction_date' => $lastTxn?->transaction_date ?? $account->opened_date,
         ]);
 
@@ -1505,9 +1508,11 @@ class ClientController extends Controller
             'payments',
             'totalInvoices',
             'totalPaid',
-            'totalBalance',
+            'totalInvoiceOutstanding',
             'totalDebits',
             'totalCredits',
+            'availableBalance',
+            'totalBalance',
             'totalGuaranteed',
             'totalDeductibleUsed',
             'totalCopayUsed',

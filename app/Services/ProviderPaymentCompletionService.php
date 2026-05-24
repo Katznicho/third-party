@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Payment;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -49,18 +50,30 @@ class ProviderPaymentCompletionService
                 'payment_method' => (string) $payment->payment_method,
                 'reference' => $payment->payment_reference,
                 'notes' => $payment->payment_notes,
+                'history_ids' => array_values(array_map('intval', (array) ($meta['history_ids'] ?? []))),
             ]
         );
 
         if (! ($result['success'] ?? false)) {
             Log::error('ProviderPaymentCompletion: Kashtre record failed', [
                 'payment_id' => $payment->id,
+                'payment_reference' => $payment->payment_reference,
+                'kashtre_business_id' => $businessId,
+                'insurance_company_id' => $insuranceCompanyId,
+                'provider_amount' => $providerAmount,
                 'error' => $result['error'] ?? null,
+                'http_status' => $result['http_status'] ?? null,
             ]);
+
+            $message = $result['error'] ?? 'Could not record payment on the provider ledger.';
+            if (! empty($result['http_status'])) {
+                $message .= ' (Kashtre HTTP '.$result['http_status'].')';
+            }
 
             return [
                 'success' => false,
-                'message' => $result['error'] ?? 'Could not record payment on the provider ledger.',
+                'message' => $message,
+                'http_status' => $result['http_status'] ?? null,
             ];
         }
 
@@ -76,6 +89,97 @@ class ProviderPaymentCompletionService
             'success' => true,
             'data' => $result['data'] ?? [],
         ];
+    }
+
+    /**
+     * Mark provider mobile money payment completed and post to Kashtre (atomic).
+     *
+     * @param  array<string, mixed>  $yoStatusCheck
+     * @return array{success: bool, message?: string, data?: array, payment?: Payment}
+     */
+    public function completeProviderMobileMoneyPayment(Payment $payment, array $yoStatusCheck = []): array
+    {
+        if ($payment->payment_type !== 'provider_payment') {
+            return ['success' => false, 'message' => 'Not a provider payment.'];
+        }
+
+        $meta = is_array($payment->payment_metadata) ? $payment->payment_metadata : [];
+
+        if (! empty($meta['kashtre_recorded'])) {
+            return [
+                'success' => true,
+                'payment' => $payment,
+                'data' => is_array($meta['kashtre_result'] ?? null) ? $meta['kashtre_result'] : [],
+            ];
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $payment->update([
+                'status' => 'completed',
+                'paid_amount' => $payment->amount,
+                'balance_amount' => 0,
+                'cleared_date' => now(),
+                'processed_at' => now(),
+                'payment_metadata' => array_merge($meta, [
+                    'yo_status' => $yoStatusCheck['TransactionStatus'] ?? ($meta['yo_status'] ?? null),
+                    'yo_status_message' => $yoStatusCheck['StatusMessage'] ?? null,
+                    'confirmed_at' => now()->toDateTimeString(),
+                ]),
+            ]);
+
+            $ledger = $this->recordOnKashtreLedger($payment->fresh());
+            if (! ($ledger['success'] ?? false)) {
+                DB::rollBack();
+
+                return [
+                    'success' => false,
+                    'message' => $ledger['message'] ?? 'Payment was confirmed on mobile money but could not be posted to the provider ledger.',
+                ];
+            }
+
+            DB::commit();
+
+            return [
+                'success' => true,
+                'payment' => $payment->fresh(),
+                'data' => $ledger['data'] ?? [],
+            ];
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('ProviderPaymentCompletion: completeProviderMobileMoneyPayment failed', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Could not complete payment: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * If Yo already succeeded but Kashtre ledger was missed, retry ledger only.
+     *
+     * @return array{success: bool, message?: string, data?: array}
+     */
+    public function syncKashtreLedgerIfMissing(Payment $payment): array
+    {
+        $meta = is_array($payment->payment_metadata) ? $payment->payment_metadata : [];
+        if (! empty($meta['kashtre_recorded'])) {
+            return [
+                'success' => true,
+                'data' => is_array($meta['kashtre_result'] ?? null) ? $meta['kashtre_result'] : [],
+            ];
+        }
+
+        if ($payment->status !== 'completed') {
+            return ['success' => false, 'message' => 'Payment is not marked completed yet.'];
+        }
+
+        return $this->recordOnKashtreLedger($payment);
     }
 
     /**

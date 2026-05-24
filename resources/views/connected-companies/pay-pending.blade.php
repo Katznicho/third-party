@@ -67,6 +67,23 @@
                 <dt class="text-slate-500">Requested</dt>
                 <dd class="text-slate-800">{{ $payment->created_at?->format('M d, Y H:i') }}</dd>
             </div>
+            @if($payment->transaction_id)
+            <div class="flex justify-between py-3">
+                <dt class="text-slate-500">Yo transaction ID</dt>
+                <dd class="font-mono text-xs text-slate-800 break-all">{{ $payment->transaction_id }}</dd>
+            </div>
+            @endif
+            @if(!empty($meta['yo_status']) || !empty($meta['yo_status_message']))
+            <div class="flex justify-between py-3 gap-4">
+                <dt class="text-slate-500 shrink-0">Last Yo status</dt>
+                <dd class="text-right text-slate-800">
+                    {{ $meta['yo_status'] ?? '—' }}
+                    @if(!empty($meta['yo_status_message']))
+                        <span class="block text-xs text-slate-500 mt-0.5">{{ $meta['yo_status_message'] }}</span>
+                    @endif
+                </dd>
+            </div>
+            @endif
         </dl>
 
         <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-3">

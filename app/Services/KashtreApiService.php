@@ -106,7 +106,7 @@ class KashtreApiService
      *
      * @return array{success: bool, data: ?array, error?: string, http_status?: ?int}
      */
-    public function previewInsurerPortalPayment(int $businessId, int $thirdPartyVendorId, float $amount): array
+    public function previewInsurerPortalPayment(int $businessId, int $thirdPartyVendorId, float $amount, array $historyIds = []): array
     {
         $baseUrl = rtrim($this->baseUrl, '/');
         $url = "{$baseUrl}/api/v1/businesses/{$businessId}/third-party-vendors/{$thirdPartyVendorId}/insurer-portal-payment/preview";
@@ -114,7 +114,10 @@ class KashtreApiService
         try {
             $response = Http::timeout(20)
                 ->acceptJson()
-                ->post($url, ['amount' => $amount]);
+                ->post($url, [
+                    'amount' => $amount,
+                    'history_ids' => array_values(array_map('intval', $historyIds)),
+                ]);
 
             return $this->interpretInsurerPortalJsonResponse($response, $url);
         } catch (\Exception $e) {
@@ -213,6 +216,7 @@ class KashtreApiService
             'data' => null,
             'error' => $message,
             'http_status' => $status,
+            'response_body' => substr($response->body(), 0, 500),
         ];
     }
 

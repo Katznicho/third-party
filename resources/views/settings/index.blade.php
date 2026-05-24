@@ -25,6 +25,8 @@
         </div>
     @endif
 
+    @include('settings.partials.organization-lookups')
+
     <!-- Tabs Navigation -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="border-b border-slate-200">
