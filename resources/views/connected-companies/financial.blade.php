@@ -175,8 +175,8 @@
                 <button type="button" onclick="showTabCc('items')" id="tab-cc-items" class="tab-cc-btn active w-1/2 py-4 px-4 text-center border-b-2 font-medium text-sm">
                     <span class="border-b-2 border-blue-500 pb-4 px-1 text-blue-600">Items</span>
                 </button>
-                <button type="button" onclick="showTabCc('transactions')" id="tab-cc-transactions" class="tab-cc-btn w-1/2 py-4 px-4 text-center border-b-2 font-medium text-sm">
-                    <span class="border-b-2 border-transparent pb-4 px-1 text-slate-500 hover:text-slate-700">Transactions</span>
+                <button type="button" onclick="showTabCc('invoices')" id="tab-cc-invoices" class="tab-cc-btn w-1/2 py-4 px-4 text-center border-b-2 font-medium text-sm">
+                    <span class="border-b-2 border-transparent pb-4 px-1 text-slate-500 hover:text-slate-700">Invoices</span>
                 </button>
             </nav>
         </div>
@@ -237,8 +237,9 @@
                                         {{ ($row['transaction_type'] ?? '') === 'credit' ? '+' : '-' }}{{ number_format((float) ($row['amount'] ?? 0), 2) }} UGX
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-slate-800">
-                                        @if($row['new_balance'] !== null)
-                                            {{ number_format((float) $row['new_balance'], 2) }} UGX
+                                        @php $bal = $row['available_balance_after'] ?? $row['new_balance'] ?? null; @endphp
+                                        @if($bal !== null)
+                                            {{ number_format((float) $bal, 2) }} UGX
                                         @else
                                             <span class="text-slate-400">—</span>
                                         @endif
@@ -267,72 +268,65 @@
             @endif
         </div>
 
-        <div id="content-cc-transactions" class="tab-cc-content p-6 hidden">
+        <div id="content-cc-invoices" class="tab-cc-content p-6 hidden">
             <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
                 <div>
-                    <h3 class="text-lg font-medium text-slate-900">Recent transactions</h3>
-                    <p class="text-sm text-slate-500">Showing last 10 ledger rows</p>
+                    <h3 class="text-lg font-medium text-slate-900">Invoices</h3>
+                    <p class="text-sm text-slate-500">Insurance invoices posted at this provider for your insurer account</p>
                 </div>
-                <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'transactions']) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-                    View full statement (by transaction)
+                <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'invoices']) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                    View all invoices
                 </a>
             </div>
 
-            @php $rows = $ledger['recent_transactions'] ?? []; @endphp
-            @if(count($rows) > 0)
+            @php $invoices = $ledger['invoices'] ?? []; @endphp
+            @if(count($invoices) > 0)
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-slate-200 text-sm">
                         <thead class="bg-slate-50">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Description</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invoice</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Amount</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Balance</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Payment Method</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Client</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Total</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Paid</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Balance due</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            @foreach($rows as $h)
+                            @foreach($invoices as $invoice)
+                                @php
+                                    $payStatus = $invoice['payment_status'] ?? 'pending_payment';
+                                    $statusClass = match ($payStatus) {
+                                        'paid' => 'bg-green-100 text-green-800',
+                                        'partial' => 'bg-blue-100 text-blue-800',
+                                        'pending_payment' => 'bg-amber-100 text-amber-800',
+                                        default => 'bg-slate-100 text-slate-700',
+                                    };
+                                @endphp
                                 <tr>
-                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">{{ $h['created_at'] ? \Carbon\Carbon::parse($h['created_at'])->format('Y-m-d H:i:s') : '—' }}</td>
-                                    <td class="px-4 py-3 text-slate-800">{{ $h['description'] ?? '—' }}</td>
                                     <td class="px-4 py-3 whitespace-nowrap text-slate-800">
-                                        @if(!empty($h['client']))
-                                            <span class="font-medium">{{ $h['client']['name'] ?? '' }}</span>
-                                            @if(!empty($h['client']['client_id']))
-                                                <br><span class="text-xs text-slate-500">ID: {{ $h['client']['client_id'] }}</span>
-                                            @endif
-                                        @else
-                                            <span class="text-slate-400">N/A</span>
+                                        {{ !empty($invoice['created_at']) ? \Carbon\Carbon::parse($invoice['created_at'])->format('Y-m-d H:i') : '—' }}
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-slate-900">
+                                        {{ $invoice['invoice_number'] ?? 'N/A' }}
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">
+                                        <span class="font-medium">{{ $invoice['client_name'] ?? 'N/A' }}</span>
+                                        @if(!empty($invoice['client_id']))
+                                            <br><span class="text-xs text-slate-500">ID: {{ $invoice['client_id'] }}</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">
-                                        {{ data_get($h, 'invoice.invoice_number', 'N/A') }}
+                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">UGX {{ number_format((float) ($invoice['total_amount'] ?? 0), 2) }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-green-700">UGX {{ number_format((float) ($invoice['amount_paid'] ?? 0), 2) }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium {{ ($invoice['balance_due'] ?? 0) > 0 ? 'text-amber-700' : 'text-slate-800' }}">
+                                        UGX {{ number_format((float) ($invoice['balance_due'] ?? 0), 2) }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
-                                        <span class="px-2 py-1 text-xs rounded-full {{ ($h['transaction_type'] ?? '') === 'credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                            {{ ucfirst($h['transaction_type'] ?? '') }}
+                                        <span class="px-2 py-1 text-xs rounded-full {{ $statusClass }}">
+                                            {{ ucfirst(str_replace('_', ' ', $payStatus)) }}
                                         </span>
-                                    </td>
-                                    <td class="px-4 py-3 whitespace-nowrap font-medium {{ ($h['transaction_type'] ?? '') === 'credit' ? 'text-green-600' : 'text-red-600' }}">
-                                        {{ ($h['transaction_type'] ?? '') === 'credit' ? '+' : '-' }}{{ number_format(abs($h['change_amount'] ?? 0), 2) }} UGX
-                                    </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-slate-800">{{ number_format($h['new_balance'] ?? 0, 2) }} UGX</td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-slate-600">
-                                        {{ $h['payment_method'] ? ucwords(str_replace('_', ' ', $h['payment_method'])) : 'N/A' }}
-                                    </td>
-                                    <td class="px-4 py-3 whitespace-nowrap">
-                                        @if(!empty($h['payment_status']))
-                                            <span class="px-2 py-1 text-xs rounded-full {{ $h['payment_status'] === 'paid' ? 'bg-green-100 text-green-800' : ($h['payment_status'] === 'pending_payment' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800') }}">
-                                                {{ ucfirst(str_replace('_', ' ', $h['payment_status'])) }}
-                                            </span>
-                                        @else
-                                            <span class="text-slate-400">N/A</span>
-                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
@@ -340,12 +334,12 @@
                     </table>
                 </div>
                 <div class="mt-4 text-center">
-                    <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'transactions']) }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
-                        View full statement (by transaction) →
+                    <a href="{{ route('connected-companies.financial-statement', ['connectionId' => $connection->id, 'view' => 'invoices']) }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                        View all invoices →
                     </a>
                 </div>
             @else
-                <p class="text-sm text-slate-500 text-center py-8">No transactions yet.</p>
+                <p class="text-sm text-slate-500 text-center py-8">No invoices yet for this provider.</p>
             @endif
         </div>
     </div>

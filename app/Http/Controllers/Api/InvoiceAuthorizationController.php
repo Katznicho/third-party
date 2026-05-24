@@ -66,6 +66,15 @@ class InvoiceAuthorizationController extends Controller
             'items.*.total_amount' => 'nullable|numeric',
             'items.*.code' => 'nullable|string|max:255',
             'items.*.kashtre_excluded' => 'nullable|boolean',
+            'items.*.already_covered_by_prior_insurer' => 'nullable|boolean',
+            'items.*.prior_insurer_name' => 'nullable|string|max:255',
+            'items.*.prior_covered_amount' => 'nullable|numeric|min:0',
+            'items.*.prior_coverage_percent' => 'nullable|numeric|min:0|max:100',
+            'items.*.prior_coverage' => 'nullable|array',
+            'authorization_cascade' => 'nullable|array',
+            'authorization_cascade.is_follow_up' => 'nullable|boolean',
+            'authorization_cascade.vendor_priority' => 'nullable|integer|min:1',
+            'authorization_cascade.prior_authorizations' => 'nullable|array',
             'connected_business_id' => 'nullable|integer',
         ]);
 
@@ -742,6 +751,7 @@ class InvoiceAuthorizationController extends Controller
                 'authorization_status' => $authorizationStatus,
                 'warnings' => $benefitWarnings,
                 'excluded_items' => $excludedItemDetails,
+                'authorization_cascade' => $validated['authorization_cascade'] ?? null,
             ],
         ]);
 

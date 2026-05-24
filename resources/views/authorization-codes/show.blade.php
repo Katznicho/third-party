@@ -89,7 +89,10 @@
                 @php
                     $metaItems = collect($metadata['items'] ?? [])->filter(fn ($row) => is_array($row))->values();
                     $excludedBreakdownRows = collect($breakdown['excluded_items'] ?? [])->filter(fn ($row) => is_array($row))->values();
-                    $lineRows = $metaItems->map(function (array $row) use ($excludedBreakdownRows) {
+                    $priorCoverageLines = collect($priorCoverage['lines'] ?? [])->filter(fn ($row) => is_array($row))->values();
+                    $priorInsurers = collect($priorCoverage['prior_insurers'] ?? [])->filter(fn ($row) => is_array($row))->values();
+                    $lineRows = $metaItems->map(function (array $row) use ($excludedBreakdownRows, $priorCoverageLines) {
+                        $priorCoverageService = app(\App\Services\AuthorizationPriorCoverageService::class);
                         $name = trim((string) ($row['name'] ?? $row['displayName'] ?? ''));
                         if ($name === '') {
                             $name = '—';
@@ -130,6 +133,11 @@
                             return false;
                         });
                         $isExcluded = $kashtreExcluded || $inBreakdownExcluded;
+                        $priorLine = $priorCoverageService->matchPriorLine(
+                            $code !== '' && $code !== '—' ? $code : null,
+                            $name !== '—' ? $name : null,
+                            $priorCoverageLines->all()
+                        );
 
                         return [
                             'name' => $name,
@@ -141,11 +149,50 @@
                             'partial' => $partialRow !== null,
                             'coverage_percent' => $partialRow ? (float) ($partialRow['coverage_percent'] ?? 100) : null,
                             'client_portion' => $partialRow ? (float) ($partialRow['amount'] ?? 0) : null,
+                            'prior_covered' => $priorLine,
                         ];
                     });
                     $sumLineTotals = (float) $lineRows->sum('total');
                     $sumCoveredOnly = (float) $lineRows->where('excluded', false)->sum('total');
                 @endphp
+
+                @if(isset($siblingAuthorizations) && $siblingAuthorizations->isNotEmpty())
+                    <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+                        <p class="font-semibold text-slate-800">Other insurers on this invoice</p>
+                        <ul class="mt-1 space-y-1">
+                            @foreach($siblingAuthorizations as $sibling)
+                                <li>
+                                    <a href="{{ route('authorization-codes.show', $sibling) }}" class="text-blue-600 hover:underline font-medium">
+                                        {{ $sibling->insuranceCompany?->name ?? 'Insurer' }}
+                                    </a>
+                                    <span class="text-slate-500">· {{ $sibling->authorization_reference }}</span>
+                                    @if((float) ($sibling->insurance_total ?? 0) > 0)
+                                        <span class="text-slate-600">· insurance UGX {{ number_format((float) $sibling->insurance_total, 2) }}</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if(empty($priorCoverage['is_follow_up']))
+                            <p class="mt-2 text-slate-600">
+                                <strong>Already covered</strong> flags appear on the follow-up insurer’s authorization (items partly paid before cascade).
+                            </p>
+                        @endif
+                    </div>
+                @endif
+
+                @if(!empty($priorCoverage['is_follow_up']) && $priorInsurers->isNotEmpty())
+                    <div class="rounded-md border border-indigo-200 bg-indigo-50/80 px-4 py-3 text-xs text-indigo-900">
+                        <p class="font-semibold">Cascade follow-up authorization</p>
+                        <p class="mt-1 text-indigo-800">
+                            This request was sent after a higher-priority insurer on the same invoice.
+                            Lines marked <span class="inline-flex px-1.5 py-0.5 rounded bg-indigo-100 border border-indigo-200 font-medium">Already covered</span>
+                            were partly or fully paid by:
+                            @foreach($priorInsurers as $pi)
+                                <strong>{{ $pi['vendor_name'] ?? 'Prior insurer' }}</strong>@if(!$loop->last), @endif
+                            @endforeach
+                        </p>
+                    </div>
+                @endif
 
                 @if($lineRows->isNotEmpty())
                     <div class="border-t border-slate-100 pt-4">
@@ -167,14 +214,36 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
                                     @foreach($lineRows as $line)
-                                        <tr class="{{ $line['excluded'] ? 'bg-amber-50/50' : '' }}">
-                                            <td class="px-3 py-2 text-slate-800">{{ $line['name'] }}</td>
+                                        @php
+                                            $prior = is_array($line['prior_covered'] ?? null) ? $line['prior_covered'] : null;
+                                            $priorAmt = $prior ? (float) ($prior['prior_covered_amount'] ?? 0) : 0;
+                                        @endphp
+                                        <tr class="{{ $line['excluded'] ? 'bg-amber-50/50' : '' }} {{ $priorAmt > 0 ? 'bg-indigo-50/40' : '' }}">
+                                            <td class="px-3 py-2 text-slate-800">
+                                                <div>{{ $line['name'] }}</div>
+                                                @if($priorAmt > 0)
+                                                    <div class="mt-1">
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-900 border border-indigo-200">
+                                                            Already covered
+                                                            @if(!empty($prior['prior_insurer_name']))
+                                                                · {{ $prior['prior_insurer_name'] }}
+                                                            @endif
+                                                            · UGX {{ number_format($priorAmt, 2) }}
+                                                            @if(!empty($prior['coverage_percent']) && (float) $prior['coverage_percent'] > 0 && (float) $prior['coverage_percent'] < 100)
+                                                                ({{ rtrim(rtrim(number_format((float) $prior['coverage_percent'], 2, '.', ''), '0'), '.') }}%)
+                                                            @endif
+                                                        </span>
+                                                    </div>
+                                                @endif
+                                            </td>
                                             <td class="px-3 py-2 text-slate-600 font-mono">{{ $line['code'] }}</td>
                                             <td class="px-3 py-2 text-right text-slate-700">{{ rtrim(rtrim(number_format($line['qty'], 4, '.', ''), '0'), '.') }}</td>
                                             <td class="px-3 py-2 text-right text-slate-700">{{ number_format($line['price'], 2) }}</td>
                                             <td class="px-3 py-2 text-right font-medium text-slate-900">{{ number_format($line['total'], 2) }}</td>
                                             <td class="px-3 py-2">
-                                                @if($line['excluded'])
+                                                @if($priorAmt > 0)
+                                                    <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-900 border border-indigo-200">Prior insurer share</span>
+                                                @elseif($line['excluded'])
                                                     <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-900 border border-amber-200">Excluded</span>
                                                 @elseif(!empty($line['partial']))
                                                     <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-900 border border-blue-200">

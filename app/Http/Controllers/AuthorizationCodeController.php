@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InsuranceAuthorization;
+use App\Services\AuthorizationPriorCoverageService;
 use Illuminate\Http\Request;
 
 class AuthorizationCodeController extends Controller
@@ -57,7 +58,26 @@ class AuthorizationCodeController extends Controller
 
         $metadata = $authorization->metadata ?? [];
         $breakdown = $authorization->breakdown ?? [];
+        $priorCoverage = app(AuthorizationPriorCoverageService::class)
+            ->contextForAuthorization($authorization);
 
-        return view('authorization-codes.show', compact('authorization', 'metadata', 'breakdown'));
+        $siblingAuthorizations = collect();
+        if ($authorization->kashtre_invoice_id) {
+            $siblingAuthorizations = InsuranceAuthorization::query()
+                ->where('kashtre_invoice_id', $authorization->kashtre_invoice_id)
+                ->where('id', '!=', $authorization->id)
+                ->with('insuranceCompany:id,name')
+                ->orderBy('requested_at')
+                ->orderBy('id')
+                ->get(['id', 'insurance_company_id', 'authorization_reference', 'insurance_total', 'requested_at']);
+        }
+
+        return view('authorization-codes.show', compact(
+            'authorization',
+            'metadata',
+            'breakdown',
+            'priorCoverage',
+            'siblingAuthorizations',
+        ));
     }
 }

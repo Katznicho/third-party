@@ -994,24 +994,37 @@ class ConnectedCompaniesController extends Controller
         $perPage = 50;
 
         $statementView = $request->query('view', 'items');
-        if (! in_array($statementView, ['items', 'transactions'], true)) {
+        if ($statementView === 'transactions') {
+            $statementView = 'invoices';
+        }
+        if (! in_array($statementView, ['items', 'invoices'], true)) {
             $statementView = 'items';
         }
 
         $history = null;
         $historyError = null;
+        $ledgerInvoices = [];
 
         if ($kashtreBusinessId > 0) {
-            $result = $kashtreApi->getInsurerPortalBalanceHistory(
-                $kashtreBusinessId,
-                (int) $insuranceCompany->id,
-                $page,
-                $perPage
-            );
-            if ($result['success']) {
-                $history = $result['data'] ?? null;
+            if ($statementView === 'invoices') {
+                $summary = $this->fetchLedgerSummary($kashtreApi, $kashtreBusinessId, (int) $insuranceCompany->id);
+                if ($summary['error'] === null) {
+                    $ledgerInvoices = $summary['data']['invoices'] ?? [];
+                } else {
+                    $historyError = $summary['error'] ?? 'We could not load invoices from the service provider system.';
+                }
             } else {
-                $historyError = $result['error'] ?? 'We could not load the statement from the service provider system.';
+                $result = $kashtreApi->getInsurerPortalBalanceHistory(
+                    $kashtreBusinessId,
+                    (int) $insuranceCompany->id,
+                    $page,
+                    $perPage
+                );
+                if ($result['success']) {
+                    $history = $result['data'] ?? null;
+                } else {
+                    $historyError = $result['error'] ?? 'We could not load the statement from the service provider system.';
+                }
             }
         } else {
             $historyError = 'This connection is not linked to a provider business id yet.';
@@ -1030,6 +1043,7 @@ class ConnectedCompaniesController extends Controller
             'page' => $page,
             'statementView' => $statementView,
             'itemStatementRows' => $itemStatementRows,
+            'ledgerInvoices' => $ledgerInvoices,
         ]);
     }
 
